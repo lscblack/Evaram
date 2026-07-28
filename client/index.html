@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#062B4F" />
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Apply the stored theme before first paint so there is no flash. -->
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('evaramu-theme')
+          var dark =
+            stored === 'dark' ||
+            ((!stored || stored === 'system') &&
+              matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
+
+    <!--
+      Fallback metadata shown only until React mounts. Each page renders its own
+      <title>/<meta> via the <Seo> component; main.tsx strips these on boot so
+      crawlers never see two of either.
+    -->
+    <title data-boot-fallback>Evaramu Group Ltd — We don't just sell property. We build wealth.</title>
+    <meta
+      data-boot-fallback
+      name="description"
+      content="Evaramu Group Ltd is Kigali's full-cycle real estate, construction and property wealth company. Buy verified land and homes, build with our construction division, earn rental income, and grow from one property to a portfolio."
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

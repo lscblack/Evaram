@@ -1,0 +1,296 @@
+@import 'tailwindcss';
+
+/* Class-based dark mode — toggled by ThemeProvider on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ *
+ *  EVARAMU GROUP LTD — Brand design tokens
+ *  Palette sampled directly from the corporate logo:
+ *    navy  #062B4F   |   gold  #BE7C28
+ * ------------------------------------------------------------------ */
+@theme {
+  /* Navy — the trust colour. 900 is the exact logo navy. */
+  --color-navy-50: #eef4fa;
+  --color-navy-100: #d6e4f1;
+  --color-navy-200: #adc8e3;
+  --color-navy-300: #7ba5d0;
+  --color-navy-400: #4a7fb6;
+  --color-navy-500: #2b6199;
+  --color-navy-600: #1a4a7b;
+  --color-navy-700: #0f3a63;
+  --color-navy-800: #0a3253;
+  --color-navy-900: #062b4f;
+  --color-navy-950: #03172c;
+
+  /* Gold — the wealth colour. 500 is the exact logo gold. */
+  --color-gold-50: #fdf8ef;
+  --color-gold-100: #f9ecd4;
+  --color-gold-200: #f2d6a6;
+  --color-gold-300: #e8b96f;
+  --color-gold-400: #d99a45;
+  --color-gold-500: #be7c28;
+  --color-gold-600: #a06520;
+  --color-gold-700: #7f4e1c;
+  --color-gold-800: #5f3a17;
+  --color-gold-900: #3f2610;
+
+  /* Warm neutral canvas — keeps the navy from feeling cold */
+  --color-sand-50: #fbfaf8;
+  --color-sand-100: #f5f2ed;
+  --color-sand-200: #eae5dc;
+  --color-sand-300: #d9d2c5;
+  --color-sand-400: #b3a898;
+  --color-sand-500: #8a7d6b;
+
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+
+  --radius-4xl: 2rem;
+
+  --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Semantic tokens — these are what components should use.
+ *  `@theme inline` emits `var(--surface)` rather than baking the value,
+ *  so flipping the raw variables below re-themes the whole site.
+ * ------------------------------------------------------------------ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-canvas-alt: var(--canvas-alt);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent-soft: var(--accent-soft);
+
+  --shadow-soft: var(--shadow-soft-value);
+  --shadow-lift: var(--shadow-lift-value);
+  --shadow-gold: 0 12px 32px -12px rgb(190 124 40 / 0.45);
+}
+
+:root {
+  color-scheme: light;
+
+  --canvas: #fbfaf8;
+  --canvas-alt: #f5f2ed;
+  --surface: #ffffff;
+  --surface-alt: #fbfaf8;
+
+  --ink: #062b4f;
+  --ink-soft: #33506e;
+  --ink-muted: #5f7a97;
+  --ink-faint: #97aabf;
+
+  --line: #e4e9f0;
+  --line-strong: #cdd8e5;
+
+  --accent-soft: #eef4fa;
+
+  --shadow-soft-value: 0 2px 8px -2px rgb(6 43 79 / 0.06), 0 12px 32px -12px rgb(6 43 79 / 0.12);
+  --shadow-lift-value: 0 4px 12px -4px rgb(6 43 79 / 0.1), 0 24px 48px -16px rgb(6 43 79 / 0.18);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --canvas: #071523;
+  --canvas-alt: #0b1e31;
+  --surface: #0e2338;
+  --surface-alt: #122b44;
+
+  --ink: #e8f0f8;
+  --ink-soft: #b3c6da;
+  --ink-muted: #7f97b0;
+  --ink-faint: #5b7391;
+
+  --line: #1c3550;
+  --line-strong: #27466a;
+
+  --accent-soft: #142c46;
+
+  --shadow-soft-value: 0 2px 8px -2px rgb(0 0 0 / 0.4), 0 12px 32px -12px rgb(0 0 0 / 0.55);
+  --shadow-lift-value: 0 4px 12px -4px rgb(0 0 0 / 0.45), 0 24px 48px -16px rgb(0 0 0 / 0.6);
+}
+
+/* Two identical copies sit side by side; each shifts one full width so the
+   seam is never visible. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Base
+ * ------------------------------------------------------------------ */
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    overflow-x: hidden;
+    transition:
+      background-color 0.3s var(--ease-brand),
+      color 0.3s var(--ease-brand);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display tracking-tight;
+    font-variation-settings: 'SOFT' 0, 'WONK' 0;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    @apply bg-gold-500 text-white;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-gold-500;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: var(--canvas-alt);
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: var(--line-strong);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ink-faint);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Reusable brand utilities
+ * ------------------------------------------------------------------ */
+
+/**
+ * Page gutter. Full-bleed with a small gutter on phones; 11/12 of the
+ * viewport from `md` upward, capped so it stays readable on very wide screens.
+ */
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  padding-inline: 1.25rem;
+
+  @media (width >= 768px) {
+    width: 91.6666667%;
+    max-width: 1720px;
+    padding-inline: 0;
+  }
+}
+
+/* Gold gradient text for accented headline words */
+@utility text-gradient-gold {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-gold-600) 0%,
+    var(--color-gold-400) 45%,
+    var(--color-gold-600) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dark .text-gradient-gold {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-gold-400) 0%,
+    var(--color-gold-200) 45%,
+    var(--color-gold-400) 100%
+  );
+}
+
+/* Fine grid used behind dark sections */
+@utility bg-blueprint {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+@utility bg-blueprint-light {
+  background-image:
+    linear-gradient(to right, rgb(6 43 79 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(6 43 79 / 0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.dark .bg-blueprint-light {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+}
+
+@utility glass-card {
+  background-color: rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(255 255 255 / 0.18);
+}
+
+@utility mask-fade-x {
+  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
+
+/* Hairline rule used to structure editorial layouts */
+@utility rule {
+  height: 1px;
+  width: 100%;
+  background-color: var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

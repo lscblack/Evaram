@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Search-result permutations add no value to the index
+Disallow: /*?q=
+Disallow: /*?sort=
+Disallow: /*?maxPrice=
+
+Sitemap: https://evaramu.rw/sitemap.xml
