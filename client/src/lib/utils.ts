@@ -28,7 +28,7 @@ export function formatCurrency(value: number, currency = 'RWF'): string {
 }
 
 /** `812` → `812 sqm`, `42000` → `4.2 ha` */
-export function formatArea(sqm?: number): string {
+export function formatArea(sqm?: number | null): string {
   if (!sqm && sqm !== 0) return '—'
   if (sqm >= 10_000) return `${(sqm / 10_000).toFixed(1)} ha`
   return `${sqm.toLocaleString('en-RW')} sqm`

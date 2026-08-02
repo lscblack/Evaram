@@ -25,10 +25,10 @@ export const SERVICE_LINES: ServiceLine[] = [
     division: 'Realty',
     tagline: 'Verified before it reaches you',
     description:
-      'Every parcel we list is checked at the Rwanda Land Authority before it appears on the platform. You see the UPI, the tenure, the size and the coordinates — not a blurry photo in a WhatsApp group.',
+      'Every parcel we list is checked at the National Land Authority before it appears on the platform. You see the UPI, the tenure, the size and the coordinates — not a blurry photo in a WhatsApp group.',
     icon: 'Search',
     bullets: [
-      'Title verified at RLA before listing',
+      'Title verified at NLA before listing',
       'UPI, parcel size and GIS coordinates published',
       'Negotiation handled by your assigned consultant',
       'Digital contract, receipts and transfer support',

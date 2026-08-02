@@ -8,11 +8,14 @@ import { Icon } from '@/components/ui/Icon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { Counter } from '@/components/ui/Counter'
 import { Testimonials } from '@/components/sections/Testimonials'
-import { AGENTS } from '@/data/properties'
-import { SITE, TRUST_POINTS } from '@/data/site'
+import { useBlock, useBlockItems, useQuery } from '@/lib/queries'
+import { useSite } from '@/lib/siteConfig'
+import type { ApiTeamMember } from '@/types/api'
+
 import { fadeRight, fadeUp, revealProps, stagger } from '@/lib/motion'
 
-const DIVISIONS = [
+/** Fallback for `about` → `divisions` — the shipped copy. */
+const DIVISIONS_FALLBACK: { active: boolean; focus: string; icon: string; name: string; status: string }[] = [
   {
     name: 'Evaramu Realty',
     status: 'Division 1 · Active',
@@ -43,7 +46,8 @@ const DIVISIONS = [
   },
 ]
 
-const TIMELINE = [
+/** Fallback for `about` → `timeline` — the shipped copy. */
+const TIMELINE_FALLBACK: { done: boolean; outcome: string; period: string; title: string }[] = [
   {
     period: 'Months 1–3',
     title: 'Register, build, find the team',
@@ -70,7 +74,8 @@ const TIMELINE = [
   },
 ]
 
-const GOVERNANCE = [
+/** Fallback for `about` → `governance` — the shipped copy. */
+const GOVERNANCE_FALLBACK: { responsibility: string; role: string }[] = [
   {
     role: 'Chairman / Co-Founder',
     responsibility: 'Sets vision, owns strategy, final authority on major decisions.',
@@ -98,19 +103,67 @@ const GOVERNANCE = [
 ]
 
 export default function AboutPage() {
+  const seo = useBlock('about', 'seo', {
+    title: "About Evaramu Group Ltd — Kigali Real Estate & Construction",
+    body: "Evaramu Group Ltd is a registered Rwandan real estate, construction and property wealth company based in Kigali. Two active divisions, an internal board, and a culture built on documentation and speed.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const governance = useBlockItems(
+    'about',
+    'governance',
+    GOVERNANCE_FALLBACK,
+  )
+  const timeline = useBlockItems(
+    'about',
+    'timeline',
+    TIMELINE_FALLBACK,
+  )
+  const divisions = useBlockItems(
+    'about',
+    'divisions',
+    DIVISIONS_FALLBACK,
+  )
+  const heroBlock = useBlock('about', 'hero', {
+    eyebrow: "About us",
+    title: "We are not a brokerage.",
+    accent: "We are a wealth-building engine.",
+    body: "Evaramu Group Ltd finds the right property, helps clients buy it, builds or renovates it, manages it, and when the time is right helps them sell and reinvest. A client who starts with one property can realistically grow to four or five within three years.",
+  })
+  const groupStructureBlock = useBlock('about', 'group_structure', {
+    eyebrow: "Group structure",
+    title: "A holding parent with",
+    accent: "two active divisions.",
+    body: "Evaramu Group Ltd is registered as a private limited company in Rwanda under the Rwanda Development Board. Future divisions will be added as sub-entities under the group.",
+  })
+  const phasedExecutionBlock = useBlock('about', 'phased_execution', {
+    eyebrow: "Phased execution",
+    title: "Start small. Build strong.",
+    accent: "Each phase funds the next.",
+    body: "We never expand faster than our trust can support. Here is where we are and where we are going.",
+  })
+  const teamIntroBlock = useBlock('about', 'team_intro', {
+    eyebrow: "The team",
+    title: "Placed on strength,",
+    accent: "not convenience.",
+    body: "Every person here is in their role because of what they are naturally good at. The wrong person in the wrong role destroys deals, reputation and culture — so we hire slow.",
+  })
+  const howWeOperateBlock = useBlock('about', 'how_we_operate', {
+    eyebrow: "How we operate",
+    title: "Four commitments we",
+    accent: "do not negotiate on.",
+  })
+  const trustPoints = useBlockItems<{ title: string; description: string; icon: string }>('home', 'trust_points')
+  const site = useSite()
+  const { data: teamData } = useQuery<ApiTeamMember[]>('/public/team')
+  const team = teamData ?? []
+
   return (
     <>
       <Seo
-        title="About Evaramu Group Ltd — Kigali Real Estate & Construction"
-        description="Evaramu Group Ltd is a registered Rwandan real estate, construction and property wealth company based in Kigali. Two active divisions, an internal board, and a culture built on documentation and speed."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/about"
-        keywords={[
-          'about Evaramu Group',
-          'real estate company Kigali',
-          'RDB registered property company Rwanda',
-          'Evaramu Realty',
-          'Evaramu Construction',
-        ]}
+        keywords={seoKeywords}
         jsonLd={breadcrumbJsonLd([
           { name: 'Home', path: '/' },
           { name: 'About', path: '/about' },
@@ -118,9 +171,9 @@ export default function AboutPage() {
       />
 
       <PageHero
-        eyebrow="About us"
-        title="We are not a brokerage."
-        accent="We are a wealth-building engine."
+        eyebrow={heroBlock.eyebrow}
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="Evaramu Group Ltd finds the right property, helps clients buy it, builds or renovates it, manages it, and when the time is right helps them sell and reinvest. A client who starts with one property can realistically grow to four or five within three years."
         crumbs={[{ label: 'About' }]}
         image="https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=2000&q=80"
@@ -219,9 +272,9 @@ export default function AboutPage() {
       <section className="bg-surface py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="Group structure"
-            title="A holding parent with"
-            accent="two active divisions."
+            eyebrow={groupStructureBlock.eyebrow}
+            title={groupStructureBlock.title}
+            accent={groupStructureBlock.accent}
             description="Evaramu Group Ltd is registered as a private limited company in Rwanda under the Rwanda Development Board. Future divisions will be added as sub-entities under the group."
           />
 
@@ -230,7 +283,7 @@ export default function AboutPage() {
             variants={stagger(0.08)}
             className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {DIVISIONS.map((division) => (
+            {divisions.map((division) => (
               <motion.article
                 key={division.name}
                 variants={fadeUp}
@@ -300,7 +353,7 @@ export default function AboutPage() {
                 className="mt-7 inline-flex items-center gap-2.5 rounded-full border border-line-strong bg-canvas px-4 py-2.5"
               >
                 <ShieldCheck className="size-4 text-emerald-600" strokeWidth={2.2} />
-                <span className="text-[0.875rem] font-medium text-ink">{SITE.rdb}</span>
+                <span className="text-[0.875rem] font-medium text-ink">{site.rdb}</span>
               </motion.div>
             </motion.div>
 
@@ -312,7 +365,7 @@ export default function AboutPage() {
                   </p>
                 </div>
                 <dl className="divide-y divide-line bg-surface">
-                  {GOVERNANCE.map((row) => (
+                  {governance.map((row) => (
                     <div key={row.role} className="px-7 py-4 transition-colors hover:bg-canvas">
                       <dt className="font-display text-[1.0625rem] font-semibold text-ink">{row.role}</dt>
                       <dd className="mt-1 text-[0.9375rem] leading-snug text-ink-soft">
@@ -333,9 +386,9 @@ export default function AboutPage() {
         <div className="container-page relative">
           <SectionHeading
             tone="light"
-            eyebrow="Phased execution"
-            title="Start small. Build strong."
-            accent="Each phase funds the next."
+            eyebrow={phasedExecutionBlock.eyebrow}
+            title={phasedExecutionBlock.title}
+            accent={phasedExecutionBlock.accent}
             description="We never expand faster than our trust can support. Here is where we are and where we are going."
           />
 
@@ -344,7 +397,7 @@ export default function AboutPage() {
               aria-hidden
               className="absolute top-4 bottom-4 left-6 hidden w-px bg-gradient-to-b from-gold-500 via-white/20 to-transparent lg:block"
             />
-            {TIMELINE.map((phase) => (
+            {timeline.map((phase) => (
               <motion.li
                 key={phase.period}
                 variants={fadeUp}
@@ -390,9 +443,9 @@ export default function AboutPage() {
       <section className="bg-canvas py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="The team"
-            title="Placed on strength,"
-            accent="not convenience."
+            eyebrow={teamIntroBlock.eyebrow}
+            title={teamIntroBlock.title}
+            accent={teamIntroBlock.accent}
             description="Every person here is in their role because of what they are naturally good at. The wrong person in the wrong role destroys deals, reputation and culture — so we hire slow."
             action={
               <Button
@@ -410,7 +463,7 @@ export default function AboutPage() {
             variants={stagger(0.08)}
             className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {AGENTS.map((agent) => (
+            {team.map((agent) => (
               <motion.article
                 key={agent.id}
                 variants={fadeUp}
@@ -418,8 +471,8 @@ export default function AboutPage() {
               >
                 <div className="relative h-60 overflow-hidden">
                   <img
-                    src={agent.photo}
-                    alt={agent.name}
+                    src={agent.photo_url ?? undefined}
+                    alt={agent.full_name}
                     loading="lazy"
                     className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
                   />
@@ -436,11 +489,11 @@ export default function AboutPage() {
                 </div>
 
                 <div className="p-6">
-                  <h3 className="font-display text-lg font-semibold text-ink">{agent.name}</h3>
-                  <p className="mt-1 text-[0.875rem] font-medium text-gold-600">{agent.role}</p>
+                  <h3 className="font-display text-lg font-semibold text-ink">{agent.full_name}</h3>
+                  <p className="mt-1 text-[0.875rem] font-medium text-gold-600">{agent.job_title}</p>
 
                   <ul className="mt-4 flex flex-wrap gap-1.5">
-                    {agent.specialties.map((s) => (
+                    {(agent.specialties ?? []).map((s) => (
                       <li
                         key={s}
                         className="rounded-full bg-canvas-alt px-2.5 py-1 text-[0.75rem] text-ink-soft"
@@ -452,21 +505,21 @@ export default function AboutPage() {
 
                   <div className="mt-5 flex items-center gap-2 border-t border-line pt-4">
                     <a
-                      href={`tel:${agent.phone.replace(/\s/g, '')}`}
-                      aria-label={`Call ${agent.name}`}
+                      href={`tel:${(agent.phone ?? '').replace(/\s/g, '')}`}
+                      aria-label={`Call ${agent.full_name}`}
                       className="grid size-9 place-items-center rounded-full border border-line text-ink-soft transition-colors hover:border-gold-500 hover:bg-gold-500 hover:text-white"
                     >
                       <Phone className="size-4" strokeWidth={2.2} />
                     </a>
                     <a
                       href={`mailto:${agent.email}`}
-                      aria-label={`Email ${agent.name}`}
+                      aria-label={`Email ${agent.full_name}`}
                       className="grid size-9 place-items-center rounded-full border border-line text-ink-soft transition-colors hover:border-gold-500 hover:bg-gold-500 hover:text-white"
                     >
                       <Mail className="size-4" strokeWidth={2.2} />
                     </a>
                     <span className="ml-auto text-[0.8125rem] text-ink-muted">
-                      {agent.deals} deals
+                      {agent.deals_closed} deals
                     </span>
                   </div>
                 </div>
@@ -480,9 +533,9 @@ export default function AboutPage() {
       <section className="bg-surface py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="How we operate"
-            title="Four commitments we"
-            accent="do not negotiate on."
+            eyebrow={howWeOperateBlock.eyebrow}
+            title={howWeOperateBlock.title}
+            accent={howWeOperateBlock.accent}
           />
 
           <motion.div
@@ -490,7 +543,7 @@ export default function AboutPage() {
             variants={stagger(0.09)}
             className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {TRUST_POINTS.map((point) => (
+            {trustPoints.map((point) => (
               <motion.div
                 key={point.title}
                 variants={fadeUp}
@@ -521,7 +574,7 @@ export default function AboutPage() {
                   Come and see us in Kimihurura
                 </h3>
                 <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-soft">
-                  {SITE.address}. {SITE.hours}, {SITE.saturdayHours}.
+                  {site.address}. {site.hours}, {site.saturdayHours}.
                 </p>
               </div>
             </div>

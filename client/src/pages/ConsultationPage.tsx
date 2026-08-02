@@ -20,44 +20,19 @@ import { Icon } from '@/components/ui/Icon'
 import { Calendar, type DayState } from '@/components/ui/Calendar'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { FaqSection } from '@/components/sections/FaqSection'
-import {
-  CLOSED_DATES,
-  CONSULTATION_TYPES,
-  FULLY_BOOKED_DATES,
-  getConsultationType,
-} from '@/data/services'
-import { getPropertyById } from '@/data/properties'
-import { SITE } from '@/data/site'
+import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { api } from '@/lib/api'
+import { useBlock, useQuery } from '@/lib/queries'
+import type {
+  ApiConsultationType,
+  ApiFaq,
+  ApiPropertyDetail,
+  AvailabilityDay,
+} from '@/types/api'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
-import { cn, seededRandom, toDateKey } from '@/lib/utils'
+import { useSite } from '@/lib/siteConfig'
+import { cn, toDateKey } from '@/lib/utils'
 
-const BOOKING_FAQS = [
-  {
-    question: 'Is the first consultation really free?',
-    answer:
-      'The discovery call, property viewings, Wealth Cycle planning sessions, diaspora briefings and seller valuations are all free. The only paid slot is a construction consultation at RWF 25,000, and that is credited against your build if you go ahead.',
-  },
-  {
-    question: 'What happens after I book?',
-    answer:
-      'You get a confirmation on WhatsApp and email within minutes, then a reminder the day before. If it is a site visit, your consultant confirms the meeting point. If it is a video call, the link comes with the confirmation.',
-  },
-  {
-    question: 'I am in a different time zone — can you accommodate that?',
-    answer:
-      'Yes. Diaspora briefings are deliberately scheduled early morning and evening Kigali time so they land in working hours across Europe and North America. All times shown here are Central Africa Time (CAT, UTC+2).',
-  },
-  {
-    question: 'Can I reschedule?',
-    answer:
-      'Any time, at no cost. Reply to the confirmation message or call us. We would much rather move an appointment than have you sit through one you are not ready for.',
-  },
-  {
-    question: 'Do I need to bring anything?',
-    answer:
-      'For a seller valuation, your title or UPI if you have it. For a construction consultation, any drawings or photos of the site. For everything else, just come with your questions and a rough idea of your budget.',
-  },
-]
 
 const MODE_ICONS: Record<string, typeof Phone> = {
   Phone,
@@ -70,26 +45,69 @@ const MODE_ICONS: Record<string, typeof Phone> = {
 }
 
 export default function ConsultationPage() {
+  const seo = useBlock('consultation', 'seo', {
+    title: "Book a Consultation — Evaramu Group Ltd",
+    body: "Book a free consultation with Evaramu in Kigali: a discovery call, property viewing, Wealth Cycle planning session, construction consultation or diaspora investment briefing. Pick a date and time that works for you.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const heroBlock = useBlock('consultation', 'hero', {
+    eyebrow: "Book a consultation",
+    title: "Thirty minutes, and an",
+    accent: "honest answer.",
+    body: "Tell us your budget and what you are trying to achieve. We will tell you plainly whether we can help, what it would realistically cost, and how long it would take. No pressure, no obligation.",
+  })
+  const whatToExpectBlock = useBlock('consultation', 'what_to_expect', {
+    eyebrow: "What to expect",
+    title: "No sales pitch.",
+    accent: "Just an assessment.",
+    body: "We would rather tell you honestly that now is not the right time than take you through a process that wastes your money and our reputation.",
+  })
+  const site = useSite()
+  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=consultation')
+  const faqs = faqData ?? []
+
   const [params] = useSearchParams()
   const propertyId = params.get('property')
-  const linkedProperty = propertyId ? getPropertyById(Number(propertyId)) : undefined
 
-  const [typeId, setTypeId] = useState(
-    () => getConsultationType(params.get('type') ?? '')?.id ?? CONSULTATION_TYPES[0].id,
+  const { data: linkedProperty } = useQuery<ApiPropertyDetail>(
+    propertyId ? `/public/properties/${encodeURIComponent(propertyId)}` : null,
   )
+
+  const { data: typeData } = useQuery<ApiConsultationType[]>('/public/consultation-types')
+  const types = useMemo(() => typeData ?? [], [typeData])
+
+  const [typeId, setTypeId] = useState<string | null>(null)
   const [date, setDate] = useState<Date | null>(null)
   const [slot, setSlot] = useState<string | null>(null)
   const [mode, setMode] = useState<string>('')
   const [confirmed, setConfirmed] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
+  const [contact, setContact] = useState({ full_name: '', phone: '', email: '', notes: '' })
 
-  const type = getConsultationType(typeId) ?? CONSULTATION_TYPES[0]
+  // A ?type= slug deep-links straight to the right consultation.
+  const wanted = params.get('type')
+  const type =
+    types.find((c) => c.id === typeId) ?? types.find((c) => c.slug === wanted) ?? types[0]
+
+  /** Real availability, computed by the API from working days and bookings. */
+  const { data: availability } = useQuery<AvailabilityDay[]>(
+    type ? `/public/availability/${type.id}` : null,
+  )
+
+  const dayMap = useMemo(() => {
+    const map = new Map<string, AvailabilityDay>()
+    for (const day of availability ?? []) map.set(day.date, day)
+    return map
+  }, [availability])
 
   // Changing the consultation type invalidates any date/slot already picked.
   useEffect(() => {
     setDate(null)
     setSlot(null)
-    setMode(type.mode[0])
-  }, [typeId, type.mode])
+    setMode(type?.modes?.[0] ?? '')
+  }, [type?.id, type?.modes])
 
   const today = useMemo(() => {
     const d = new Date()
@@ -98,28 +116,54 @@ export default function ConsultationPage() {
   }, [])
 
   const getDayState = (day: Date): DayState => {
-    const key = toDateKey(day)
     if (day < today) return 'past'
-    if (CLOSED_DATES.includes(key)) return 'closed'
-    if (!type.availableDays.includes(day.getDay())) return 'unavailable'
-    if (FULLY_BOOKED_DATES.includes(key)) return 'full'
-    return 'available'
+    const entry = dayMap.get(toDateKey(day))
+    // Beyond the window the API publishes we simply show the weekly pattern.
+    if (!entry) return (type?.available_days ?? []).includes(day.getDay())
+      ? 'available'
+      : 'unavailable'
+    return entry.state
   }
 
-  /**
-   * Static availability: a deterministic subset of each type's slots is marked
-   * taken per date, so the calendar behaves realistically without a backend.
-   */
+  /** Open slots come from the API, so a taken time is genuinely taken. */
   const slotsForDate = useMemo(() => {
-    if (!date) return []
-    const key = toDateKey(date)
-    return type.slots.map((time) => ({
+    if (!date || !type) return []
+    const open = dayMap.get(toDateKey(date))?.open_slots
+    return (type.slots ?? []).map((time) => ({
       time,
-      taken: seededRandom(`${type.id}-${key}-${time}`) < 0.3,
+      taken: open ? !open.includes(time) : false,
     }))
-  }, [date, type])
+  }, [date, type, dayMap])
 
-  const canConfirm = Boolean(date && slot && mode)
+  const canConfirm = Boolean(date && slot && mode && type)
+
+  const submitBooking = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canConfirm || !type || !date || !slot) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await api.post('/public/bookings', {
+        consultation_type_id: type.id,
+        property_id: linkedProperty?.id ?? null,
+        full_name: contact.full_name,
+        phone: contact.phone,
+        email: contact.email || null,
+        notes: contact.notes || null,
+        mode,
+        scheduled_date: toDateKey(date),
+        scheduled_time: slot,
+        ...captcha,
+      })
+      setConfirmed(true)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'We could not confirm that. Please try again.',
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const formattedDate = date
     ? date.toLocaleDateString('en-GB', {
@@ -130,16 +174,24 @@ export default function ConsultationPage() {
       })
     : null
 
+  if (!type) {
+    return (
+      <div className="container-page grid min-h-[60dvh] place-items-center">
+        <div className="size-8 animate-spin rounded-full border-2 border-line border-t-gold-500" />
+      </div>
+    )
+  }
+
   const reservationJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Service',
     name: 'Property consultation',
-    provider: { '@type': 'Organization', name: SITE.name },
+    provider: { '@type': 'Organization', name: site.name },
     areaServed: { '@type': 'Country', name: 'Rwanda' },
     hasOfferCatalog: {
       '@type': 'OfferCatalog',
       name: 'Consultation types',
-      itemListElement: CONSULTATION_TYPES.map((c) => ({
+      itemListElement: types.map((c) => ({
         '@type': 'Offer',
         name: c.title,
         description: c.description,
@@ -150,18 +202,13 @@ export default function ConsultationPage() {
   return (
     <>
       <Seo
-        title="Book a Consultation — Evaramu Group Ltd"
-        description="Book a free consultation with Evaramu in Kigali: a discovery call, property viewing, Wealth Cycle planning session, construction consultation or diaspora investment briefing. Pick a date and time that works for you."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/consultation"
-        keywords={[
-          'book property consultation Kigali',
-          'free property valuation Rwanda',
-          'property viewing Kigali',
-          'diaspora investment briefing Rwanda',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
           reservationJsonLd,
-          faqJsonLd(BOOKING_FAQS),
+          faqJsonLd(faqs),
           breadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: 'Book a consultation', path: '/consultation' },
@@ -170,9 +217,9 @@ export default function ConsultationPage() {
       />
 
       <PageHero
-        eyebrow="Book a consultation"
-        title="Thirty minutes, and an"
-        accent="honest answer."
+        eyebrow={heroBlock.eyebrow}
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="Tell us your budget and what you are trying to achieve. We will tell you plainly whether we can help, what it would realistically cost, and how long it would take. No pressure, no obligation."
         crumbs={[{ label: 'Book a consultation' }]}
         image="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=2000&q=80"
@@ -207,9 +254,9 @@ export default function ConsultationPage() {
                   {[
                     { label: 'Consultation', value: type.title },
                     { label: 'Date', value: formattedDate ?? '—' },
-                    { label: 'Time', value: `${slot} CAT · ${type.duration} minutes` },
+                    { label: 'Time', value: `${slot} CAT · ${type.duration_minutes} minutes` },
                     { label: 'Format', value: mode },
-                    { label: 'Fee', value: type.price },
+                    { label: 'Fee', value: type.price_label },
                     linkedProperty
                       ? { label: 'Property', value: linkedProperty.title }
                       : null,
@@ -251,10 +298,10 @@ export default function ConsultationPage() {
               <p className="mt-6 text-center text-[0.875rem] text-ink-muted">
                 Need to change it? Reply to the confirmation or call{' '}
                 <a
-                  href={SITE.phoneHref}
+                  href={site.phoneHref}
                   className="font-semibold text-gold-600 underline-offset-4 hover:underline"
                 >
-                  {SITE.phone}
+                  {site.phone}
                 </a>
                 . Rescheduling is always free.
               </p>
@@ -278,7 +325,7 @@ export default function ConsultationPage() {
                     variants={stagger(0.06)}
                     className="mt-6 grid gap-3 sm:grid-cols-2"
                   >
-                    {CONSULTATION_TYPES.map((option) => {
+                    {types.map((option) => {
                       const active = option.id === typeId
                       return (
                         <motion.button
@@ -301,7 +348,7 @@ export default function ConsultationPage() {
                                 active ? 'bg-gold-500 text-white' : 'bg-canvas-alt text-ink-soft',
                               )}
                             >
-                              <Icon name={option.icon} className="size-5" strokeWidth={2} />
+                              <Icon name={option.icon ?? "Phone"} className="size-5" strokeWidth={2} />
                             </span>
                             <span
                               className={cn(
@@ -309,7 +356,7 @@ export default function ConsultationPage() {
                                 active ? 'bg-white/12 text-gold-300' : 'bg-gold-50 text-gold-700',
                               )}
                             >
-                              {option.price}
+                              {option.price_label}
                             </span>
                           </div>
 
@@ -337,7 +384,7 @@ export default function ConsultationPage() {
                             )}
                           >
                             <Clock className="size-3.5" strokeWidth={2.2} />
-                            {option.duration} minutes · {option.mode.join(' / ')}
+                            {option.duration_minutes} minutes · {(option.modes ?? []).join(' / ')}
                           </p>
                         </motion.button>
                       )
@@ -427,7 +474,7 @@ export default function ConsultationPage() {
                                 Format
                               </legend>
                               <div className="flex flex-wrap gap-2">
-                                {type.mode.map((m) => {
+                                {(type.modes ?? []).map((m) => {
                                   const Cmp = MODE_ICONS[m] ?? Video
                                   return (
                                     <button
@@ -469,7 +516,7 @@ export default function ConsultationPage() {
                             </p>
                             <p className="mt-4 text-[0.8125rem] text-ink-muted">
                               Offered on{' '}
-                              {type.availableDays
+                              {(type.available_days ?? [])
                                 .map(
                                   (d) =>
                                     ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d],
@@ -503,8 +550,8 @@ export default function ConsultationPage() {
                     <dl className="mt-6 space-y-4 border-y border-line py-6">
                       {[
                         { label: 'Consultation', value: type.title },
-                        { label: 'Duration', value: `${type.duration} minutes` },
-                        { label: 'Fee', value: type.price },
+                        { label: 'Duration', value: `${type.duration_minutes} minutes` },
+                        { label: 'Fee', value: type.price_label },
                         { label: 'Date', value: formattedDate ?? 'Not chosen yet' },
                         { label: 'Time', value: slot ? `${slot} CAT` : 'Not chosen yet' },
                         { label: 'Format', value: mode || 'Not chosen yet' },
@@ -531,7 +578,7 @@ export default function ConsultationPage() {
                     {linkedProperty && (
                       <div className="mt-6 flex items-center gap-3 rounded-2xl bg-canvas-alt p-3">
                         <img
-                          src={linkedProperty.images[0]?.url}
+                          src={linkedProperty.cover_url ?? undefined}
                           alt=""
                           aria-hidden
                           loading="lazy"
@@ -551,10 +598,7 @@ export default function ConsultationPage() {
                     {/* contact fields */}
                     <form
                       className="mt-6 space-y-3"
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        if (canConfirm) setConfirmed(true)
-                      }}
+                      onSubmit={submitBooking}
                     >
                       <div>
                         <label htmlFor="c-name" className="sr-only">
@@ -563,6 +607,8 @@ export default function ConsultationPage() {
                         <input
                           id="c-name"
                           required
+                          value={contact.full_name}
+                          onChange={(e) => setContact((c) => ({ ...c, full_name: e.target.value }))}
                           placeholder="Your full name"
                           className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
@@ -575,6 +621,8 @@ export default function ConsultationPage() {
                           id="c-phone"
                           required
                           type="tel"
+                          value={contact.phone}
+                          onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
                           placeholder="Phone or WhatsApp number"
                           className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
@@ -586,6 +634,8 @@ export default function ConsultationPage() {
                         <input
                           id="c-email"
                           type="email"
+                          value={contact.email}
+                          onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
                           placeholder="Email (optional)"
                           className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
@@ -597,17 +647,30 @@ export default function ConsultationPage() {
                         <textarea
                           id="c-notes"
                           rows={3}
+                          value={contact.notes}
+                          onChange={(e) => setContact((c) => ({ ...c, notes: e.target.value }))}
                           placeholder="Anything we should know beforehand?"
                           className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-3 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
                       </div>
+
+                      <Captcha value={captcha} onChange={setCaptcha} scope="booking" compact />
+
+                      {error && (
+                        <p
+                          role="alert"
+                          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[0.875rem] text-red-700"
+                        >
+                          {error}
+                        </p>
+                      )}
 
                       <Button
                         type="submit"
                         variant="gold"
                         size="lg"
                         className="w-full"
-                        disabled={!canConfirm}
+                        disabled={!canConfirm || submitting}
                         trailing={
                           <ArrowRight
                             className="size-[1.05rem] transition-transform duration-300 group-hover/btn:translate-x-1"
@@ -615,7 +678,7 @@ export default function ConsultationPage() {
                           />
                         }
                       >
-                        {canConfirm ? 'Confirm booking' : 'Pick a date and time'}
+                        {submitting ? 'Confirming…' : canConfirm ? 'Confirm booking' : 'Pick a date and time'}
                       </Button>
                     </form>
 
@@ -629,19 +692,19 @@ export default function ConsultationPage() {
                       Prefer to just call?
                     </p>
                     <a
-                      href={SITE.phoneHref}
+                      href={site.phoneHref}
                       className="mt-2 flex items-center gap-2.5 font-display text-lg font-semibold text-ink transition-colors hover:text-gold-600"
                     >
                       <Phone className="size-5 text-gold-600" strokeWidth={2.2} />
-                      {SITE.phone}
+                      {site.phone}
                     </a>
                     <p className="mt-3 text-[0.875rem] leading-relaxed text-ink-soft">
-                      {SITE.hours}
+                      {site.hours}
                       <br />
-                      {SITE.saturdayHours}
+                      {site.saturdayHours}
                     </p>
                     <Button
-                      href={SITE.whatsappHref}
+                      href={site.whatsappHref}
                       variant="outline"
                       className="mt-5 w-full"
                       leading={<MessageCircle className="size-[1.05rem]" strokeWidth={2.2} />}
@@ -660,9 +723,9 @@ export default function ConsultationPage() {
       <section className="bg-surface py-16 lg:py-20">
         <div className="container-page">
           <SectionHeading
-            eyebrow="What to expect"
-            title="No sales pitch."
-            accent="Just an assessment."
+            eyebrow={whatToExpectBlock.eyebrow}
+            title={whatToExpectBlock.title}
+            accent={whatToExpectBlock.accent}
             description="We would rather tell you honestly that now is not the right time than take you through a process that wastes your money and our reputation."
           />
 
@@ -725,7 +788,7 @@ export default function ConsultationPage() {
       </section>
 
       <FaqSection
-        faqs={BOOKING_FAQS}
+        faqs={faqs}
         eyebrow="Booking questions"
         title="Before you book,"
         accent="the practicalities."

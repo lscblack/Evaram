@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer'
 import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import { FloatingActions } from '@/components/layout/FloatingActions'
 import { RouteLoader } from '@/components/layout/RouteLoader'
+import { FallbackBadge } from '@/components/layout/FallbackBadge'
 import HomePage from '@/pages/HomePage'
 
 const PropertiesPage = lazy(() => import('@/pages/PropertiesPage'))
@@ -21,11 +22,56 @@ const TeamPage = lazy(() => import('@/pages/TeamPage'))
 const InsightsPage = lazy(() => import('@/pages/InsightsPage'))
 const InsightDetailPage = lazy(() => import('@/pages/InsightDetailPage'))
 const ContactPage = lazy(() => import('@/pages/ContactPage'))
+const AccountPage = lazy(() => import('@/pages/AccountPage'))
 const LegalPage = lazy(() => import('@/pages/LegalPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
+/* ---- console: its own shell, no public navbar or footer ---- */
+const AdminLoginPage = lazy(() => import('@/pages/admin/AdminLoginPage'))
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'))
+const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage'))
+const PropertiesAdminPage = lazy(() => import('@/pages/admin/PropertiesAdminPage'))
+const PropertyUploadPage = lazy(() => import('@/pages/admin/PropertyUploadPage'))
+const OffersAdminPage = lazy(() => import('@/pages/admin/OffersAdminPage'))
+const TaxonomyAdminPage = lazy(() => import('@/pages/admin/TaxonomyAdminPage'))
+const ContentAdminPage = lazy(() => import('@/pages/admin/ContentAdminPage'))
+const InsightsAdminPage = lazy(() => import('@/pages/admin/InsightsAdminPage'))
+const VoicesAdminPage = lazy(() => import('@/pages/admin/VoicesAdminPage'))
+const InboxAdminPage = lazy(() => import('@/pages/admin/InboxAdminPage'))
+const UsersAdminPage = lazy(() => import('@/pages/admin/UsersAdminPage'))
+const AuditAdminPage = lazy(() => import('@/pages/admin/AuditAdminPage'))
+const SettingsAdminPage = lazy(() => import('@/pages/admin/SettingsAdminPage'))
+
 export default function App() {
   const location = useLocation()
+
+  // The console is a separate application surface — it must not inherit the
+  // marketing chrome, the page transition, or the fixed-header offset.
+  if (location.pathname.startsWith('/admin')) {
+    return (
+      <Suspense fallback={<RouteLoader />}>
+        <Routes location={location}>
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="properties" element={<PropertiesAdminPage />} />
+            <Route path="properties/new" element={<PropertyUploadPage />} />
+            <Route path="offers" element={<OffersAdminPage />} />
+            <Route path="taxonomy" element={<TaxonomyAdminPage />} />
+            <Route path="content" element={<ContentAdminPage />} />
+            <Route path="insights" element={<InsightsAdminPage />} />
+            <Route path="testimonials" element={<VoicesAdminPage />} />
+            <Route path="inbox" element={<InboxAdminPage />} />
+            <Route path="users" element={<UsersAdminPage />} />
+            <Route path="audit" element={<AuditAdminPage />} />
+            <Route path="settings" element={<SettingsAdminPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+        <FallbackBadge />
+      </Suspense>
+    )
+  }
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -59,6 +105,7 @@ export default function App() {
                 <Route path="/insights" element={<InsightsPage />} />
                 <Route path="/insights/:slug" element={<InsightDetailPage />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/account" element={<AccountPage />} />
                 <Route path="/privacy" element={<LegalPage />} />
                 <Route path="/terms" element={<LegalPage />} />
                 <Route path="*" element={<NotFoundPage />} />
@@ -70,6 +117,7 @@ export default function App() {
 
       <Footer />
       <FloatingActions />
+      <FallbackBadge />
     </div>
   )
 }

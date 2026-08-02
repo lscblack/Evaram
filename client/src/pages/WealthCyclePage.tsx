@@ -8,40 +8,61 @@ import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { FaqSection } from '@/components/sections/FaqSection'
-import { CYCLE_TIMELINE, WEALTH_CYCLE } from '@/data/services'
-import { TESTIMONIALS } from '@/data/content'
+
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiCycleStep, ApiFaq, ApiTestimonial, ContentBlock } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 import { cn, formatCompactCurrency, formatCurrency } from '@/lib/utils'
 
-const CYCLE_FAQS = [
-  {
-    question: 'Do I have to commit to all six steps?',
-    answer:
-      'No. Plenty of clients only ever buy, or only ever build. The cycle is what we recommend if your goal is a portfolio rather than a single asset — but every step is a separate decision that you make, with our advice, when you get to it.',
-  },
-  {
-    question: 'What if the market turns and my property loses value?',
-    answer:
-      'Then we advise you to hold and keep earning rent rather than sell into a weak market. That is precisely why step three exists: a tenanted property generates income while you wait, so you are never forced to sell at a bad moment.',
-  },
-  {
-    question: 'How much capital do I need to start?',
-    answer:
-      'The worked example on this page starts at RWF 8 million, which buys a serviceable plot in a growth corridor. Below roughly RWF 5 million the numbers stop working, because the entry costs eat the margin. We will tell you honestly if you are not there yet.',
-  },
-  {
-    question: 'Who decides when to sell?',
-    answer:
-      'You do — always. We bring the market data, the comparable sales and a recommendation with our reasoning written down. We have advised clients to wait eight months against their instinct, and it earned them millions more. But it remains your asset and your call.',
-  },
-  {
-    question: 'What does Evaramu earn from the cycle?',
-    answer:
-      'A sales commission when we broker a purchase or sale, a build margin when our construction division does the work, and 10% of collected rent while we manage the property. All three only pay us when they pay you — which is exactly the alignment we want.',
-  },
-]
 
 export default function WealthCyclePage() {
+  const seo = useBlock('wealth-cycle', 'seo', {
+    title: "The Evaramu Wealth Cycle — From One Property to a Portfolio",
+    body: "Buy, build, earn, sell, reinvest, repeat. The full six-step model Evaramu uses to grow a client from one property to four or five within three years — with the complete arithmetic published.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const heroBlock = useBlock('wealth-cycle', 'hero', {
+    eyebrow: "Our signature model",
+    title: "Most agencies close a sale and disappear.",
+    accent: "We stay.",
+    body: "The Wealth Cycle is the reason clients come back to us for their second, third and fourth property. We find it, help you buy it, build on it, tenant it, tell you when to sell — then put the proceeds to work again.",
+  })
+  const modelBlock = useBlock('wealth-cycle', 'model', {
+    eyebrow: "The model",
+    title: "Six steps, and we are",
+    accent: "beside you for all of them.",
+    body: "Each step compounds into the next. Skip one and the cycle still works — it just works more slowly.",
+  })
+  const workedExampleIntroBlock = useBlock('wealth-cycle', 'worked_example_intro', {
+    eyebrow: "A real client journey",
+    title: "RWF 8 million in savings.",
+    accent: "Three properties by Year 3.",
+    body: "This is the worked example from our business plan, published in full. Every figure is one we have actually seen, not a projection we invented for a brochure.",
+  })
+  const calculatorBlock = useBlock('wealth-cycle', 'calculator', {
+    eyebrow: "Run your own numbers",
+    title: "What could your capital",
+    accent: "become?",
+    body: "Move the sliders. This is an indicative model built on the same assumptions we use in a planning session — a build uplift of roughly 35%, corridor appreciation of 16% a year, and rent at around 9% of value.",
+  })
+  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=wealth-cycle')
+  const faqs = faqData ?? []
+
+  const { data: stepData } = useQuery<ApiCycleStep[]>('/public/wealth-cycle')
+  const steps = stepData ?? []
+  const { data: storyData } = useQuery<ApiTestimonial[]>('/public/testimonials')
+  const { data: blocks } = useQuery<ContentBlock[]>('/public/content/wealth-cycle')
+
+  /** The worked client journey, editable in the admin as a content block. */
+  const timeline = ((blocks ?? []).find((b) => b.key === 'worked_example')?.items ??
+    []) as unknown as {
+    year: string
+    situation: string
+    action: string
+    outcome: string
+    portfolioValue: number
+  }[]
+
   const [capital, setCapital] = useState(8_000_000)
   const [years, setYears] = useState(3)
 
@@ -77,23 +98,17 @@ export default function WealthCyclePage() {
   const final = projection[projection.length - 1]
   const maxPortfolio = Math.max(...projection.map((r) => r.portfolio))
 
-  const cycleStory = TESTIMONIALS[0]
+  const cycleStory = (storyData ?? [])[0]
 
   return (
     <>
       <Seo
-        title="The Evaramu Wealth Cycle — From One Property to a Portfolio"
-        description="Buy, build, earn, sell, reinvest, repeat. The full six-step model Evaramu uses to grow a client from one property to four or five within three years — with the complete arithmetic published."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/wealth-cycle"
-        keywords={[
-          'property wealth Rwanda',
-          'build a property portfolio Kigali',
-          'real estate investment Rwanda',
-          'rental income Kigali',
-          'Evaramu Wealth Cycle',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
-          faqJsonLd(CYCLE_FAQS),
+          faqJsonLd(faqs),
           breadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: 'Wealth Cycle', path: '/wealth-cycle' },
@@ -102,9 +117,9 @@ export default function WealthCyclePage() {
       />
 
       <PageHero
-        eyebrow="Our signature model"
-        title="Most agencies close a sale and disappear."
-        accent="We stay."
+        eyebrow={heroBlock.eyebrow}
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="The Wealth Cycle is the reason clients come back to us for their second, third and fourth property. We find it, help you buy it, build on it, tenant it, tell you when to sell — then put the proceeds to work again."
         crumbs={[{ label: 'Wealth Cycle' }]}
         image="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=2000&q=80"
@@ -120,9 +135,9 @@ export default function WealthCyclePage() {
       <section className="bg-canvas py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="The model"
-            title="Six steps, and we are"
-            accent="beside you for all of them."
+            eyebrow={modelBlock.eyebrow}
+            title={modelBlock.title}
+            accent={modelBlock.accent}
             description="Each step compounds into the next. Skip one and the cycle still works — it just works more slowly."
           />
 
@@ -131,7 +146,7 @@ export default function WealthCyclePage() {
             variants={stagger(0.08)}
             className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3"
           >
-            {WEALTH_CYCLE.map((step) => (
+            {steps.map((step) => (
               <motion.li
                 key={step.step}
                 variants={fadeUp}
@@ -145,7 +160,7 @@ export default function WealthCyclePage() {
                 </span>
 
                 <span className="relative grid size-13 place-items-center rounded-2xl bg-navy-900 text-gold-400 transition-colors duration-500 group-hover:bg-gold-500 group-hover:text-white">
-                  <Icon name={step.icon} className="size-6" strokeWidth={1.9} />
+                  <Icon name={step.icon ?? "RefreshCw"} className="size-6" strokeWidth={1.9} />
                 </span>
 
                 <h3 className="relative mt-6 font-display text-xl font-semibold text-ink">
@@ -172,9 +187,9 @@ export default function WealthCyclePage() {
         <div className="container-page relative">
           <SectionHeading
             tone="light"
-            eyebrow="A real client journey"
-            title="RWF 8 million in savings."
-            accent="Three properties by Year 3."
+            eyebrow={workedExampleIntroBlock.eyebrow}
+            title={workedExampleIntroBlock.title}
+            accent={workedExampleIntroBlock.accent}
             description="This is the worked example from our business plan, published in full. Every figure is one we have actually seen, not a projection we invented for a brochure."
           />
 
@@ -184,7 +199,7 @@ export default function WealthCyclePage() {
               className="absolute top-4 bottom-4 left-6 hidden w-px bg-gradient-to-b from-gold-500 via-white/20 to-transparent lg:block"
             />
 
-            {CYCLE_TIMELINE.map((row, i) => (
+            {timeline.map((row, i) => (
               <motion.li
                 key={row.year}
                 variants={fadeUp}
@@ -239,9 +254,9 @@ export default function WealthCyclePage() {
       <section className="bg-surface py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="Run your own numbers"
-            title="What could your capital"
-            accent="become?"
+            eyebrow={calculatorBlock.eyebrow}
+            title={calculatorBlock.title}
+            accent={calculatorBlock.accent}
             description="Move the sliders. This is an indicative model built on the same assumptions we use in a planning session — a build uplift of roughly 35%, corridor appreciation of 16% a year, and rent at around 9% of value."
           />
 
@@ -512,20 +527,20 @@ export default function WealthCyclePage() {
               <div className="mt-5 rounded-3xl border border-gold-200 bg-gold-50 p-7">
                 <Quote className="size-8 text-gold-500/50" strokeWidth={1.6} />
                 <blockquote className="mt-4 font-display text-xl leading-relaxed font-medium text-ink">
-                  "{cycleStory.quote}"
+                  "{cycleStory?.quote}"
                 </blockquote>
                 <footer className="mt-6 flex items-center gap-4">
                   <img
-                    src={cycleStory.photo}
+                    src={cycleStory?.photo_url ?? undefined}
                     alt=""
                     aria-hidden
                     loading="lazy"
                     className="size-12 rounded-full object-cover"
                   />
                   <div>
-                    <p className="font-semibold text-ink">{cycleStory.name}</p>
+                    <p className="font-semibold text-ink">{cycleStory?.author_name}</p>
                     <p className="text-[0.875rem] text-ink-soft">
-                      {cycleStory.role} · {cycleStory.milestone}
+                      {cycleStory?.author_role} · {cycleStory?.milestone}
                     </p>
                   </div>
                 </footer>
@@ -584,7 +599,7 @@ export default function WealthCyclePage() {
       </section>
 
       <FaqSection
-        faqs={CYCLE_FAQS}
+        faqs={faqs}
         eyebrow="Wealth Cycle questions"
         title="The things people ask"
         accent="before they start."

@@ -10,8 +10,7 @@ import {
   ShieldCheck,
   TrendingUp,
 } from 'lucide-react'
-import type { Property } from '@/types/property'
-import { getCategoryById, getSubCategoryById } from '@/data/properties'
+import type { ApiPropertyCard } from '@/types/api'
 import { cn, formatArea, formatCompactCurrency } from '@/lib/utils'
 import { fadeUp } from '@/lib/motion'
 
@@ -32,18 +31,14 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 /** Horizontal variant used by the Properties page list view. */
-export function PropertyRow({ property }: { property: Property }) {
-  const cover = property.images.find((i) => i.is_cover) ?? property.images[0]
-  const category = getCategoryById(property.category_id)
-  const subCategory = getSubCategoryById(property.subcategory_id)
-
-  const bedrooms = property.details?.bedrooms as number | undefined
-  const bathrooms = property.details?.bathrooms as number | undefined
+export function PropertyRow({ property }: { property: ApiPropertyCard }) {
+  const cover = property.cover_url
+  const { bedrooms, bathrooms } = property
 
   const price =
     property.intent === 'rent' && property.rent_amount
       ? formatCompactCurrency(property.rent_amount, property.currency)
-      : formatCompactCurrency(property.estimated_amount ?? 0, property.currency)
+      : formatCompactCurrency(property.price ?? 0, property.currency)
 
   return (
     <motion.article
@@ -53,7 +48,7 @@ export function PropertyRow({ property }: { property: Property }) {
       {/* media */}
       <div className="relative h-52 shrink-0 overflow-hidden sm:h-auto sm:w-64 lg:w-80">
         <img
-          src={cover?.url}
+          src={cover ?? undefined}
           alt={property.title}
           loading="lazy"
           className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
@@ -77,7 +72,7 @@ export function PropertyRow({ property }: { property: Property }) {
       <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <p className="text-[0.6875rem] font-bold tracking-[0.16em] text-gold-600 uppercase">
-            {category?.label} · {subCategory?.label}
+            {property.category_label} · {property.subcategory_label}
           </p>
           {property.is_verified && (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[0.6875rem] font-bold text-emerald-700">
@@ -88,7 +83,7 @@ export function PropertyRow({ property }: { property: Property }) {
         </div>
 
         <h3 className="mt-2 font-display text-xl leading-snug font-bold text-ink transition-colors duration-300 group-hover:text-gold-600 sm:text-2xl">
-          <Link to={`/properties/${property.id}`} className="before:absolute before:inset-0">
+          <Link to={`/properties/${property.slug}`} className="before:absolute before:inset-0">
             {property.title}
           </Link>
         </h3>
@@ -121,7 +116,7 @@ export function PropertyRow({ property }: { property: Property }) {
           )}
           <span className="flex items-center gap-1.5 font-mono text-[0.8125rem] text-ink-muted">
             <Hash className="size-3.5" strokeWidth={2.2} />
-            {property.upi}
+            {property.reference_number}
           </span>
         </div>
 

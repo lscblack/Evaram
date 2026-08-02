@@ -1,20 +1,31 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Quote, Star } from 'lucide-react'
-import { TESTIMONIALS } from '@/data/content'
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiTestimonial } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { EASE, fadeUp, revealProps } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 export function Testimonials() {
+  const block = useBlock('home', 'testimonials', {
+    eyebrow: "Client stories",
+    title: "The proof is not our brochure.",
+    accent: "It is their portfolio.",
+  })
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(1)
-  const active = TESTIMONIALS[index]
+
+  const { data } = useQuery<ApiTestimonial[]>('/public/testimonials')
+  const items = data ?? []
+  const active = items[index % Math.max(items.length, 1)]
 
   const go = (delta: number) => {
     setDirection(delta)
-    setIndex((i) => (i + delta + TESTIMONIALS.length) % TESTIMONIALS.length)
+    setIndex((i) => (i + delta + items.length) % items.length)
   }
+
+  if (!active) return null
 
   return (
     <section className="relative overflow-hidden bg-navy-900 py-20 text-white lg:py-28">
@@ -27,9 +38,9 @@ export function Testimonials() {
       <div className="container-page relative">
         <SectionHeading
           tone="light"
-          eyebrow="Client stories"
-          title="The proof is not our brochure."
-          accent="It is their portfolio."
+          eyebrow={block.eyebrow}
+          title={block.title}
+          accent={block.accent}
         />
 
         <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:gap-16">
@@ -54,16 +65,16 @@ export function Testimonials() {
 
                   <footer className="mt-8 flex flex-wrap items-center gap-5">
                     <img
-                      src={active.photo}
+                      src={active.photo_url ?? undefined}
                       alt=""
                       aria-hidden
                       loading="lazy"
                       className="size-14 shrink-0 rounded-full object-cover ring-2 ring-gold-500/40"
                     />
                     <div>
-                      <p className="font-semibold text-white">{active.name}</p>
+                      <p className="font-semibold text-white">{active.author_name}</p>
                       <p className="text-[0.875rem] text-white/50">
-                        {active.role} · {active.location}
+                        {active.author_role} · {active.location}
                       </p>
                     </div>
                     <span className="rounded-full border border-gold-500/30 bg-gold-500/10 px-3.5 py-1.5 text-[0.75rem] font-semibold text-gold-200">
@@ -96,7 +107,7 @@ export function Testimonials() {
               </div>
 
               <div className="flex items-center gap-2">
-                {TESTIMONIALS.map((t, i) => (
+                {items.map((t, i) => (
                   <button
                     key={t.id}
                     type="button"
@@ -119,7 +130,7 @@ export function Testimonials() {
               </div>
 
               <p className="ml-auto text-[0.8125rem] text-white/40 tabular-nums">
-                {String(index + 1).padStart(2, '0')} / {String(TESTIMONIALS.length).padStart(2, '0')}
+                {String(index + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}
               </p>
             </div>
           </div>

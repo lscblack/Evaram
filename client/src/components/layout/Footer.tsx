@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowUpRight, Clock, Mail, MapPin, Phone, Send, ShieldCheck } from 'lucide-react'
-import { SITE, SOCIALS } from '@/data/site'
 import { Logo } from '@/components/ui/Logo'
 import { SocialIcon } from '@/components/ui/SocialIcon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useSite, useSocials } from '@/lib/siteConfig'
 import { useState } from 'react'
 
 const COLUMNS = [
@@ -41,6 +41,8 @@ const COLUMNS = [
 ]
 
 export function Footer() {
+  const site = useSite()
+  const socials = useSocials()
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
 
@@ -91,7 +93,7 @@ export function Footer() {
               />
             </Link>
             <a
-              href={SITE.whatsappHref}
+              href={site.whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-14 items-center justify-center gap-3 rounded-full border border-white/25 px-8 font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/5"
@@ -109,37 +111,37 @@ export function Footer() {
           <div className="lg:col-span-4">
             <Logo tone="light" />
             <p className="mt-6 max-w-sm text-[0.9375rem] leading-relaxed text-white/60">
-              {SITE.description}
+              {site.description}
             </p>
 
             <div className="mt-7 inline-flex items-center gap-2.5 rounded-full border border-gold-500/25 bg-gold-500/10 px-4 py-2">
               <ShieldCheck className="size-4 text-gold-400" strokeWidth={2.2} />
-              <span className="text-[0.8125rem] font-medium text-gold-200">{SITE.rdb}</span>
+              <span className="text-[0.8125rem] font-medium text-gold-200">{site.rdb}</span>
             </div>
 
             <ul className="mt-8 space-y-4 text-[0.9375rem]">
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 size-[1.05rem] shrink-0 text-gold-400" strokeWidth={2} />
-                <span className="text-white/60">{SITE.address}</span>
+                <span className="text-white/60">{site.address}</span>
               </li>
               <li className="flex items-start gap-3">
                 <Phone className="mt-0.5 size-[1.05rem] shrink-0 text-gold-400" strokeWidth={2} />
-                <a href={SITE.phoneHref} className="transition-colors hover:text-gold-300">
-                  {SITE.phone}
+                <a href={site.phoneHref} className="transition-colors hover:text-gold-300">
+                  {site.phone}
                 </a>
               </li>
               <li className="flex items-start gap-3">
                 <Mail className="mt-0.5 size-[1.05rem] shrink-0 text-gold-400" strokeWidth={2} />
-                <a href={`mailto:${SITE.email}`} className="transition-colors hover:text-gold-300">
-                  {SITE.email}
+                <a href={`mailto:${site.email}`} className="transition-colors hover:text-gold-300">
+                  {site.email}
                 </a>
               </li>
               <li className="flex items-start gap-3">
                 <Clock className="mt-0.5 size-[1.05rem] shrink-0 text-gold-400" strokeWidth={2} />
                 <span className="text-white/60">
-                  {SITE.hours}
+                  {site.hours}
                   <br />
-                  {SITE.saturdayHours}
+                  {site.saturdayHours}
                 </span>
               </li>
             </ul>
@@ -213,7 +215,7 @@ export function Footer() {
             </form>
 
             <div className="mt-8 flex items-center gap-3">
-              {SOCIALS.map((s) => (
+              {socials.map((s) => (
                 <a
                   key={s.name}
                   href={s.href}
@@ -234,9 +236,9 @@ export function Footer() {
       <div className="relative border-t border-white/10">
         <div className="container-page flex flex-col items-center justify-between gap-4 py-6 text-[0.8125rem] text-white/45 sm:flex-row">
           <p>
-            © {new Date().getFullYear()} {SITE.name}. All rights reserved.
+            © {new Date().getFullYear()} {site.name}. All rights reserved.
           </p>
-          <p className="font-display text-[0.9375rem] text-white/70 italic">"{SITE.tagline}"</p>
+          <p className="font-display text-[0.9375rem] text-white/70 italic">"{site.tagline}"</p>
           <div className="flex items-center gap-6">
             <Link to="/privacy" className="transition-colors hover:text-white">
               Privacy

@@ -28,7 +28,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: 't-02',
     quote:
-      'I live in Brussels. I had been burned once before by a broker who took a deposit and disappeared. Claudine sent me a video walking the boundary with the UPI on screen, then the RLA verification, then the contract. I signed from my kitchen table.',
+      'I live in Brussels. I had been burned once before by a broker who took a deposit and disappeared. Claudine sent me a video walking the boundary with the UPI on screen, then the NLA verification, then the contract. I signed from my kitchen table.',
     name: 'Yvette Mukamana',
     role: 'Nurse · Diaspora client',
     location: 'Brussels, Belgium',
@@ -213,13 +213,13 @@ export const INSIGHTS: Insight[] = [
       { type: 'h2', text: 'Never move on a UPI you have not seen verified' },
       {
         type: 'p',
-        text: 'Every parcel in Rwanda has a Unique Parcel Identifier. Ask for it before anything else. Then ask for the Rwanda Land Authority verification against that UPI — the owner name on the title must match the person you are dealing with, or their written mandate.',
+        text: 'Every parcel in Rwanda has a Unique Parcel Identifier. Ask for it before anything else. Then ask for the National Land Authority verification against that UPI — the owner name on the title must match the person you are dealing with, or their written mandate.',
       },
       { type: 'h2', text: 'The documents to insist on' },
       {
         type: 'list',
         items: [
-          'The UPI and a current RLA title search dated within 30 days',
+          'The UPI and a current NLA title search dated within 30 days',
           'A video walking the parcel boundary with the UPI visible on screen',
           'The seller’s national ID matched against the registered owner name',
           'A written, priced sale agreement — never a verbal figure',
@@ -346,7 +346,7 @@ export const INSIGHTS: Insight[] = [
         items: [
           'Confirmed tarmac access, not a promised road',
           'Land use classification that permits residential or hospitality development',
-          'Clean freehold or long leasehold title, verified at RLA',
+          'Clean freehold or long leasehold title, verified at NLA',
           'A price that still makes sense if the timeline slips two years — because timelines slip',
         ],
       },
@@ -379,7 +379,7 @@ export const HOME_FAQS: Faq[] = [
   {
     question: 'How do you verify that a property title is clean?',
     answer:
-      'Every parcel we list is checked at the Rwanda Land Authority against its UPI before it appears on the platform. We confirm the registered owner, the tenure type, the parcel size and any encumbrances. If the title is not clean, the listing does not go live — and we will not proceed with a transaction on it.',
+      'Every parcel we list is checked at the National Land Authority against its UPI before it appears on the platform. We confirm the registered owner, the tenure type, the parcel size and any encumbrances. If the title is not clean, the listing does not go live — and we will not proceed with a transaction on it.',
   },
   {
     question: 'What is the Wealth Cycle, in plain terms?',
@@ -389,7 +389,7 @@ export const HOME_FAQS: Faq[] = [
   {
     question: 'Can I buy from abroad without travelling to Rwanda?',
     answer:
-      'Yes — this is a large part of what we do. You receive video walkthroughs with the UPI visible, independent RLA title verification before any deposit, digital contracts you can sign from anywhere, and monthly photo reporting throughout any build. Payments go to a registered company account and every one is receipted.',
+      'Yes — this is a large part of what we do. You receive video walkthroughs with the UPI visible, independent NLA title verification before any deposit, digital contracts you can sign from anywhere, and monthly photo reporting throughout any build. Payments go to a registered company account and every one is receipted.',
   },
   {
     question: 'How much does your construction division charge?',

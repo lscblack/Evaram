@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { TRANSLATIONS, type TranslationKey } from '@/data/translations'
+import { useSiteConfig } from '@/lib/siteConfig'
 
 export type Locale = 'en' | 'rw' | 'fr'
 
@@ -32,6 +33,9 @@ const readStored = (): Locale => {
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(readStored)
+  // Strings come from the database so an admin can edit copy without a deploy;
+  // the compiled table is the fallback until bootstrap lands.
+  const { strings: remote } = useSiteConfig()
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next)
@@ -41,7 +45,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const t = useCallback(
     (key: TranslationKey, vars?: Record<string, string | number>) => {
-      const entry = TRANSLATIONS[key]
+      const entry = remote[key] ?? TRANSLATIONS[key]
       let value = entry?.[locale] ?? entry?.en ?? key
       if (vars) {
         for (const [name, replacement] of Object.entries(vars)) {
@@ -50,7 +54,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       }
       return value
     },
-    [locale],
+    [locale, remote],
   )
 
   const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t])

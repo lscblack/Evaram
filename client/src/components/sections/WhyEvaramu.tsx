@@ -1,12 +1,13 @@
 import { motion } from 'framer-motion'
 import { Check, X } from 'lucide-react'
-import { TRUST_POINTS } from '@/data/site'
+import { useBlock, useBlockItems } from '@/lib/queries'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 
 /** The seven gaps, from the business plan's competitor analysis. */
-const GAPS = [
+/** Fallback for `home` → `why_gaps` — the shipped copy. */
+const GAPS_FALLBACK: { gap: string; them: string; us: string }[] = [
   {
     gap: 'After the sale',
     them: 'Sell once, then disappear',
@@ -30,7 +31,7 @@ const GAPS = [
   {
     gap: 'Documentation',
     them: 'Verbal deals, no receipts, title disputes',
-    us: 'Digital contracts, cost tracking, RLA verification workflow',
+    us: 'Digital contracts, cost tracking, NLA verification workflow',
   },
   {
     gap: 'Following up a lead',
@@ -45,13 +46,26 @@ const GAPS = [
 ]
 
 export function WhyEvaramu() {
+  const gaps = useBlockItems(
+    'home',
+    'why_gaps',
+    GAPS_FALLBACK,
+  )
+  const block = useBlock('home', 'why', {
+    eyebrow: "Why Evaramu",
+    title: "There are 204 registered agencies in Rwanda.",
+    accent: "Almost none of them do this.",
+    body: "99% are single-owner informal operations with no systems, no branding and no technology. The few large formal players ignore the middle market entirely. Here is the difference, line by line.",
+  })
+  const points = useBlockItems<{ title: string; description: string; icon: string }>('home', 'trust_points')
+
   return (
     <section className="bg-surface py-16 lg:py-24">
       <div className="container-page">
         <SectionHeading
-          eyebrow="Why Evaramu"
-          title="There are 204 registered agencies in Rwanda."
-          accent="Almost none of them do this."
+          eyebrow={block.eyebrow}
+          title={block.title}
+          accent={block.accent}
           description="99% are single-owner informal operations with no systems, no branding and no technology. The few large formal players ignore the middle market entirely. Here is the difference, line by line."
         />
 
@@ -61,7 +75,7 @@ export function WhyEvaramu() {
           variants={stagger(0.09)}
           className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
         >
-          {TRUST_POINTS.map((point) => (
+          {points.map((point) => (
             <motion.div
               key={point.title}
               variants={fadeUp}
@@ -100,7 +114,7 @@ export function WhyEvaramu() {
           </div>
 
           <div className="divide-y divide-line bg-surface">
-            {GAPS.map((row, i) => (
+            {gaps.map((row, i) => (
               <motion.div
                 key={row.gap}
                 initial={{ opacity: 0, y: 14 }}

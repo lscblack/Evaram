@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import type { FormField } from '@/data/formConfig'
+import type { ApiFormField } from '@/types/api'
 import { cn } from '@/lib/utils'
 
 export type FieldValue = string | number | string[] | boolean | undefined
@@ -24,7 +24,7 @@ export function DynamicField({
   value,
   onChange,
 }: {
-  field: FormField
+  field: ApiFormField
   value: FieldValue
   onChange: (name: string, value: FieldValue) => void
 }) {
@@ -49,7 +49,7 @@ export function DynamicField({
       className="mb-2 block text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase"
     >
       {field.label}
-      {field.required && <span className="ml-1 text-gold-600">*</span>}
+      {field.is_required && <span className="ml-1 text-gold-600">*</span>}
     </label>
   )
 
@@ -60,7 +60,7 @@ export function DynamicField({
           {labelNode}
           <select
             id={field.name}
-            required={field.required}
+            required={field.is_required}
             value={(value as string) ?? ''}
             onChange={(e) => onChange(field.name, e.target.value)}
             className={INPUT}
@@ -80,7 +80,7 @@ export function DynamicField({
         <fieldset className={span}>
           <legend className="mb-2 text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase">
             {field.label}
-            {field.required && <span className="ml-1 text-gold-600">*</span>}
+            {field.is_required && <span className="ml-1 text-gold-600">*</span>}
           </legend>
           <div className="flex flex-wrap gap-2">
             {field.options?.map((option) => {
@@ -112,7 +112,7 @@ export function DynamicField({
         <fieldset className={span}>
           <legend className="mb-2 text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase">
             {field.label}
-            {field.required && <span className="ml-1 text-gold-600">*</span>}
+            {field.is_required && <span className="ml-1 text-gold-600">*</span>}
           </legend>
           <div className="flex flex-wrap gap-2">
             {field.options?.map((option) => {
@@ -172,7 +172,7 @@ export function DynamicField({
             id={field.name}
             type="number"
             inputMode="decimal"
-            required={field.required}
+            required={field.is_required}
             value={(value as number | string) ?? ''}
             onChange={(e) =>
               onChange(field.name, e.target.value === '' ? undefined : Number(e.target.value))
@@ -189,7 +189,7 @@ export function DynamicField({
           <input
             id={field.name}
             type="text"
-            required={field.required}
+            required={field.is_required}
             value={(value as string) ?? ''}
             onChange={(e) => onChange(field.name, e.target.value)}
             className={INPUT}

@@ -1,22 +1,34 @@
 import { motion } from 'framer-motion'
 import { ArrowUpRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { MARKET_STATS } from '@/data/site'
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiMarketStat } from '@/types/api'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 
 /** The market case — why property in Rwanda, in four numbers. */
 export function MarketStats() {
+  const block = useBlock('home', 'market', {
+    eyebrow: "The market",
+    title: "The demand is structural,",
+    accent: "not speculative.",
+    body: "Rwanda needs more than 30,000 new housing units a year and delivered 13.8% of that in 2024. The gap is not a trend that might reverse — it is arithmetic, and it is widening.",
+  })
+  const { data } = useQuery<ApiMarketStat[]>('/public/market-stats')
+  const stats = data ?? []
+
+  if (stats.length === 0) return null
+
   return (
     <section id="market" className="relative overflow-hidden bg-canvas py-16 lg:py-24">
       <div className="pointer-events-none absolute inset-0 bg-blueprint-light opacity-60" />
 
       <div className="container-page relative">
         <SectionHeading
-          eyebrow="The market"
-          title="The demand is structural,"
-          accent="not speculative."
+          eyebrow={block.eyebrow}
+          title={block.title}
+          accent={block.accent}
           description="Rwanda needs more than 30,000 new housing units a year and delivered 13.8% of that in 2024. The gap is not a trend that might reverse — it is arithmetic, and it is widening."
           action={
             <Link
@@ -37,7 +49,7 @@ export function MarketStats() {
           variants={stagger(0.1)}
           className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
         >
-          {MARKET_STATS.map((stat) => (
+          {stats.map((stat) => (
             <motion.div
               key={stat.label}
               variants={fadeUp}
@@ -49,7 +61,7 @@ export function MarketStats() {
               />
 
               <span className="relative grid size-12 place-items-center rounded-2xl bg-navy-900 text-gold-400 transition-colors duration-500 group-hover:bg-gold-500 group-hover:text-white">
-                <Icon name={stat.icon} className="size-[1.35rem]" strokeWidth={2} />
+                <Icon name={stat.icon ?? "TrendingUp"} className="size-[1.35rem]" strokeWidth={2} />
               </span>
 
               <p className="relative mt-6 font-display text-[1.75rem] leading-none font-semibold text-ink">

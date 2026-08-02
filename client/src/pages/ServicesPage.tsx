@@ -8,7 +8,9 @@ import { Icon } from '@/components/ui/Icon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { FaqSection } from '@/components/sections/FaqSection'
 import { DiasporaSection } from '@/components/sections/DiasporaSection'
-import { SERVICE_LINES } from '@/data/services'
+
+import { useBlockItems, useBlock, useQuery } from '@/lib/queries'
+import type { ApiFaq, ApiServiceLine } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
@@ -18,7 +20,8 @@ const DIVISION_STYLES: Record<string, string> = {
   Group: 'bg-emerald-50 text-emerald-700',
 }
 
-const MANAGEMENT_INCLUDES = [
+/** Fallback for `services` → `management_includes` — the shipped copy. */
+const MANAGEMENT_INCLUDES_FALLBACK: { body: string; title: string }[] = [
   {
     title: 'Tenant sourcing and screening',
     body: 'We market the unit, vet applicants and check they can actually afford it. Corporate and NGO tenants are targeted deliberately — they sign longer and pay on time.',
@@ -45,50 +48,50 @@ const MANAGEMENT_INCLUDES = [
   },
 ]
 
-const SERVICE_FAQS = [
-  {
-    question: 'Can I use just one service, or do I have to take the whole cycle?',
-    answer:
-      'Any service works standalone. Plenty of clients only ever buy through us, or only ever build. The Wealth Cycle is what we recommend if you want a portfolio, but nothing obliges you to it.',
-  },
-  {
-    question: 'What does property management cost?',
-    answer:
-      '10% of collected rent. Not 10% of contracted rent — of what actually arrives. If the unit sits empty or a tenant defaults, we do not earn either, which keeps us motivated to fix it.',
-  },
-  {
-    question: 'Do you handle the legal side of a transfer?',
-    answer:
-      'We prepare and manage the documentation, coordinate with the Rwanda Land Authority and work with retained legal support on contracts. For anything contentious we will tell you plainly that you need your own lawyer.',
-  },
-  {
-    question: 'What areas do you cover?',
-    answer:
-      'Kigali across all three districts is our core market. We also work the Bugesera airport corridor, Rwamagana, Musanze and Huye. Outside those, ask — we will tell you honestly whether we can serve you properly there.',
-  },
-  {
-    question: 'How do you charge for buying services?',
-    answer:
-      'On a purchase the commission usually sits with the seller, so a buyer typically pays us nothing. Where we are acting as a dedicated buying agent to source something off-market, that is agreed in writing up front.',
-  },
-]
 
 export default function ServicesPage() {
+  const seo = useBlock('services', 'seo', {
+    title: "Our Services — Real Estate, Construction & Property Management in Rwanda",
+    body: "Buy verified property, sell with proper marketing, build with fixed-price contracts, let us manage your rentals, or invest from abroad with full remote reporting. One company across the whole value chain.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const managementIncludes = useBlockItems(
+    'services',
+    'management_includes',
+    MANAGEMENT_INCLUDES_FALLBACK,
+  )
+  const heroBlock = useBlock('services', 'hero', {
+    eyebrow: "What we do",
+    title: "Six services.",
+    accent: "One company behind all of them.",
+    body: "Most agencies broker. Most builders build. Nobody manages what they sold you. Evaramu Realty and Evaramu Construction sit inside the same company, which is why we can add value to a property instead of just transacting on it.",
+  })
+  const valueChainBlock = useBlock('services', 'value_chain', {
+    eyebrow: "The full value chain",
+    title: "Find it. Buy it. Build it.",
+    accent: "Let it. Sell it. Repeat.",
+    body: "Each of these works on its own. Together they are the Wealth Cycle — which is the only reason a client of ours can go from one property to four in three years.",
+  })
+  const remoteReportingBlock = useBlock('services', 'remote_reporting', {
+    eyebrow: "Remote reporting",
+    title: "What lands in your inbox",
+    accent: "every month.",
+    body: "The diaspora segment is the most underserved in Rwanda precisely because distance makes accountability optional. We removed the option.",
+  })
+  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=services')
+  const faqs = faqData ?? []
+  const { data: serviceData } = useQuery<ApiServiceLine[]>('/public/services')
+  const services = serviceData ?? []
+
   return (
     <>
       <Seo
-        title="Our Services — Real Estate, Construction & Property Management in Rwanda"
-        description="Buy verified property, sell with proper marketing, build with fixed-price contracts, let us manage your rentals, or invest from abroad with full remote reporting. One company across the whole value chain."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/services"
-        keywords={[
-          'property services Rwanda',
-          'property management Kigali',
-          'real estate agency Rwanda',
-          'diaspora property services Rwanda',
-          'rental management Kigali',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
-          faqJsonLd(SERVICE_FAQS),
+          faqJsonLd(faqs),
           breadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: 'Services', path: '/services' },
@@ -97,9 +100,9 @@ export default function ServicesPage() {
       />
 
       <PageHero
-        eyebrow="What we do"
-        title="Six services."
-        accent="One company behind all of them."
+        eyebrow={heroBlock.eyebrow}
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="Most agencies broker. Most builders build. Nobody manages what they sold you. Evaramu Realty and Evaramu Construction sit inside the same company, which is why we can add value to a property instead of just transacting on it."
         crumbs={[{ label: 'Services' }]}
         image="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=2000&q=80"
@@ -115,9 +118,9 @@ export default function ServicesPage() {
       <section className="bg-canvas py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="The full value chain"
-            title="Find it. Buy it. Build it."
-            accent="Let it. Sell it. Repeat."
+            eyebrow={valueChainBlock.eyebrow}
+            title={valueChainBlock.title}
+            accent={valueChainBlock.accent}
             description="Each of these works on its own. Together they are the Wealth Cycle — which is the only reason a client of ours can go from one property to four in three years."
           />
 
@@ -126,7 +129,7 @@ export default function ServicesPage() {
             variants={stagger(0.08)}
             className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3"
           >
-            {SERVICE_LINES.map((service) => (
+            {services.map((service) => (
               <motion.article
                 key={service.id}
                 variants={fadeUp}
@@ -134,7 +137,7 @@ export default function ServicesPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <span className="grid size-13 place-items-center rounded-2xl bg-navy-900 text-gold-400 transition-all duration-500 group-hover:scale-105 group-hover:bg-gold-500 group-hover:text-white">
-                    <Icon name={service.icon} className="size-6" strokeWidth={1.9} />
+                    <Icon name={service.icon ?? "Building2"} className="size-6" strokeWidth={1.9} />
                   </span>
                   <span
                     className={cn(
@@ -157,7 +160,7 @@ export default function ServicesPage() {
                 </p>
 
                 <ul className="mt-6 space-y-2.5">
-                  {service.bullets.map((bullet) => (
+                  {(service.bullets ?? []).map((bullet) => (
                     <li
                       key={bullet}
                       className="flex items-start gap-2.5 text-[0.875rem] text-ink-soft"
@@ -169,7 +172,7 @@ export default function ServicesPage() {
                 </ul>
 
                 <a
-                  href={service.href}
+                  href={service.href ?? '/services'}
                   className="mt-auto inline-flex items-center gap-2 pt-7 text-[0.9375rem] font-bold text-ink transition-colors hover:text-gold-600 before:absolute before:inset-0"
                 >
                   Learn more
@@ -251,7 +254,7 @@ export default function ServicesPage() {
 
             <motion.div {...revealProps} variants={stagger(0.07)} className="lg:col-span-7">
               <div className="grid gap-4 sm:grid-cols-2">
-                {MANAGEMENT_INCLUDES.map((item) => (
+                {managementIncludes.map((item) => (
                   <motion.div
                     key={item.title}
                     variants={fadeUp}
@@ -285,9 +288,9 @@ export default function ServicesPage() {
         <div className="container-page relative">
           <SectionHeading
             tone="light"
-            eyebrow="Remote reporting"
-            title="What lands in your inbox"
-            accent="every month."
+            eyebrow={remoteReportingBlock.eyebrow}
+            title={remoteReportingBlock.title}
+            accent={remoteReportingBlock.accent}
             description="The diaspora segment is the most underserved in Rwanda precisely because distance makes accountability optional. We removed the option."
           />
 
@@ -400,7 +403,7 @@ export default function ServicesPage() {
       </section>
 
       <FaqSection
-        faqs={SERVICE_FAQS}
+        faqs={faqs}
         eyebrow="Service questions"
         title="Fees, coverage"
         accent="and commitments."

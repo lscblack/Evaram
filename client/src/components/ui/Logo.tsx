@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
+import { useSite } from '@/lib/siteConfig'
 import { cn } from '@/lib/utils'
-import { SITE } from '@/data/site'
 
 /**
  * The Evaramu lockup. `mark` renders the crest alone; `full` renders the
@@ -18,6 +18,7 @@ export function Logo({
   className?: string
   linkTo?: string | null
 }) {
+  const site = useSite()
   const inner = (
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       {/* Two crests: the navy original for light surfaces, a lifted variant so
@@ -66,7 +67,7 @@ export function Logo({
   if (!linkTo) return inner
 
   return (
-    <Link to={linkTo} aria-label={`${SITE.name} — home`} className="shrink-0">
+    <Link to={linkTo} aria-label={`${site.name} — home`} className="shrink-0">
       {inner}
     </Link>
   )

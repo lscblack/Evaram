@@ -32,18 +32,18 @@ import {
 } from 'lucide-react'
 import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
+import { BiddingPanel } from '@/components/ui/BiddingPanel'
+import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { ImmersiveViewer } from '@/components/ui/ImmersiveViewer'
 import { PropertyCard } from '@/components/ui/PropertyCard'
 import { SectionHeading } from '@/components/ui/SectionHeading'
-import {
-  getAgent,
-  getCategoryById,
-  getPropertyById,
-  getRelatedProperties,
-  getSubCategoryById,
-} from '@/data/properties'
-import { SITE } from '@/data/site'
+import { SpecificationPanel } from '@/components/ui/SpecificationPanel'
+import type { ApiCategory, ApiPropertyCard, ApiPropertyDetail } from '@/types/api'
+import { api } from '@/lib/api'
+import { useBlock, useQuery } from '@/lib/queries'
 import { buildDetailGroups, parseVideoLink } from '@/lib/propertyDetails'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useSite } from '@/lib/siteConfig'
 import { cn, formatArea, formatCurrency, formatDate } from '@/lib/utils'
 import NotFoundPage from '@/pages/NotFoundPage'
 
@@ -58,8 +58,21 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export default function PropertyDetailPage() {
+  const block = useBlock('property-detail', 'related', {
+    eyebrow: "You may also like",
+    title: "Similar properties",
+    accent: "worth a look.",
+  })
+  const site = useSite()
   const { id } = useParams()
-  const property = getPropertyById(Number(id))
+
+  const { data: property, loading, error } = useQuery<ApiPropertyDetail>(
+    id ? `/public/properties/${encodeURIComponent(id)}` : null,
+  )
+  const { data: taxonomy } = useQuery<ApiCategory[]>('/public/taxonomy')
+  const { data: related } = useQuery<ApiPropertyCard[]>(
+    property ? `/public/properties/${property.id}/related` : null,
+  )
 
   const [activeImage, setActiveImage] = useState(0)
   const [lightbox, setLightbox] = useState(false)
@@ -67,42 +80,55 @@ export default function PropertyDetailPage() {
   const [copied, setCopied] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
   const [enquirySent, setEnquirySent] = useState(false)
+  const [enquirySending, setEnquirySending] = useState(false)
+  const [enquiryError, setEnquiryError] = useState<string | null>(null)
+  const [enquiryCaptcha, setEnquiryCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
+  const [enquiry, setEnquiry] = useState({ name: '', contact: '' })
 
-  const detailGroups = useMemo(() => (property ? buildDetailGroups(property) : []), [property])
-  const related = useMemo(() => (property ? getRelatedProperties(property, 3) : []), [property])
+  const detailGroups = useMemo(
+    () => (property ? buildDetailGroups(property.details, taxonomy, property.subcategory_id) : []),
+    [property, taxonomy],
+  )
 
-  if (!property) return <NotFoundPage />
+  if (loading && !property) {
+    return (
+      <div className="container-page grid min-h-[60dvh] place-items-center">
+        <div className="size-8 animate-spin rounded-full border-2 border-line border-t-gold-500" />
+      </div>
+    )
+  }
+  if (error || !property) return <NotFoundPage />
 
-  const category = getCategoryById(property.category_id)
-  const subCategory = getSubCategoryById(property.subcategory_id)
-  const agent = getAgent(property.agent_id)
+  const agent = property.agent
   const video = parseVideoLink(property.video_link)
   const parcel = property.parcel_information
+  const images = property.media.filter((m) => m.kind === 'image' || m.kind === 'drone')
+  const hasTour = Boolean(property.vr_tour_url || property.video_360_url)
 
-  const bedrooms = property.details?.bedrooms as number | undefined
-  const bathrooms = property.details?.bathrooms as number | undefined
-  const builtArea = property.details?.built_area as number | undefined
+  const bedrooms = property.bedrooms ?? undefined
+  const bathrooms = property.bathrooms ?? undefined
+  const builtArea = property.built_area ?? undefined
   const constructionYear = property.details?.construction_year as number | undefined
 
   const price =
     property.intent === 'rent' && property.rent_amount
       ? property.rent_amount
-      : (property.estimated_amount ?? 0)
+      : (property.price ?? 0)
 
   const pricePerSqm = property.size ? Math.round(price / property.size) : null
 
   const copyUpi = async () => {
     try {
-      await navigator.clipboard.writeText(property.upi)
+      await navigator.clipboard.writeText(property.reference_number)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Clipboard access can be blocked — the UPI is on screen either way.
+      // Clipboard access can be blocked — the reference is on screen either way.
     }
   }
 
   const share = async () => {
-    const url = `${SITE.url}/properties/${property.id}`
+    const url = `${site.url}/properties/${property.slug}`
     if (navigator.share) {
       try {
         await navigator.share({ title: property.title, url })
@@ -120,16 +146,41 @@ export default function PropertyDetailPage() {
     }
   }
 
+  const sendEnquiry = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEnquirySending(true)
+    setEnquiryError(null)
+    // One field takes either an email or a phone; route it by the @.
+    const isEmail = enquiry.contact.includes('@')
+    try {
+      await api.post('/public/enquiries', {
+        property_id: property.id,
+        name: enquiry.name,
+        email: isEmail ? enquiry.contact : null,
+        phone: isEmail ? null : enquiry.contact,
+        message: `Enquiry about ${property.reference_number}`,
+        ...enquiryCaptcha,
+      })
+      setEnquirySent(true)
+    } catch (err) {
+      setEnquiryError(
+        err instanceof Error ? err.message : 'That did not send. Please try again.',
+      )
+    } finally {
+      setEnquirySending(false)
+    }
+  }
+
   const step = (delta: number) =>
-    setActiveImage((i) => (i + delta + property.images.length) % property.images.length)
+    setActiveImage((i) => (i + delta + images.length) % images.length)
 
   const listingJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: property.title,
     description: property.summary,
-    image: property.images.map((i) => i.url),
-    sku: property.upi,
+    image: images.map((i) => i.url),
+    sku: property.reference_number,
     offers: {
       '@type': 'Offer',
       price,
@@ -138,8 +189,8 @@ export default function PropertyDetailPage() {
         property.status === 'available'
           ? 'https://schema.org/InStock'
           : 'https://schema.org/LimitedAvailability',
-      url: `${SITE.url}/properties/${property.id}`,
-      seller: { '@type': 'Organization', name: SITE.name },
+      url: `${site.url}/properties/${property.slug}`,
+      seller: { '@type': 'Organization', name: site.name },
     },
   }
 
@@ -161,15 +212,15 @@ export default function PropertyDetailPage() {
     <>
       <Seo
         title={property.title}
-        description={property.summary}
-        path={`/properties/${property.id}`}
-        image={property.images[0]?.url}
+        description={property.summary ?? ''}
+        path={`/properties/${property.slug}`}
+        image={images[0]?.url}
         type="product"
         keywords={[
           property.district ?? '',
           property.sector ?? '',
-          category?.label ?? '',
-          subCategory?.label ?? '',
+          property.category_label ?? '',
+          property.subcategory_label ?? '',
           `property for ${property.intent} Rwanda`,
         ]}
         jsonLd={[
@@ -177,7 +228,7 @@ export default function PropertyDetailPage() {
           breadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: 'Properties', path: '/properties' },
-            { name: property.title, path: `/properties/${property.id}` },
+            { name: property.title, path: `/properties/${property.slug}` },
           ]),
         ]}
       />
@@ -207,7 +258,7 @@ export default function PropertyDetailPage() {
               <AnimatePresence mode="wait">
                 <motion.img
                   key={activeImage}
-                  src={property.images[activeImage]?.url}
+                  src={images[activeImage]?.url}
                   alt={`${property.title} — image ${activeImage + 1}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -218,7 +269,7 @@ export default function PropertyDetailPage() {
                 />
               </AnimatePresence>
 
-              {property.images.length > 1 && (
+              {images.length > 1 && (
                 <>
                   <button
                     type="button"
@@ -240,7 +291,7 @@ export default function PropertyDetailPage() {
               )}
 
               <span className="absolute bottom-4 left-4 rounded-full bg-navy-950/70 px-3 py-1.5 text-[0.8125rem] font-medium text-white backdrop-blur-md">
-                {activeImage + 1} / {property.images.length}
+                {activeImage + 1} / {images.length}
               </span>
 
               <div className="absolute top-4 right-4 flex gap-2">
@@ -269,7 +320,7 @@ export default function PropertyDetailPage() {
 
             {/* thumbnails + video */}
             <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-2">
-              {property.images.slice(0, video ? 3 : 4).map((image, i) => (
+              {images.slice(0, video || hasTour ? 3 : 4).map((image, i) => (
                 <button
                   key={image.id}
                   type="button"
@@ -342,12 +393,12 @@ export default function PropertyDetailPage() {
                     For {property.intent}
                   </span>
                   <span className="rounded-full border border-line-strong px-3 py-1.5 text-[0.6875rem] font-bold tracking-wide text-ink-soft uppercase">
-                    {category?.label} · {subCategory?.label}
+                    {property.category_label} · {property.subcategory_label}
                   </span>
                   {property.is_verified && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[0.6875rem] font-bold tracking-wide text-emerald-700 uppercase">
                       <ShieldCheck className="size-3.5" strokeWidth={2.6} />
-                      RLA verified
+                      NLA verified
                     </span>
                   )}
                 </motion.div>
@@ -399,9 +450,9 @@ export default function PropertyDetailPage() {
                   {property.summary}
                 </p>
 
-                {property.tags.length > 0 && (
+                {(property.tags?.length ?? 0) > 0 && (
                   <div className="mt-6 flex flex-wrap gap-2">
-                    {property.tags.map((tag) => (
+                    {(property.tags ?? []).map((tag) => (
                       <span
                         key={tag}
                         className="rounded-full border border-line-strong bg-surface px-3.5 py-1.5 text-[0.8125rem] font-medium text-ink-soft"
@@ -411,6 +462,11 @@ export default function PropertyDetailPage() {
                     ))}
                   </div>
                 )}
+              </motion.div>
+
+              {/* virtual tour · 360 video · surveyed outline */}
+              <motion.div {...revealProps} variants={fadeUp} className="mt-12">
+                <ImmersiveViewer property={property} />
               </motion.div>
 
               {/* parcel information */}
@@ -424,7 +480,7 @@ export default function PropertyDetailPage() {
                       </div>
                       {parcel.verified_on && (
                         <span className="text-[0.8125rem] text-white/55">
-                          Verified {formatDate(parcel.verified_on)} · {parcel.registrar}
+                          Verified {formatDate(String(parcel.verified_on))} · {String(parcel.registrar)}
                         </span>
                       )}
                     </div>
@@ -432,16 +488,16 @@ export default function PropertyDetailPage() {
                     <dl className="grid gap-x-8 gap-y-5 px-6 py-7 sm:grid-cols-2 sm:px-8 lg:grid-cols-3">
                       <div className="sm:col-span-2 lg:col-span-1">
                         <dt className="text-[0.75rem] font-semibold tracking-wide text-ink-muted uppercase">
-                          UPI
+                          Reference
                         </dt>
                         <dd className="mt-1.5 flex items-center gap-2">
                           <span className="font-mono text-[0.9375rem] font-semibold text-ink">
-                            {property.upi}
+                            {property.reference_number}
                           </span>
                           <button
                             type="button"
                             onClick={copyUpi}
-                            aria-label="Copy UPI"
+                            aria-label="Copy reference"
                             className="grid size-7 place-items-center rounded-lg bg-canvas-alt text-ink-soft transition-colors hover:bg-gold-500 hover:text-white"
                           >
                             {copied ? (
@@ -462,7 +518,9 @@ export default function PropertyDetailPage() {
                         { label: 'Land use', value: parcel.land_use },
                         {
                           label: 'Parcel size',
-                          value: parcel.parcel_size ? formatArea(parcel.parcel_size) : undefined,
+                          value: parcel.parcel_size
+                            ? formatArea(Number(parcel.parcel_size))
+                            : undefined,
                         },
                         { label: 'Tenure', value: property.right_type ?? parcel.tenure },
                         { label: 'Lease period', value: parcel.lease_period },
@@ -476,7 +534,7 @@ export default function PropertyDetailPage() {
                               {row.label}
                             </dt>
                             <dd className="mt-1.5 text-[0.9375rem] font-medium text-ink">
-                              {row.value}
+                              {String(row.value)}
                             </dd>
                           </div>
                         ))}
@@ -487,7 +545,7 @@ export default function PropertyDetailPage() {
                         className="mt-0.5 size-4 shrink-0 text-emerald-600"
                         strokeWidth={2.2}
                       />
-                      This parcel was checked against its UPI at the Rwanda Land Authority before
+                      This parcel was checked against its UPI at the National Land Authority before
                       listing. We re-run the search within 30 days of any transaction and share the
                       result with you in writing.
                     </p>
@@ -505,32 +563,9 @@ export default function PropertyDetailPage() {
                     Full specification
                   </motion.h2>
 
-                  <div className="mt-6 space-y-6">
-                    {detailGroups.map((group) => (
-                      <motion.div
-                        key={group.title}
-                        variants={fadeUp}
-                        className="overflow-hidden rounded-3xl border border-line bg-surface"
-                      >
-                        <h3 className="border-b border-line bg-canvas-alt px-6 py-3.5 text-[0.75rem] font-bold tracking-[0.16em] text-ink-soft uppercase sm:px-8">
-                          {group.title}
-                        </h3>
-                        <dl className="divide-y divide-line/70">
-                          {group.items.map((item) => (
-                            <div
-                              key={item.label}
-                              className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-6 py-3.5 transition-colors hover:bg-canvas sm:px-8"
-                            >
-                              <dt className="text-[0.9375rem] text-ink-muted">{item.label}</dt>
-                              <dd className="text-[0.9375rem] font-semibold text-ink">
-                                {item.value}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </motion.div>
-                    ))}
-                  </div>
+                  <motion.div variants={fadeUp} className="mt-6">
+                    <SpecificationPanel groups={detailGroups} />
+                  </motion.div>
                 </motion.div>
               )}
 
@@ -638,6 +673,33 @@ export default function PropertyDetailPage() {
             {/* ---- sticky sidebar ---- */}
             <aside className="lg:col-span-4">
               <div className="sticky top-24 space-y-5 pt-8">
+                {/* offers — only rendered when the listing invites them */}
+                <BiddingPanel property={property} />
+
+                {/* the owner's details, shown only where they have opted in */}
+                {property.show_owner_info && property.owner_name && (
+                  <div className="rounded-3xl border border-line bg-surface p-6">
+                    <p className="text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase">
+                      Listed by the owner
+                    </p>
+                    <p className="mt-2 font-display text-[1.0625rem] font-semibold text-ink">
+                      {property.owner_name}
+                    </p>
+                    {property.owner_contact && (
+                      <a
+                        href={`tel:${property.owner_contact.replace(/\s/g, '')}`}
+                        className="mt-1 inline-flex items-center gap-2 text-[0.875rem] text-ink-soft transition-colors hover:text-gold-600"
+                      >
+                        <Phone className="size-3.5" strokeWidth={2.2} />
+                        {property.owner_contact}
+                      </a>
+                    )}
+                    <p className="mt-3 text-[0.75rem] leading-relaxed text-ink-faint">
+                      Shared with the owner's consent. We still handle the paperwork.
+                    </p>
+                  </div>
+                )}
+
                 {/* price card */}
                 <motion.div
                   initial={{ opacity: 0, y: 24 }}
@@ -665,7 +727,7 @@ export default function PropertyDetailPage() {
                   <div className="mt-6 flex items-center gap-2 rounded-2xl bg-canvas-alt px-4 py-3">
                     <Hash className="size-4 shrink-0 text-gold-600" strokeWidth={2.4} />
                     <span className="font-mono text-[0.8125rem] font-medium text-ink-soft">
-                      {property.upi}
+                      {property.reference_number}
                     </span>
                   </div>
 
@@ -680,8 +742,8 @@ export default function PropertyDetailPage() {
                       Book a viewing
                     </Button>
                     <Button
-                      href={`${SITE.whatsappHref}?text=${encodeURIComponent(
-                        `Hello Evaramu, I'm interested in ${property.title} (UPI ${property.upi}).`,
+                      href={`${site.whatsappHref}?text=${encodeURIComponent(
+                        `Hello Evaramu, I'm interested in ${property.title} (ref ${property.reference_number}).`,
                       )}`}
                       variant="outline"
                       size="lg"
@@ -716,29 +778,29 @@ export default function PropertyDetailPage() {
 
                     <div className="mt-4 flex items-center gap-4">
                       <img
-                        src={agent.photo}
+                        src={agent.photo_url ?? undefined}
                         alt=""
                         aria-hidden
                         loading="lazy"
                         className="size-16 shrink-0 rounded-2xl object-cover"
                       />
                       <div className="min-w-0">
-                        <p className="font-display text-[1.0625rem] font-semibold text-ink">{agent.name}</p>
-                        <p className="text-[0.875rem] text-ink-muted">{agent.role}</p>
+                        <p className="font-display text-[1.0625rem] font-semibold text-ink">{agent.full_name}</p>
+                        <p className="text-[0.875rem] text-ink-muted">{agent.job_title}</p>
                         <p className="mt-1 flex items-center gap-1 text-[0.8125rem] text-ink-soft">
                           <Star className="size-3.5 fill-gold-400 text-gold-400" strokeWidth={0} />
-                          {agent.rating} · {agent.deals} deals closed
+                          {agent.rating} · {agent.deals_closed} deals closed
                         </p>
                       </div>
                     </div>
 
                     <p className="mt-4 text-[0.8125rem] text-ink-muted">
-                      Speaks {agent.languages.join(', ')}
+                      Speaks {(agent.languages ?? []).join(', ')}
                     </p>
 
                     <div className="mt-5 grid grid-cols-2 gap-2.5">
                       <a
-                        href={`tel:${agent.phone.replace(/\s/g, '')}`}
+                        href={`tel:${(agent.phone ?? '').replace(/\s/g, '')}`}
                         className="flex h-11 items-center justify-center gap-2 rounded-full border border-line text-[0.875rem] font-semibold text-ink transition-colors hover:border-ink-muted"
                       >
                         <Phone className="size-4" strokeWidth={2.2} />
@@ -774,17 +836,14 @@ export default function PropertyDetailPage() {
                     <div className="mt-5 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                       <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" strokeWidth={3} />
                       <p className="text-[0.875rem] leading-snug text-emerald-800">
-                        Request received. {agent?.name ?? 'Your consultant'} will be in touch within
+                        Request received. {agent?.full_name ?? 'Your consultant'} will be in touch within
                         two working hours.
                       </p>
                     </div>
                   ) : (
                     <form
                       className="mt-5 space-y-3"
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        setEnquirySent(true)
-                      }}
+                      onSubmit={sendEnquiry}
                     >
                       <label htmlFor="enq-name" className="sr-only">
                         Your name
@@ -792,6 +851,8 @@ export default function PropertyDetailPage() {
                       <input
                         id="enq-name"
                         required
+                        value={enquiry.name}
+                        onChange={(e) => setEnquiry((v) => ({ ...v, name: e.target.value }))}
                         placeholder="Your name"
                         className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
                       />
@@ -801,11 +862,29 @@ export default function PropertyDetailPage() {
                       <input
                         id="enq-contact"
                         required
+                        value={enquiry.contact}
+                        onChange={(e) => setEnquiry((v) => ({ ...v, contact: e.target.value }))}
                         placeholder="Email or phone number"
                         className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
                       />
-                      <Button type="submit" variant="primary" className="w-full">
-                        Send request
+                      <Captcha value={enquiryCaptcha} onChange={setEnquiryCaptcha} scope="enquiry" compact />
+
+                      {enquiryError && (
+                        <p
+                          role="alert"
+                          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[0.8125rem] text-red-700"
+                        >
+                          {enquiryError}
+                        </p>
+                      )}
+
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        className="w-full"
+                        disabled={enquirySending}
+                      >
+                        {enquirySending ? 'Sending…' : 'Send request'}
                       </Button>
                     </form>
                   )}
@@ -815,12 +894,12 @@ export default function PropertyDetailPage() {
           </div>
 
           {/* related */}
-          {related.length > 0 && (
+          {(related?.length ?? 0) > 0 && (
             <div className="mt-20 lg:mt-28">
               <SectionHeading
-                eyebrow="You may also like"
-                title="Similar properties"
-                accent="worth a look."
+                eyebrow={block.eyebrow}
+                title={block.title}
+                accent={block.accent}
                 action={
                   <Button
                     to="/properties"
@@ -836,7 +915,7 @@ export default function PropertyDetailPage() {
                 variants={stagger(0.08)}
                 className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
               >
-                {related.map((p, i) => (
+                {(related ?? []).map((p, i) => (
                   <PropertyCard key={p.id} property={p} index={i} />
                 ))}
               </motion.div>
@@ -881,7 +960,7 @@ export default function PropertyDetailPage() {
 
             <motion.img
               key={activeImage}
-              src={property.images[activeImage]?.url}
+              src={images[activeImage]?.url}
               alt={`${property.title} — image ${activeImage + 1}`}
               initial={{ opacity: 0, scale: 0.96 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -903,7 +982,7 @@ export default function PropertyDetailPage() {
             </button>
 
             <span className="absolute bottom-6 rounded-full bg-white/10 px-4 py-2 text-[0.875rem] text-white">
-              {activeImage + 1} / {property.images.length}
+              {activeImage + 1} / {images.length}
             </span>
           </motion.div>
         )}

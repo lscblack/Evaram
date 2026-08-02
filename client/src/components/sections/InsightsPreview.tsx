@@ -1,22 +1,35 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight, Clock } from 'lucide-react'
-import { INSIGHTS } from '@/data/content'
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiInsightCard, Page } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 import { formatDate } from '@/lib/utils'
 
 export function InsightsPreview() {
-  const [lead, ...rest] = INSIGHTS.filter((i) => i.featured).slice(0, 3)
+  const block = useBlock('home', 'insights', {
+    eyebrow: "Insights",
+    title: "We publish what we",
+    accent: "actually see.",
+    body: "Monthly market reports, wealth education and construction cost breakdowns. Almost no agent in Rwanda publishes anything useful — we treat that as an opportunity.",
+  })
+  const { data } = useQuery<Page<ApiInsightCard>>('/public/insights?per_page=8')
+  const posts = data?.items ?? []
+  // Editors flag what leads; if nothing is flagged the newest three still fill it.
+  const featured = posts.filter((p) => p.is_featured)
+  const [lead, ...rest] = (featured.length >= 3 ? featured : posts).slice(0, 3)
+
+  if (!lead) return null
 
   return (
     <section className="bg-canvas py-16 lg:py-24">
       <div className="container-page">
         <SectionHeading
-          eyebrow="Insights"
-          title="We publish what we"
-          accent="actually see."
+          eyebrow={block.eyebrow}
+          title={block.title}
+          accent={block.accent}
           description="Monthly market reports, wealth education and construction cost breakdowns. Almost no agent in Rwanda publishes anything useful — we treat that as an opportunity."
           action={
             <Button
@@ -46,7 +59,7 @@ export function InsightsPreview() {
           >
             <div className="relative h-64 overflow-hidden sm:h-80">
               <img
-                src={lead.cover}
+                src={lead.cover_url ?? undefined}
                 alt={lead.title}
                 loading="lazy"
                 className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
@@ -59,10 +72,10 @@ export function InsightsPreview() {
 
             <div className="flex flex-1 flex-col p-7">
               <div className="flex items-center gap-4 text-[0.8125rem] text-ink-muted">
-                <time dateTime={lead.publishedAt}>{formatDate(lead.publishedAt)}</time>
+                <time dateTime={lead.published_at ?? ''}>{formatDate(lead.published_at ?? '')}</time>
                 <span className="flex items-center gap-1.5">
                   <Clock className="size-3.5" strokeWidth={2.2} />
-                  {lead.readTime} min read
+                  {lead.read_time} min read
                 </span>
               </div>
 
@@ -78,8 +91,8 @@ export function InsightsPreview() {
 
               <div className="mt-auto flex items-center justify-between gap-4 pt-6">
                 <p className="text-[0.875rem] text-ink-muted">
-                  <span className="font-semibold text-ink">{lead.author}</span>
-                  <span className="block text-[0.8125rem] text-ink-muted">{lead.authorRole}</span>
+                  <span className="font-semibold text-ink">{lead.author_name}</span>
+                  <span className="block text-[0.8125rem] text-ink-muted">{lead.author_role}</span>
                 </p>
                 <span className="grid size-11 place-items-center rounded-full bg-accent-soft text-ink-soft transition-colors duration-300 group-hover:bg-gold-500 group-hover:text-white">
                   <ArrowUpRight className="size-5" strokeWidth={2.2} />
@@ -98,7 +111,7 @@ export function InsightsPreview() {
               >
                 <div className="hidden h-full w-40 shrink-0 overflow-hidden rounded-2xl sm:block lg:w-44">
                   <img
-                    src={post.cover}
+                    src={post.cover_url ?? undefined}
                     alt={post.title}
                     loading="lazy"
                     className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
@@ -121,10 +134,10 @@ export function InsightsPreview() {
                   </p>
 
                   <div className="mt-auto flex items-center gap-4 pt-4 text-[0.8125rem] text-ink-muted">
-                    <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+                    <time dateTime={post.published_at ?? ''}>{formatDate(post.published_at ?? '')}</time>
                     <span className="flex items-center gap-1.5">
                       <Clock className="size-3.5" strokeWidth={2.2} />
-                      {post.readTime} min
+                      {post.read_time} min
                     </span>
                   </div>
                 </div>

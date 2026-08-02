@@ -1,9 +1,9 @@
-import { SITE } from '@/data/site'
+import { siteUrl, useSite } from '@/lib/siteConfig'
 
 export interface SeoProps {
   title: string
   description: string
-  /** Path only, e.g. `/properties`. Combined with SITE.url for the canonical. */
+  /** Path only, e.g. `/properties`. Combined with the canonical site URL. */
   path?: string
   image?: string
   /** `website` for landing pages, `article` for insights posts. */
@@ -16,7 +16,7 @@ export interface SeoProps {
   author?: string
 }
 
-const DEFAULT_IMAGE = `${SITE.url}/brand/logo-horizontal.png`
+const DEFAULT_IMAGE = '/brand/logo-horizontal.png'
 
 const BASE_KEYWORDS = [
   'real estate Rwanda',
@@ -48,24 +48,25 @@ export function Seo({
   publishedTime,
   author,
 }: SeoProps) {
-  const fullTitle = title.includes(SITE.shortName) ? title : `${title} | ${SITE.name}`
-  const canonical = `${SITE.url}${path === '/' ? '' : path}`
+  const site = useSite()
+  const fullTitle = title.includes(site.shortName) ? title : `${title} | ${site.name}`
+  const canonical = `${site.url}${path === '/' ? '' : path}`
   const allKeywords = [...new Set([...keywords, ...BASE_KEYWORDS])].join(', ')
 
   const organization = {
     '@context': 'https://schema.org',
     '@type': 'RealEstateAgent',
-    '@id': `${SITE.url}#organization`,
-    name: SITE.name,
-    alternateName: SITE.shortName,
-    url: SITE.url,
-    logo: DEFAULT_IMAGE,
-    image: DEFAULT_IMAGE,
-    description: SITE.description,
-    slogan: SITE.tagline,
-    foundingDate: SITE.founded,
-    email: SITE.email,
-    telephone: SITE.phone,
+    '@id': `${site.url}#organization`,
+    name: site.name,
+    alternateName: site.shortName,
+    url: site.url,
+    logo: `${site.url}${site.ogImage}`,
+    image: `${site.url}${site.ogImage}`,
+    description: site.description,
+    slogan: site.tagline,
+    foundingDate: site.founded,
+    email: site.email,
+    telephone: site.phone,
     priceRange: 'RWF',
     areaServed: [
       { '@type': 'City', name: 'Kigali' },
@@ -108,7 +109,7 @@ export function Seo({
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={allKeywords} />
-      <meta name="author" content={author ?? SITE.name} />
+      <meta name="author" content={author ?? site.name} />
       <link rel="canonical" href={canonical} />
       {noIndex ? (
         <meta name="robots" content="noindex, nofollow" />
@@ -117,13 +118,13 @@ export function Seo({
       )}
 
       {/* Open Graph */}
-      <meta property="og:site_name" content={SITE.name} />
+      <meta property="og:site_name" content={site.name} />
       <meta property="og:type" content={type} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonical} />
       <meta property="og:image" content={image} />
-      <meta property="og:image:alt" content={`${SITE.name} — ${title}`} />
+      <meta property="og:image:alt" content={`${site.name} — ${title}`} />
       <meta property="og:locale" content="en_RW" />
       {publishedTime && <meta property="article:published_time" content={publishedTime} />}
 
@@ -132,7 +133,7 @@ export function Seo({
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
-      <meta name="twitter:site" content={SITE.handle} />
+      <meta name="twitter:site" content={site.handle} />
 
       {/* Geo */}
       <meta name="geo.region" content="RW-01" />
@@ -159,7 +160,7 @@ export function breadcrumbJsonLd(items: { name: string; path: string }[]) {
       '@type': 'ListItem',
       position: i + 1,
       name: item.name,
-      item: `${SITE.url}${item.path === '/' ? '' : item.path}`,
+      item: `${siteUrl()}${item.path === '/' ? '' : item.path}`,
     })),
   }
 }

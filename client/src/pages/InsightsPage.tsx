@@ -6,59 +6,96 @@ import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { PageHero } from '@/components/layout/PageHero'
 import { Button } from '@/components/ui/Button'
 import { Eyebrow } from '@/components/ui/Eyebrow'
-import { INSIGHTS, INSIGHT_CATEGORIES } from '@/data/content'
-import { SITE } from '@/data/site'
+import { api } from '@/lib/api'
+import { useI18n } from '@/lib/i18n'
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiInsightCard, Page } from '@/types/api'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useSite } from '@/lib/siteConfig'
 import { cn, formatDate } from '@/lib/utils'
 
 export default function InsightsPage() {
+  const seo = useBlock('insights', 'seo', {
+    title: "Insights & Market Reports — Rwanda Property",
+    body: "Kigali land price reports, rental yield analysis, construction cost breakdowns and practical guides for diaspora buyers. Published monthly by Evaramu Group Ltd.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const block = useBlock('insights', 'hero', {
+    eyebrow: "Insights",
+    title: "Almost no agent in Rwanda",
+    accent: "publishes anything useful.",
+    body: "We treat that as an opportunity. Monthly market reports, wealth education, construction costs and honest guides for buying from abroad — written by the people actually doing the deals.",
+  })
+  const site = useSite()
   const [category, setCategory] = useState<string>('All')
   const [query, setQuery] = useState('')
+  const { locale } = useI18n()
   const [subscribed, setSubscribed] = useState(false)
+  const [newsletterEmail, setNewsletterEmail] = useState('')
+
+  const subscribe = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await api.post('/public/newsletter', {
+        email: newsletterEmail,
+        locale,
+        source: 'insights',
+      })
+    } catch {
+      // A duplicate address is not worth an error state — the intent is the same.
+    }
+    setSubscribed(true)
+  }
+
+  // The archive is small enough to hold in one page, so filtering stays instant
+  // and the category pills can be derived from what is actually published.
+  const { data } = useQuery<Page<ApiInsightCard>>('/public/insights?per_page=48')
+  const posts = useMemo(() => data?.items ?? [], [data])
+
+  const categories = useMemo(
+    () => ['All', ...Array.from(new Set(posts.map((p) => p.category)))],
+    [posts],
+  )
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    return INSIGHTS.filter((post) => {
-      if (category !== 'All' && post.category !== category) return false
-      if (!needle) return true
-      return [post.title, post.excerpt, post.author, ...post.tags]
-        .join(' ')
-        .toLowerCase()
-        .includes(needle)
-    }).sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))
-  }, [category, query])
+    return posts
+      .filter((post) => {
+        if (category !== 'All' && post.category !== category) return false
+        if (!needle) return true
+        return [post.title, post.excerpt ?? '', post.author_name ?? '', ...(post.tags ?? [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(needle)
+      })
+      .sort((a, b) => +new Date(b.published_at ?? 0) - +new Date(a.published_at ?? 0))
+  }, [category, query, posts])
 
   const [lead, ...rest] = results
 
   const blogJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Blog',
-    name: `${SITE.name} — Insights`,
-    url: `${SITE.url}/insights`,
-    blogPost: INSIGHTS.map((post) => ({
+    name: `${site.name} — Insights`,
+    url: `${site.url}/insights`,
+    blogPost: posts.map((post) => ({
       '@type': 'BlogPosting',
       headline: post.title,
       description: post.excerpt,
-      datePublished: post.publishedAt,
-      author: { '@type': 'Person', name: post.author },
-      url: `${SITE.url}/insights/${post.slug}`,
-      image: post.cover,
+      datePublished: post.published_at,
+      author: { '@type': 'Person', name: post.author_name },
+      url: `${site.url}/insights/${post.slug}`,
+      image: post.cover_url,
     })),
   }
 
   return (
     <>
       <Seo
-        title="Insights & Market Reports — Rwanda Property"
-        description="Kigali land price reports, rental yield analysis, construction cost breakdowns and practical guides for diaspora buyers. Published monthly by Evaramu Group Ltd."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/insights"
-        keywords={[
-          'Kigali property market report',
-          'Rwanda land prices',
-          'rental yields Kigali',
-          'construction cost Rwanda',
-          'Rwanda real estate insights',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
           blogJsonLd,
           breadcrumbJsonLd([
@@ -69,9 +106,9 @@ export default function InsightsPage() {
       />
 
       <PageHero
-        eyebrow="Insights"
-        title="Almost no agent in Rwanda"
-        accent="publishes anything useful."
+        eyebrow={block.eyebrow}
+        title={block.title}
+        accent={block.accent}
         description="We treat that as an opportunity. Monthly market reports, wealth education, construction costs and honest guides for buying from abroad — written by the people actually doing the deals."
         crumbs={[{ label: 'Insights' }]}
         image="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2000&q=80"
@@ -87,7 +124,7 @@ export default function InsightsPage() {
             className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"
           >
             <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 [&::-webkit-scrollbar]:hidden">
-              {INSIGHT_CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -164,7 +201,7 @@ export default function InsightsPage() {
               >
                 <div className="relative h-64 overflow-hidden sm:h-80 lg:h-auto">
                   <img
-                    src={lead.cover}
+                    src={lead.cover_url ?? undefined}
                     alt={lead.title}
                     className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
                   />
@@ -190,12 +227,12 @@ export default function InsightsPage() {
                   </p>
 
                   <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.875rem] text-ink-muted">
-                    <span className="font-semibold text-ink">{lead.author}</span>
-                    <span>{lead.authorRole}</span>
-                    <time dateTime={lead.publishedAt}>{formatDate(lead.publishedAt)}</time>
+                    <span className="font-semibold text-ink">{lead.author_name}</span>
+                    <span>{lead.author_role}</span>
+                    <time dateTime={lead.published_at ?? ''}>{formatDate(lead.published_at ?? '')}</time>
                     <span className="flex items-center gap-1.5">
                       <Clock className="size-3.5" strokeWidth={2.2} />
-                      {lead.readTime} min read
+                      {lead.read_time} min read
                     </span>
                   </div>
 
@@ -226,7 +263,7 @@ export default function InsightsPage() {
                     >
                       <div className="relative h-52 overflow-hidden">
                         <img
-                          src={post.cover}
+                          src={post.cover_url ?? undefined}
                           alt={post.title}
                           loading="lazy"
                           className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
@@ -252,11 +289,11 @@ export default function InsightsPage() {
                         </p>
 
                         <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-4 text-[0.8125rem] text-ink-muted">
-                          <span className="font-semibold text-ink-soft">{post.author}</span>
-                          <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+                          <span className="font-semibold text-ink-soft">{post.author_name}</span>
+                          <time dateTime={post.published_at ?? ''}>{formatDate(post.published_at ?? '')}</time>
                           <span className="flex items-center gap-1.5">
                             <Clock className="size-3.5" strokeWidth={2.2} />
-                            {post.readTime} min
+                            {post.read_time} min
                           </span>
                         </div>
                       </div>
@@ -266,7 +303,7 @@ export default function InsightsPage() {
               )}
 
               <p className="mt-10 text-center text-[0.875rem] text-ink-muted">
-                Showing {results.length} of {INSIGHTS.length} articles
+                Showing {results.length} of {posts.length} articles
               </p>
             </>
           )}
@@ -303,10 +340,7 @@ export default function InsightsPage() {
 
               <div className="lg:col-span-5">
                 <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    setSubscribed(true)
-                  }}
+                  onSubmit={subscribe}
                 >
                   <label htmlFor="report-email" className="sr-only">
                     Email address
@@ -316,6 +350,8 @@ export default function InsightsPage() {
                       id="report-email"
                       type="email"
                       required
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
                       placeholder="you@example.com"
                       className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-[0.9375rem] text-white placeholder:text-white/35 focus:outline-none"
                     />

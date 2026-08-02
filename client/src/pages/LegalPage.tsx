@@ -4,8 +4,8 @@ import { Mail, ShieldCheck } from 'lucide-react'
 import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { PageHero } from '@/components/layout/PageHero'
 import { Button } from '@/components/ui/Button'
-import { SITE } from '@/data/site'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useSite } from '@/lib/siteConfig'
 
 interface LegalSection {
   heading: string
@@ -46,7 +46,7 @@ const PRIVACY: LegalDoc = {
       heading: 'Why we hold it',
       bullets: [
         'To respond to your enquiry and give you accurate advice.',
-        'To verify land titles with the Rwanda Land Authority on your behalf.',
+        'To verify land titles with the National Land Authority on your behalf.',
         'To prepare contracts, invoices and receipts, and to meet our record-keeping obligations.',
         'To send you the monthly Kigali Market Report, if and only if you asked for it.',
       ],
@@ -54,7 +54,7 @@ const PRIVACY: LegalDoc = {
     {
       heading: 'Who we share it with',
       paragraphs: [
-        'We do not sell your personal information to anyone, ever. We share it only where it is necessary to complete work you have instructed us to do — for example with the Rwanda Land Authority when verifying a title, with retained legal counsel when preparing a contract, or with a sub-contractor who needs site access details.',
+        'We do not sell your personal information to anyone, ever. We share it only where it is necessary to complete work you have instructed us to do — for example with the National Land Authority when verifying a title, with retained legal counsel when preparing a contract, or with a sub-contractor who needs site access details.',
         'Every party we share information with is bound to use it only for that purpose.',
       ],
     },
@@ -93,7 +93,7 @@ const TERMS: LegalDoc = {
     {
       heading: 'About the listings on this site',
       paragraphs: [
-        'Every property listed here has been checked against its Unique Parcel Identifier at the Rwanda Land Authority before publication. However, listings are marketing material, not a warranty of title.',
+        'Every property listed here has been checked against its Unique Parcel Identifier at the National Land Authority before publication. However, listings are marketing material, not a warranty of title.',
         'Before completing any transaction we re-run the title search within 30 days and share the result with you in writing. Prices, availability and specifications are indicative and may change without notice.',
       ],
     },
@@ -125,7 +125,7 @@ const TERMS: LegalDoc = {
       bullets: [
         'Information you give us about a property must be accurate to the best of your knowledge.',
         'If you list a property you must be the registered owner or hold a written mandate from them.',
-        'You agree to us verifying any title you present to us at the Rwanda Land Authority.',
+        'You agree to us verifying any title you present to us at the National Land Authority.',
       ],
     },
     {
@@ -144,6 +144,7 @@ const TERMS: LegalDoc = {
 }
 
 export default function LegalPage() {
+  const site = useSite()
   const { pathname } = useLocation()
   const isPrivacy = pathname.startsWith('/privacy')
   const doc = isPrivacy ? PRIVACY : TERMS
@@ -214,12 +215,12 @@ export default function LegalPage() {
                     Write to us and a person will answer — not a template.
                   </p>
                   <Button
-                    href={`mailto:${SITE.email}`}
+                    href={`mailto:${site.email}`}
                     variant="outline"
                     className="mt-5 w-full"
                     leading={<Mail className="size-[1.05rem]" strokeWidth={2.2} />}
                   >
-                    {SITE.email}
+                    {site.email}
                   </Button>
                 </div>
               </div>
@@ -275,7 +276,7 @@ export default function LegalPage() {
               </div>
 
               <p className="mt-6 text-[0.875rem] leading-relaxed text-ink-muted">
-                {SITE.name} · {SITE.rdb} · {SITE.address}
+                {site.name} · {site.rdb} · {site.address}
               </p>
             </motion.div>
           </div>

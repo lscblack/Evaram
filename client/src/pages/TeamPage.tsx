@@ -7,12 +7,14 @@ import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { SocialIcon } from '@/components/ui/SocialIcon'
-import { AGENTS, DIVISIONS } from '@/data/properties'
-import { SITE } from '@/data/site'
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiTeamMember } from '@/types/api'
 import { useT } from '@/lib/i18n'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useSite } from '@/lib/siteConfig'
 import { cn } from '@/lib/utils'
 
+const DIVISIONS = ['All', 'Realty', 'Construction', 'Group'] as const
 type Division = (typeof DIVISIONS)[number]
 
 const DIVISION_BLURB: Record<string, string> = {
@@ -22,45 +24,60 @@ const DIVISION_BLURB: Record<string, string> = {
 }
 
 export default function TeamPage() {
+  const seo = useBlock('team', 'seo', {
+    title: "Our Team — The People Behind Evaramu",
+    body: "Meet the Evaramu Group Ltd team in Kigali: property consultants, diaspora relations, construction supervisors, title officers and finance. Every person owns a function end to end.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const heroBlock = useBlock('team', 'hero', {
+    title: "Small team.",
+    accent: "Everyone owns something.",
+    body: "We hire slow and place people on strength, not convenience. Nobody here is buried in a hierarchy — each of these people runs a function end to end and reports on it at the monthly board meeting.",
+  })
+  const howWeHireBlock = useBlock('team', 'how_we_hire', {
+    eyebrow: "How we hire",
+    title: "Hire slow.",
+    accent: "Fire fast.",
+    body: "Not because we enjoy it, but because in a business built entirely on trust, one person in the wrong seat costs everybody.",
+  })
+  const site = useSite()
   const t = useT()
   const [division, setDivision] = useState<Division>('All')
 
+  const { data } = useQuery<ApiTeamMember[]>('/public/team')
+  const team = useMemo(() => data ?? [], [data])
+
   const people = useMemo(
-    () => (division === 'All' ? AGENTS : AGENTS.filter((a) => a.division === division)),
-    [division],
+    () => (division === 'All' ? team : team.filter((a) => a.division === division)),
+    [division, team],
   )
 
-  const totalDeals = AGENTS.reduce((n, a) => n + a.deals, 0)
-  const languages = new Set(AGENTS.flatMap((a) => a.languages))
+  const totalDeals = team.reduce((n, a) => n + a.deals_closed, 0)
+  const languages = new Set(team.flatMap((a) => a.languages ?? []))
 
   const teamJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: SITE.name,
-    url: `${SITE.url}/team`,
-    employee: AGENTS.map((a) => ({
+    name: site.name,
+    url: `${site.url}/team`,
+    employee: team.map((a) => ({
       '@type': 'Person',
-      name: a.name,
-      jobTitle: a.role,
+      name: a.full_name,
+      jobTitle: a.job_title,
       email: a.email,
       telephone: a.phone,
       knowsLanguage: a.languages,
-      worksFor: { '@type': 'Organization', name: SITE.name },
+      worksFor: { '@type': 'Organization', name: site.name },
     })),
   }
 
   return (
     <>
       <Seo
-        title="Our Team — The People Behind Evaramu"
-        description="Meet the Evaramu Group Ltd team in Kigali: property consultants, diaspora relations, construction supervisors, title officers and finance. Every person owns a function end to end."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/team"
-        keywords={[
-          'Evaramu team',
-          'real estate agents Kigali',
-          'property consultants Rwanda',
-          'construction team Kigali',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
           teamJsonLd,
           breadcrumbJsonLd([
@@ -72,13 +89,13 @@ export default function TeamPage() {
 
       <PageHero
         eyebrow={t('team.title')}
-        title="Small team."
-        accent="Everyone owns something."
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="We hire slow and place people on strength, not convenience. Nobody here is buried in a hierarchy — each of these people runs a function end to end and reports on it at the monthly board meeting."
         crumbs={[{ label: t('team.title') }]}
         image="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=2000&q=80"
         stats={[
-          { value: String(AGENTS.length), label: 'People across the group' },
+          { value: String(team.length), label: 'People across the group' },
           { value: `${totalDeals}+`, label: 'Transactions handled' },
           { value: String(languages.size), label: 'Languages spoken' },
           { value: '2h', label: 'Lead response standard' },
@@ -108,7 +125,7 @@ export default function TeamPage() {
 
             <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
               {DIVISIONS.map((d) => {
-                const count = d === 'All' ? AGENTS.length : AGENTS.filter((a) => a.division === d).length
+                const count = d === 'All' ? team.length : team.filter((a) => a.division === d).length
                 return (
                   <button
                     key={d}
@@ -143,8 +160,8 @@ export default function TeamPage() {
                 {/* portrait */}
                 <div className="relative overflow-hidden rounded-2xl bg-canvas-alt">
                   <img
-                    src={person.photo}
-                    alt={person.name}
+                    src={person.photo_url ?? undefined}
+                    alt={person.full_name}
                     loading="lazy"
                     className="aspect-4/5 w-full object-cover grayscale transition-all duration-700 ease-brand group-hover:scale-[1.03] group-hover:grayscale-0"
                   />
@@ -153,32 +170,32 @@ export default function TeamPage() {
                   <div className="absolute inset-x-0 bottom-0 translate-y-full bg-ink/90 px-4 py-3 backdrop-blur-sm transition-transform duration-400 ease-brand group-hover:translate-y-0 group-focus-within:translate-y-0">
                     <div className="flex items-center gap-2">
                       <a
-                        href={`tel:${person.phone.replace(/\s/g, '')}`}
-                        aria-label={`${t('team.call')} ${person.name}`}
+                        href={`tel:${(person.phone ?? '').replace(/\s/g, '')}`}
+                        aria-label={`${t('team.call')} ${person.full_name}`}
                         className="grid size-8 place-items-center rounded-full bg-canvas/15 text-canvas transition-colors hover:bg-gold-500 hover:text-white"
                       >
                         <Phone className="size-3.5" strokeWidth={2.2} />
                       </a>
                       <a
                         href={`mailto:${person.email}`}
-                        aria-label={`${t('team.email')} ${person.name}`}
+                        aria-label={`${t('team.email')} ${person.full_name}`}
                         className="grid size-8 place-items-center rounded-full bg-canvas/15 text-canvas transition-colors hover:bg-gold-500 hover:text-white"
                       >
                         <Mail className="size-3.5" strokeWidth={2.2} />
                       </a>
-                      {person.linkedin && (
+                      {person.linkedin_url && (
                         <a
-                          href={person.linkedin}
+                          href={person.linkedin_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          aria-label={`${person.name} on LinkedIn`}
+                          aria-label={`${person.full_name} on LinkedIn`}
                           className="grid size-8 place-items-center rounded-full bg-canvas/15 text-canvas transition-colors hover:bg-gold-500 hover:text-white"
                         >
                           <SocialIcon name="Linkedin" className="size-3.5" />
                         </a>
                       )}
                       <span className="ml-auto text-[0.75rem] text-canvas/60">
-                        {t('common.from')} {person.since}
+                        {t('common.from')} {person.joined_year}
                       </span>
                     </div>
                   </div>
@@ -188,14 +205,14 @@ export default function TeamPage() {
                 <div className="mt-4">
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="font-display text-lg leading-tight font-semibold text-ink">
-                      {person.name}
+                      {person.full_name}
                     </h3>
                     <span className="shrink-0 text-[0.6875rem] font-semibold tracking-wide text-ink-faint uppercase">
                       {person.division}
                     </span>
                   </div>
 
-                  <p className="mt-1 text-[0.875rem] font-medium text-gold-600">{person.role}</p>
+                  <p className="mt-1 text-[0.875rem] font-medium text-gold-600">{person.job_title}</p>
 
                   <p className="mt-3 text-[0.875rem] leading-relaxed text-ink-muted">
                     {person.bio}
@@ -204,21 +221,21 @@ export default function TeamPage() {
                   <dl className="mt-4 space-y-1.5 border-t border-line pt-4 text-[0.8125rem]">
                     <div className="flex gap-2">
                       <dt className="w-20 shrink-0 text-ink-faint">{t('team.specialties')}</dt>
-                      <dd className="text-ink-soft">{person.specialties.join(', ')}</dd>
+                      <dd className="text-ink-soft">{(person.specialties ?? []).join(', ')}</dd>
                     </div>
                     <div className="flex gap-2">
                       <dt className="w-20 shrink-0 text-ink-faint">Covers</dt>
-                      <dd className="text-ink-soft">{person.covers.join(', ')}</dd>
+                      <dd className="text-ink-soft">{(person.covers ?? []).join(', ')}</dd>
                     </div>
                     <div className="flex gap-2">
                       <dt className="w-20 shrink-0 text-ink-faint">{t('team.speaks')}</dt>
-                      <dd className="text-ink-soft">{person.languages.join(', ')}</dd>
+                      <dd className="text-ink-soft">{(person.languages ?? []).join(', ')}</dd>
                     </div>
-                    {person.deals > 0 && (
+                    {person.deals_closed > 0 && (
                       <div className="flex gap-2">
                         <dt className="w-20 shrink-0 text-ink-faint">Record</dt>
                         <dd className="text-ink-soft">
-                          {person.deals} {t('team.deals')} · {person.rating}/5
+                          {person.deals_closed} {t('team.deals')} · {person.rating}/5
                         </dd>
                       </div>
                     )}
@@ -234,9 +251,9 @@ export default function TeamPage() {
       <section className="border-y border-line bg-canvas-alt py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="How we hire"
-            title="Hire slow."
-            accent="Fire fast."
+            eyebrow={howWeHireBlock.eyebrow}
+            title={howWeHireBlock.title}
+            accent={howWeHireBlock.accent}
             description="Not because we enjoy it, but because in a business built entirely on trust, one person in the wrong seat costs everybody."
           />
 

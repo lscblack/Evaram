@@ -156,9 +156,9 @@ export const MARKET_STATS = [
 
 export const TRUST_POINTS = [
   {
-    title: 'Every title verified at RLA',
+    title: 'Every title verified at NLA',
     description:
-      'No transaction moves forward without clean confirmation from the Rwanda Land Authority. We would rather lose a deal than hand you a dispute.',
+      'No transaction moves forward without clean confirmation from the National Land Authority. We would rather lose a deal than hand you a dispute.',
     icon: 'ShieldCheck',
   },
   {

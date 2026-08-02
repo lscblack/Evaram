@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { CATEGORIES, PROPERTIES } from '@/data/properties'
+import type { ApiPropertyCard, CategorySummary, Page as ApiPage } from '@/types/api'
+import { useBlock, useQuery } from '@/lib/queries'
+import { qs } from '@/lib/api'
 import { PropertyCard } from '@/components/ui/PropertyCard'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
@@ -13,39 +15,55 @@ const FILTERS = [
   { id: 'featured', label: 'Featured' },
   { id: 'residential', label: 'Residential' },
   { id: 'commercial', label: 'Commercial' },
-  { id: 'land', label: 'Land & plots' },
+  { id: 'agricultural', label: 'Agricultural' },
   { id: 'rent', label: 'To rent' },
 ]
 
 export function FeaturedProperties() {
+  const block = useBlock('home', 'featured', {
+    eyebrow: "Current listings",
+    title: "Verified properties,",
+    accent: "ready to move on.",
+    body: "Every listing below has been checked against its UPI at the National Land Authority. You see the parcel size, the tenure and the coordinates before you ever pick up the phone.",
+  })
   const [filter, setFilter] = useState('featured')
 
-  const visible = useMemo(() => {
-    const byCategoryName = (name: string) => CATEGORIES.find((c) => c.name === name)?.id
+  const { data: categories } = useQuery<CategorySummary[]>('/public/categories')
 
+  // Each tab is a different server query rather than a client-side slice, so
+  // the grid always reflects what is actually published.
+  const path = useMemo(() => {
+    const base = '/public/properties'
     switch (filter) {
       case 'residential':
-        return PROPERTIES.filter((p) => p.category_id === byCategoryName('residential'))
+        return base + qs({ category: 'residential', per_page: 6 })
       case 'commercial':
-        return PROPERTIES.filter((p) => p.category_id === byCategoryName('commercial'))
-      case 'land':
-        // Every sub-category whose label starts with "Land" or is a plot
-        return PROPERTIES.filter((p) => [301, 302, 401, 402, 501, 601, 101, 201].includes(p.subcategory_id))
+        return base + qs({ category: 'commercial', per_page: 6 })
+      case 'agricultural':
+        return base + qs({ category: 'agricultural', per_page: 6 })
       case 'rent':
-        return PROPERTIES.filter((p) => p.intent === 'rent')
+        return base + qs({ intent: 'rent', per_page: 6 })
       default:
-        return PROPERTIES.filter((p) => p.is_featured)
+        return '/public/properties/featured' + qs({ limit: 6 })
     }
   }, [filter])
+
+  const { data, loading } = useQuery<ApiPage<ApiPropertyCard> | ApiPropertyCard[]>(path)
+  const visible = Array.isArray(data) ? data : (data?.items ?? [])
+
+  const availableFilters = FILTERS.filter((f) => {
+    if (f.id === 'featured' || f.id === 'rent') return true
+    return (categories ?? []).some((c) => c.slug === f.id && c.property_count > 0)
+  })
 
   return (
     <section className="bg-canvas-alt py-16 lg:py-24">
       <div className="container-page">
         <SectionHeading
-          eyebrow="Current listings"
-          title="Verified properties,"
-          accent="ready to move on."
-          description="Every listing below has been checked against its UPI at the Rwanda Land Authority. You see the parcel size, the tenure and the coordinates before you ever pick up the phone."
+          eyebrow={block.eyebrow}
+          title={block.title}
+          accent={block.accent}
+          description="Every listing below has been checked against its UPI at the National Land Authority. You see the parcel size, the tenure and the coordinates before you ever pick up the phone."
           action={
             <Button
               to="/properties"
@@ -68,7 +86,7 @@ export function FeaturedProperties() {
           variants={fadeUp}
           className="mt-10 -mx-5 flex gap-2 overflow-x-auto px-5 pb-2 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden"
         >
-          {FILTERS.map((f) => (
+          {availableFilters.map((f) => (
             <button
               key={f.id}
               type="button"
@@ -97,12 +115,12 @@ export function FeaturedProperties() {
           variants={stagger(0.08)}
           className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {visible.slice(0, 6).map((property, i) => (
+          {visible.map((property, i) => (
             <PropertyCard key={property.id} property={property} index={i} />
           ))}
         </motion.div>
 
-        {visible.length === 0 && (
+        {!loading && visible.length === 0 && (
           <p className="mt-12 text-center text-ink-muted">
             Nothing in this category right now — {' '}
             <a href="/contact" className="font-semibold text-gold-600 hover:underline">

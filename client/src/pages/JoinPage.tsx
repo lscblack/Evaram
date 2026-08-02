@@ -9,7 +9,10 @@ import { Icon } from '@/components/ui/Icon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { Counter } from '@/components/ui/Counter'
 import { FaqSection } from '@/components/sections/FaqSection'
-import { AGENTS } from '@/data/properties'
+import type { ApiFaq, ApiTeamMember } from '@/types/api'
+import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { api } from '@/lib/api'
+import { useBlockItems, useBlock, useQuery } from '@/lib/queries'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 import { cn, formatCompactCurrency, formatCurrency } from '@/lib/utils'
 
@@ -62,7 +65,7 @@ const ROLES: Role[] = [
     ],
     requirements: [
       'Written mandate from the owner on any property you introduce',
-      'Willingness to have every title verified at RLA',
+      'Willingness to have every title verified at NLA',
       'No verbal-only arrangements with sellers',
       'Reference from at least one past transaction',
     ],
@@ -109,7 +112,8 @@ const ROLES: Role[] = [
   },
 ]
 
-const CULTURE_RULES = [
+/** Fallback for `join` → `culture_rules` — the shipped copy. */
+const CULTURE_RULES_FALLBACK: { body: string; title: string }[] = [
   {
     title: 'Every deal is documented',
     body: 'No verbal-only agreements, inside or outside the company. If it is not written down, it did not happen.',
@@ -132,40 +136,91 @@ const CULTURE_RULES = [
   },
 ]
 
-const JOIN_FAQS = [
-  {
-    question: 'Do I need a licence or formal qualification?',
-    answer:
-      'For a commission agent role, no — we care about your network, your follow-up and your honesty. For construction roles we want to see completed work. For staff roles we want evidence you have actually done the job before.',
-  },
-  {
-    question: 'Is this employment or commission-only?',
-    answer:
-      'Sales agents and broker partners are commission-based, which means uncapped earning but no salary. Sub-contractors are paid per project. Full-time roles are salaried with a performance component. We tell you which is which before you apply.',
-  },
-  {
-    question: 'When do I actually get paid?',
-    answer:
-      'Commission on completion of the transaction, not on introduction. Sub-contractors are paid against completed milestones. Everyone is paid to a documented schedule — chasing invoices is not part of working here.',
-  },
-  {
-    question: 'I broker informally already. Why would I join you?',
-    answer:
-      'Because a brand opens doors that a phone number does not. You get professional marketing on your listings, title verification that protects you from a bad deal, documentation that means you actually get paid, and leads from a marketing engine you do not have to fund.',
-  },
-  {
-    question: 'What would disqualify me?',
-    answer:
-      'Undisclosed double-brokering, taking deposits into a personal account, or misrepresenting a title. Those are not mistakes we coach — they are the exact behaviours that make Rwandans distrust this industry.',
-  },
-]
 
 export default function JoinPage() {
+  const seo = useBlock('join', 'seo', {
+    title: "Join Evaramu — Careers, Agents, Brokers & Contractors in Rwanda",
+    body: "Join Evaramu Group Ltd as a commission sales agent, independent broker partner, vetted sub-contractor or full-time team member. 5–10% commission, real marketing behind you, and payment on a documented schedule.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const cultureRules = useBlockItems(
+    'join',
+    'culture_rules',
+    CULTURE_RULES_FALLBACK,
+  )
+  const heroBlock = useBlock('join', 'hero', {
+    eyebrow: "Join the agency",
+    title: "Bring your network to a company",
+    accent: "with systems behind it.",
+    body: "There are more than 200 informal brokers in Rwanda with genuine local knowledge and nothing behind them — no brand, no documentation, no marketing, no follow-up system. If that is you, this is the offer.",
+  })
+  const rolesBlock = useBlock('join', 'roles', {
+    eyebrow: "Four ways in",
+    title: "Pick the one that",
+    accent: "describes you.",
+    body: "We hire and partner on strength, not convenience. The wrong person in the wrong role destroys deals, reputation and culture — so we are specific about what each of these actually involves.",
+  })
+  const calculatorBlock = useBlock('join', 'calculator', {
+    eyebrow: "Commission calculator",
+    title: "What could a good year",
+    accent: "actually pay?",
+    body: "Move the sliders to your own reality. This models the agency commission of roughly 3% of transaction value, of which you take your agreed share.",
+  })
+  const colleaguesBlock = useBlock('join', 'colleagues', {
+    eyebrow: "Your colleagues",
+    title: "Small team.",
+    accent: "Everyone owns something.",
+    body: "You would not be lost in a hierarchy. Each of these people runs a function end to end and reports on it at the monthly board meeting.",
+  })
+  const { data: teamData } = useQuery<ApiTeamMember[]>('/public/team')
+  const team = teamData ?? []
+
+  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=join')
+  const faqs = faqData ?? []
+
   const [roleId, setRoleId] = useState<RoleId>('agent')
   const [dealValue, setDealValue] = useState(60_000_000)
   const [dealsPerYear, setDealsPerYear] = useState(6)
   const [rate, setRate] = useState(7)
   const [applied, setApplied] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
+  const [form, setForm] = useState({
+    full_name: '',
+    phone: '',
+    email: '',
+    area_covered: '',
+    years_experience: '',
+    pitch: '',
+    portfolio_url: '',
+  })
+  const set = (key: keyof typeof form) => (next: string) =>
+    setForm((prev) => ({ ...prev, [key]: next }))
+
+  const apply = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSending(true)
+    setError(null)
+    try {
+      await api.post('/public/applications', {
+        full_name: form.full_name,
+        email: form.email,
+        phone: form.phone,
+        role_applied: roleId,
+        area_covered: form.area_covered || null,
+        years_experience: form.years_experience ? Number(form.years_experience) : null,
+        pitch: form.pitch,
+        portfolio_url: form.portfolio_url || null,
+        ...captcha,
+      })
+      setApplied(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not send. Please try again.')
+    } finally {
+      setSending(false)
+    }
+  }
 
   const role = ROLES.find((r) => r.id === roleId) ?? ROLES[0]
 
@@ -182,18 +237,12 @@ export default function JoinPage() {
   return (
     <>
       <Seo
-        title="Join Evaramu — Careers, Agents, Brokers & Contractors in Rwanda"
-        description="Join Evaramu Group Ltd as a commission sales agent, independent broker partner, vetted sub-contractor or full-time team member. 5–10% commission, real marketing behind you, and payment on a documented schedule."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/join"
-        keywords={[
-          'real estate agent jobs Rwanda',
-          'property broker Kigali',
-          'construction subcontractor Rwanda',
-          'real estate commission Rwanda',
-          'careers Evaramu',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
-          faqJsonLd(JOIN_FAQS),
+          faqJsonLd(faqs),
           breadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: 'Join us', path: '/join' },
@@ -202,9 +251,9 @@ export default function JoinPage() {
       />
 
       <PageHero
-        eyebrow="Join the agency"
-        title="Bring your network to a company"
-        accent="with systems behind it."
+        eyebrow={heroBlock.eyebrow}
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="There are more than 200 informal brokers in Rwanda with genuine local knowledge and nothing behind them — no brand, no documentation, no marketing, no follow-up system. If that is you, this is the offer."
         crumbs={[{ label: 'Join us' }]}
         image="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=2000&q=80"
@@ -220,9 +269,9 @@ export default function JoinPage() {
       <section className="bg-canvas py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="Four ways in"
-            title="Pick the one that"
-            accent="describes you."
+            eyebrow={rolesBlock.eyebrow}
+            title={rolesBlock.title}
+            accent={rolesBlock.accent}
             description="We hire and partner on strength, not convenience. The wrong person in the wrong role destroys deals, reputation and culture — so we are specific about what each of these actually involves."
           />
 
@@ -363,9 +412,9 @@ export default function JoinPage() {
       <section className="bg-surface py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="Commission calculator"
-            title="What could a good year"
-            accent="actually pay?"
+            eyebrow={calculatorBlock.eyebrow}
+            title={calculatorBlock.title}
+            accent={calculatorBlock.accent}
             description="Move the sliders to your own reality. This models the agency commission of roughly 3% of transaction value, of which you take your agreed share."
           />
 
@@ -526,7 +575,7 @@ export default function JoinPage() {
               variants={stagger(0.08)}
               className="lg:col-span-8 lg:pl-4"
             >
-              {CULTURE_RULES.map((rule, i) => (
+              {cultureRules.map((rule, i) => (
                 <motion.li
                   key={rule.title}
                   variants={fadeUp}
@@ -552,9 +601,9 @@ export default function JoinPage() {
       <section className="bg-surface py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="Your colleagues"
-            title="Small team."
-            accent="Everyone owns something."
+            eyebrow={colleaguesBlock.eyebrow}
+            title={colleaguesBlock.title}
+            accent={colleaguesBlock.accent}
             description="You would not be lost in a hierarchy. Each of these people runs a function end to end and reports on it at the monthly board meeting."
           />
 
@@ -563,7 +612,7 @@ export default function JoinPage() {
             variants={stagger(0.08)}
             className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
           >
-            {AGENTS.map((agent) => (
+            {team.map((agent) => (
               <motion.article
                 key={agent.id}
                 variants={fadeUp}
@@ -571,8 +620,8 @@ export default function JoinPage() {
               >
                 <div className="relative h-56 overflow-hidden">
                   <img
-                    src={agent.photo}
-                    alt={agent.name}
+                    src={agent.photo_url ?? undefined}
+                    alt={agent.full_name}
                     loading="lazy"
                     className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
                   />
@@ -583,13 +632,13 @@ export default function JoinPage() {
                 </div>
 
                 <div className="p-6">
-                  <h3 className="font-display text-lg font-semibold text-ink">{agent.name}</h3>
-                  <p className="mt-1 text-[0.875rem] text-gold-600">{agent.role}</p>
+                  <h3 className="font-display text-lg font-semibold text-ink">{agent.full_name}</h3>
+                  <p className="mt-1 text-[0.875rem] text-gold-600">{agent.job_title}</p>
                   <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-muted">
-                    {agent.specialties.join(' · ')}
+                    {(agent.specialties ?? []).join(' · ')}
                   </p>
                   <p className="mt-4 border-t border-line pt-4 text-[0.8125rem] text-ink-soft">
-                    <Counter value={agent.deals} /> deals · speaks {agent.languages.length}{' '}
+                    <Counter value={agent.deals_closed} /> deals · speaks {(agent.languages ?? []).length}{' '}
                     languages
                   </p>
                 </div>
@@ -667,18 +716,15 @@ export default function JoinPage() {
                 ) : (
                   <form
                     className="space-y-5"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      setApplied(true)
-                    }}
+                    onSubmit={apply}
                   >
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <DarkField id="a-name" label="Full name" required />
-                      <DarkField id="a-phone" label="Phone or WhatsApp" type="tel" required />
+                      <DarkField id="a-name" label="Full name" required value={form.full_name} onChange={set('full_name')} />
+                      <DarkField id="a-phone" label="Phone or WhatsApp" type="tel" required value={form.phone} onChange={set('phone')} />
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <DarkField id="a-email" label="Email" type="email" required />
+                      <DarkField id="a-email" label="Email" type="email" required value={form.email} onChange={set('email')} />
                       <div>
                         <label
                           htmlFor="a-role"
@@ -702,8 +748,8 @@ export default function JoinPage() {
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <DarkField id="a-area" label="Area or sector you cover" />
-                      <DarkField id="a-years" label="Years of experience" type="number" />
+                      <DarkField id="a-area" label="Area or sector you cover" value={form.area_covered} onChange={set('area_covered')} />
+                      <DarkField id="a-years" label="Years of experience" type="number" value={form.years_experience} onChange={set('years_experience')} />
                     </div>
 
                     <div>
@@ -717,6 +763,8 @@ export default function JoinPage() {
                         id="a-about"
                         rows={4}
                         required
+                        value={form.pitch}
+                        onChange={(e) => set('pitch')(e.target.value)}
                         placeholder="Your network, the deals you have done, the work you are proud of. Be specific — vague applications do not get read twice."
                         className="w-full resize-y rounded-2xl border border-white/15 bg-white/5 px-4 py-3.5 text-[0.9375rem] text-white transition-colors placeholder:text-white/30 focus:border-gold-500 focus:outline-none"
                       />
@@ -732,6 +780,8 @@ export default function JoinPage() {
                       <input
                         id="a-portfolio"
                         type="url"
+                        value={form.portfolio_url}
+                        onChange={(e) => set('portfolio_url')(e.target.value)}
                         placeholder="https://…"
                         className="h-12 w-full rounded-2xl border border-white/15 bg-white/5 px-4 text-[0.9375rem] text-white transition-colors placeholder:text-white/30 focus:border-gold-500 focus:outline-none"
                       />
@@ -749,14 +799,28 @@ export default function JoinPage() {
                       </span>
                     </label>
 
+                    <div className="rounded-2xl border border-white/15 bg-white/5 p-4 [&_input]:border-white/15 [&_input]:bg-white/5 [&_input]:text-white [&_label]:text-white/45">
+                      <Captcha value={captcha} onChange={setCaptcha} scope="application" compact />
+                    </div>
+
+                    {error && (
+                      <p
+                        role="alert"
+                        className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[0.875rem] text-red-200"
+                      >
+                        {error}
+                      </p>
+                    )}
+
                     <Button
                       type="submit"
                       variant="gold"
                       size="lg"
                       className="w-full"
+                      disabled={sending}
                       trailing={<Send className="size-[1.05rem]" strokeWidth={2.2} />}
                     >
-                      Submit application
+                      {sending ? 'Submitting…' : 'Submit application'}
                     </Button>
                   </form>
                 )}
@@ -767,7 +831,7 @@ export default function JoinPage() {
       </section>
 
       <FaqSection
-        faqs={JOIN_FAQS}
+        faqs={faqs}
         eyebrow="Before you apply"
         title="The questions"
         accent="everybody asks."
@@ -783,11 +847,15 @@ function DarkField({
   label,
   type = 'text',
   required = false,
+  value,
+  onChange,
 }: {
   id: string
   label: string
   type?: string
   required?: boolean
+  value?: string
+  onChange?: (next: string) => void
 }) {
   return (
     <div>
@@ -802,6 +870,8 @@ function DarkField({
         id={id}
         type={type}
         required={required}
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
         className="h-12 w-full rounded-2xl border border-white/15 bg-white/5 px-4 text-[0.9375rem] text-white transition-colors focus:border-gold-500 focus:outline-none"
       />
     </div>

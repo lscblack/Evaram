@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { WEALTH_CYCLE } from '@/data/services'
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiCycleStep } from '@/types/api'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
@@ -13,8 +14,18 @@ import { cn } from '@/lib/utils'
  * timeline on mobile.
  */
 export function WealthCycleSection() {
+  const block = useBlock('home', 'wealth_cycle', {
+    eyebrow: "Our signature model",
+    title: "The Evaramu",
+    accent: "Wealth Cycle",
+    body: "Most agencies close a sale and disappear. We stay. Buy, build, earn, sell, reinvest, repeat — six steps that turn one property into four or five within three years.",
+  })
   const [active, setActive] = useState(0)
-  const step = WEALTH_CYCLE[active]
+  const { data } = useQuery<ApiCycleStep[]>('/public/wealth-cycle')
+  const steps = data ?? []
+  const step = steps[active]
+
+  if (!step) return null
 
   return (
     <section className="relative overflow-hidden bg-navy-950 py-20 text-white lg:py-28">
@@ -28,9 +39,9 @@ export function WealthCycleSection() {
         <SectionHeading
           tone="light"
           align="center"
-          eyebrow="Our signature model"
-          title="The Evaramu"
-          accent="Wealth Cycle"
+          eyebrow={block.eyebrow}
+          title={block.title}
+          accent={block.accent}
           description="Most agencies close a sale and disappear. We stay. Buy, build, earn, sell, reinvest, repeat — six steps that turn one property into four or five within three years."
         />
 
@@ -66,7 +77,7 @@ export function WealthCycleSection() {
                 transition={{ duration: 0.45, ease: EASE }}
               >
                 <span className="grid size-14 place-items-center rounded-2xl bg-gold-500 text-white mx-auto">
-                  <Icon name={step.icon} className="size-7" strokeWidth={2} />
+                  <Icon name={step.icon ?? "RefreshCw"} className="size-7" strokeWidth={2} />
                 </span>
                 <p className="mt-5 text-[0.6875rem] font-bold tracking-[0.22em] text-gold-400 uppercase">
                   Step {step.step} of 6
@@ -82,8 +93,8 @@ export function WealthCycleSection() {
             </div>
 
             {/* nodes */}
-            {WEALTH_CYCLE.map((s, i) => {
-              const angle = (i / WEALTH_CYCLE.length) * 2 * Math.PI - Math.PI / 2
+            {steps.map((s, i) => {
+              const angle = (i / steps.length) * 2 * Math.PI - Math.PI / 2
               const radius = 50 // percent of half-width
               const x = 50 + radius * Math.cos(angle)
               const y = 50 + radius * Math.sin(angle)
@@ -115,7 +126,7 @@ export function WealthCycleSection() {
                         isActive ? 'bg-gold-500 text-white' : 'bg-white/10 text-gold-300',
                       )}
                     >
-                      <Icon name={s.icon} className="size-5" strokeWidth={2} />
+                      <Icon name={s.icon ?? "RefreshCw"} className="size-5" strokeWidth={2} />
                     </span>
                     <span
                       className={cn(
@@ -142,14 +153,14 @@ export function WealthCycleSection() {
             aria-hidden
             className="absolute top-4 bottom-4 left-[1.65rem] w-px bg-gradient-to-b from-gold-500/60 via-white/15 to-transparent"
           />
-          {WEALTH_CYCLE.map((s) => (
+          {steps.map((s) => (
             <motion.li
               key={s.step}
               variants={fadeUp}
               className="relative flex gap-5 rounded-3xl border border-white/10 bg-navy-900/60 p-5 backdrop-blur-sm sm:p-6"
             >
               <span className="relative z-10 grid size-13 shrink-0 place-items-center rounded-2xl bg-gold-500 text-white">
-                <Icon name={s.icon} className="size-6" strokeWidth={2} />
+                <Icon name={s.icon ?? "RefreshCw"} className="size-6" strokeWidth={2} />
               </span>
               <div className="min-w-0">
                 <p className="text-[0.6875rem] font-bold tracking-[0.2em] text-gold-400 uppercase">

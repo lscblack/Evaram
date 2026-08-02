@@ -1,39 +1,47 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Compass, HardHat, Home, RefreshCw, Search } from 'lucide-react'
+import { ArrowRight, Home } from 'lucide-react'
 import { Seo } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { fadeUp, stagger } from '@/lib/motion'
+import { useBlockItems } from '@/lib/queries'
+import { Icon } from '@/components/ui/Icon'
 
-const SUGGESTIONS = [
+/** Fallback for `not-found` → `suggestions` — the shipped copy. */
+const SUGGESTIONS_FALLBACK = [
   {
     to: '/properties',
-    icon: Search,
+    icon: 'Search',
     title: 'Browse properties',
     description: 'Verified land, houses and commercial space across Rwanda',
   },
   {
     to: '/wealth-cycle',
-    icon: RefreshCw,
+    icon: 'RefreshCw',
     title: 'The Wealth Cycle',
     description: 'How one property becomes four or five within three years',
   },
   {
     to: '/construction',
-    icon: HardHat,
+    icon: 'HardHat',
     title: 'Construction packages',
     description: 'Standard, Premium and Luxury finishes with fixed pricing',
   },
   {
     to: '/consultation',
-    icon: Compass,
+    icon: 'Compass',
     title: 'Book a consultation',
     description: 'A free 30-minute call to work out what is achievable',
   },
 ]
 
 export default function NotFoundPage() {
+  const suggestions = useBlockItems(
+    'not-found',
+    'suggestions',
+    SUGGESTIONS_FALLBACK,
+  )
   return (
     <>
       <Seo
@@ -113,16 +121,15 @@ export default function NotFoundPage() {
             variants={stagger(0.08)}
             className="mt-16 grid w-full max-w-4xl gap-4 text-left sm:grid-cols-2"
           >
-            {SUGGESTIONS.map((item) => {
-              const Cmp = item.icon
-              return (
+            {suggestions.map((item) => {
+                            return (
                 <motion.li key={item.to} variants={fadeUp}>
                   <Link
                     to={item.to}
                     className="group flex items-start gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 transition-all duration-400 hover:-translate-y-1 hover:border-gold-500/40 hover:bg-white/8"
                   >
                     <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/8 text-gold-400 transition-colors duration-400 group-hover:bg-gold-500 group-hover:text-white">
-                      <Cmp className="size-5" strokeWidth={2} />
+                      <Icon name={item.icon} className="size-5" strokeWidth={2} />
                     </span>
                     <span className="min-w-0">
                       <span className="block font-display text-[1.0625rem] font-semibold text-white">

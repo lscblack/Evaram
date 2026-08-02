@@ -1,30 +1,33 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, FileCheck2, Globe2, Video, Wallet } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { Button } from '@/components/ui/Button'
 import { EASE, fadeRight, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useBlockItems } from '@/lib/queries'
+import { Icon } from '@/components/ui/Icon'
 
-const PROMISES = [
+/** Fallback for `home` → `diaspora_promises` — the shipped copy. */
+const PROMISES_FALLBACK = [
   {
-    icon: Video,
+    icon: 'Video',
     title: 'You see the parcel before you pay',
     description:
       'A video walking the boundary with the UPI visible on screen — not a photo someone sent you.',
   },
   {
-    icon: FileCheck2,
+    icon: 'FileCheck2',
     title: 'Title verified before any deposit',
     description:
-      'An RLA title search dated within 30 days, with the registered owner matched to the seller.',
+      'An NLA title search dated within 30 days, with the registered owner matched to the seller.',
   },
   {
-    icon: Wallet,
+    icon: 'Wallet',
     title: 'Company account, same-day receipt',
     description:
       'Funds go to a registered company account. Never to an individual mobile money number.',
   },
   {
-    icon: Globe2,
+    icon: 'Globe2',
     title: 'Monthly reporting, wherever you are',
     description:
       'Build diary, photos, rent collected and maintenance spend — the first of every month.',
@@ -32,6 +35,11 @@ const PROMISES = [
 ]
 
 export function DiasporaSection() {
+  const promises = useBlockItems(
+    'home',
+    'diaspora_promises',
+    PROMISES_FALLBACK,
+  )
   return (
     <section
       id="diaspora"
@@ -105,16 +113,15 @@ export function DiasporaSection() {
             </motion.p>
 
             <motion.ul variants={stagger(0.08)} className="mt-10 grid gap-5 sm:grid-cols-2">
-              {PROMISES.map((promise) => {
-                const Cmp = promise.icon
-                return (
+              {promises.map((promise) => {
+                                return (
                   <motion.li
                     key={promise.title}
                     variants={fadeUp}
                     className="group flex gap-4"
                   >
                     <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-accent-soft text-ink-soft transition-colors duration-400 group-hover:bg-gold-500 group-hover:text-white">
-                      <Cmp className="size-5" strokeWidth={2} />
+                      <Icon name={promise.icon} className="size-5" strokeWidth={2} />
                     </span>
                     <div className="min-w-0">
                       <h3 className="font-display text-lg leading-snug font-bold text-ink">

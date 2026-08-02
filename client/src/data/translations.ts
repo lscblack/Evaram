@@ -112,6 +112,10 @@ export const TRANSLATIONS = {
   'prop.save': { en: 'Save property', rw: 'Bika umutungo', fr: 'Enregistrer le bien' },
   'prop.unsave': { en: 'Remove from saved', rw: 'Kura mu byabitswe', fr: 'Retirer des favoris' },
   'prop.viewDetails': { en: 'View details', rw: 'Reba amakuru arambuye', fr: 'Voir les détails' },
+  'prop.virtualTour': { en: 'Virtual tour', rw: 'Urugendo rwa VR', fr: 'Visite virtuelle' },
+  'prop.video360': { en: '360° video', rw: 'Video ya 360°', fr: 'Vidéo 360°' },
+  'prop.parcelOutline': { en: 'Plot outline', rw: 'Imbibi z’ikibanza', fr: 'Contour du terrain' },
+  'prop.immersive': { en: 'Explore the property', rw: 'Sura umutungo', fr: 'Explorer le bien' },
 
   /* ---------------- marketplace ---------------- */
   'market.title': { en: 'Marketplace', rw: 'Isoko', fr: 'Place de marché' },
@@ -134,9 +138,9 @@ export const TRANSLATIONS = {
   'market.maxPrice': { en: 'Max sale price', rw: 'Igiciro ntarengwa', fr: 'Prix maximum' },
   'market.any': { en: 'Any', rw: 'Icyo ari cyo cyose', fr: 'Indifférent' },
   'market.verifiedOnly': {
-    en: 'RLA-verified titles only',
-    rw: 'Impapuro zemejwe na RLA gusa',
-    fr: 'Titres vérifiés RLA uniquement',
+    en: 'NLA-verified titles only',
+    rw: 'Impapuro zemejwe na NLA gusa',
+    fr: 'Titres vérifiés NLA uniquement',
   },
   'market.sort': { en: 'Sort', rw: 'Shungura', fr: 'Trier' },
   'market.sortNewest': { en: 'Newest first', rw: 'Ibishya mbere', fr: 'Plus récents' },

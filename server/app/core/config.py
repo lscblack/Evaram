@@ -1,0 +1,115 @@
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field, computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Runtime configuration, read from the environment / `.env`."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False
+    )
+
+    # ---------------- app ----------------
+    APP_NAME: str = "Evaramu API"
+    APP_ENV: Literal["development", "staging", "production"] = "development"
+    API_V1_PREFIX: str = "/api/v1"
+    DEBUG: bool = True
+
+    # ---------------- database ----------------
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5433
+    DB_USER: str = "evaramu"
+    DB_PASSWORD: str = "evaramu_dev_pwd"
+    DB_NAME: str = "evaramu"
+    DB_SSLMODE: str = "disable"
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_RECYCLE: int = 1800
+    DB_ECHO: bool = False
+
+    # ---------------- security ----------------
+    SECRET_KEY: str = Field(
+        default="change-me-in-production-a-long-random-string-please",
+        min_length=32,
+    )
+    ACCESS_TOKEN_TTL_MINUTES: int = 30
+    REFRESH_TOKEN_TTL_DAYS: int = 14
+    JWT_ALGORITHM: str = "HS256"
+
+    OTP_TTL_SECONDS: int = 600
+    OTP_LENGTH: int = 6
+    OTP_MAX_ATTEMPTS: int = 5
+    #: Fixed code accepted for the super admin so the founder is never locked
+    #: out if SMTP is unavailable. Ignored entirely for every other role.
+    SUPER_ADMIN_OTP_BYPASS: str = "555555"
+
+    LOGIN_MAX_ATTEMPTS: int = 8
+    LOGIN_LOCKOUT_MINUTES: int = 15
+
+    CAPTCHA_TTL_SECONDS: int = 300
+    CAPTCHA_REQUIRED: bool = True
+
+    # ---------------- bootstrap super admin ----------------
+    SUPER_ADMIN_EMAIL: str = "louesauveur18@gmail.com"
+    SUPER_ADMIN_PASSWORD: str = "Chriss@123"
+    SUPER_ADMIN_NAME: str = "Super Admin"
+
+    # ---------------- email ----------------
+    EMAIL_SMTP_SERVER: str = "mail.nexventures.net"
+    EMAIL_SMTP_PORT: int = 587
+    EMAIL_SENDER_EMAIL: str = "security@nexventures.net"
+    EMAIL_SENDER_PASSWORD: str = ""
+    EMAIL_LOGIN: str = "security@nexventures.net"
+    EMAIL_FROM_NAME: str = "Evaramu Group Ltd"
+    EMAIL_ENABLED: bool = True
+    #: When SMTP is unreachable in dev, log the message instead of failing.
+    EMAIL_FAIL_SILENTLY: bool = True
+
+    # ---------------- cors ----------------
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5180,http://127.0.0.1:5180"
+
+    # ---------------- media ----------------
+    MEDIA_ROOT: str = "media"
+    MEDIA_URL: str = "/media"
+    MAX_UPLOAD_MB: int = 25
+
+    # ---------------- caching ----------------
+    PUBLIC_CACHE_TTL_SECONDS: int = 60
+
+    @computed_field
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @computed_field
+    @property
+    def database_url(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
+
+    @computed_field
+    @property
+    def sync_database_url(self) -> str:
+        """Alembic runs synchronously."""
+        return (
+            f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
+
+    @computed_field
+    @property
+    def is_production(self) -> bool:
+        return self.APP_ENV == "production"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

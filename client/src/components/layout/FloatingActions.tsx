@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowUp, CalendarCheck, MessageCircle, Plus, X } from 'lucide-react'
-import { SITE } from '@/data/site'
 import { EASE } from '@/lib/motion'
+import { useSite } from '@/lib/siteConfig'
 
-const ACTIONS = [
+const actionsFor = (site: { whatsappHref: string }) => [
   {
     label: 'Chat on WhatsApp',
-    href: SITE.whatsappHref,
+    href: site.whatsappHref,
     icon: MessageCircle,
     className: 'bg-[#25D366] hover:bg-[#1da851]',
   },
@@ -22,6 +22,8 @@ const ACTIONS = [
 
 /** Persistent WhatsApp / booking / back-to-top cluster. */
 export function FloatingActions() {
+  const site = useSite()
+  const actions = actionsFor(site)
   const [open, setOpen] = useState(false)
   const [showTop, setShowTop] = useState(false)
 
@@ -63,7 +65,7 @@ export function FloatingActions() {
             }}
             className="flex flex-col items-end gap-3"
           >
-            {ACTIONS.map((action) => {
+            {actions.map((action) => {
               const Cmp = action.icon
               const inner = (
                 <>

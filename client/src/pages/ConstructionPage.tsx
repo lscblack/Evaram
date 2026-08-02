@@ -17,58 +17,84 @@ import { Button } from '@/components/ui/Button'
 import { Icon } from '@/components/ui/Icon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { FaqSection } from '@/components/sections/FaqSection'
-import {
-  BUILD_PROCESS,
-  CONSTRUCTION_PACKAGES,
-  RENOVATION_SERVICES,
-} from '@/data/services'
-import { getAgent } from '@/data/properties'
+
+import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { api } from '@/lib/api'
+import { useBlock, useBlockItems, useQuery } from '@/lib/queries'
+import type { ApiFaq, ApiPackage, ApiTeamMember } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 import { cn, formatCurrency } from '@/lib/utils'
 
-const CONSTRUCTION_FAQS = [
-  {
-    question: 'Is the price you quote the price I actually pay?',
-    answer:
-      'Yes. We work on fixed-price contracts with a 15% contingency stated openly at signature — not discovered at month four. If a genuine variation is needed, for example you change the specification, we price it in writing and you approve it before any work starts.',
-  },
-  {
-    question: 'How do payments work?',
-    answer:
-      'A 30–40% deposit on signature, then milestone payments against completed work. You never pay ahead of what has been built. Every payment goes to our registered company account and is receipted the same day.',
-  },
-  {
-    question: 'Can you finish a house someone else started?',
-    answer:
-      'That is one of our most common projects. We survey what has been built, test what is structurally sound, and quote to bring it to a lettable or liveable standard. We will tell you honestly if any of the existing work needs to come down.',
-  },
-  {
-    question: 'I live abroad. How do I know the work is really happening?',
-    answer:
-      'A weekly photo report and running cost sheet, plus a monthly video walkthrough. We also offer remote supervision as a standalone service if you are building with your own contractor — we inspect, photograph and verify every payment request before you release funds.',
-  },
-  {
-    question: 'Who are the workers on my site?',
-    answer:
-      'A vetted sub-contractor network: masons, electricians, plumbers and tilers we have worked with repeatedly and hold accountable. No casual labour, and no contractor new to us on a high-value job. A site supervisor is present daily.',
-  },
-  {
-    question: 'What happens if something goes wrong after handover?',
-    answer:
-      'Every package carries a written workmanship warranty — 12 months on Standard, 24 on Premium, 36 on Luxury. We come back and fix it. That warranty is in the contract, not a verbal promise.',
-  },
-]
 
 export default function ConstructionPage() {
-  const [selected, setSelected] = useState(CONSTRUCTION_PACKAGES[1].id)
+  const seo = useBlock('construction', 'seo', {
+    title: "Construction & Renovation in Kigali — Fixed-Price Building Packages",
+    body: "Evaramu Construction builds and renovates in Kigali on fixed-price contracts with a 15% contingency stated up front. Standard, Premium and Luxury finishing packages, weekly cost reporting and remote supervision for diaspora clients.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const heroBlock = useBlock('construction', 'hero', {
+    eyebrow: "Evaramu Construction",
+    title: "A fixed price, written down",
+    accent: "before the first block is laid.",
+    body: "The Rwandan market is full of unbranded contractors, verbal contracts and quotes that move once you are committed. We do the opposite: a priced bill of quantities, a contingency stated openly, and a cost sheet you can open at any time.",
+  })
+  const packagesBlock = useBlock('construction', 'packages', {
+    eyebrow: "Finishing packages",
+    title: "Three bands.",
+    accent: "No hidden fourth.",
+    body: "Pick the standard that matches what the property needs to do. Most Wealth Cycle builds land on Premium, because it is the specification that rents well and sells well.",
+  })
+  const estimatorBlock = useBlock('construction', 'estimator', {
+    eyebrow: "Indicative estimate",
+    title: "What would your build",
+    accent: "actually cost?",
+    body: "A first-pass figure using the package you selected above. The real quotation comes after a site visit and a measured bill of quantities — but this tells you whether you are in the right range.",
+  })
+  const processIntroBlock = useBlock('construction', 'process_intro', {
+    eyebrow: "How a project runs",
+    title: "Six stages, and you know",
+    accent: "where you are in all of them.",
+  })
+  const renovationIntroBlock = useBlock('construction', 'renovation_intro', {
+    eyebrow: "Renovation & smaller works",
+    title: "Not every project is",
+    accent: "a new build.",
+    body: "Most of what we do is finishing something someone else started, or lifting an existing property to a standard that lets it rent. Prices below are typical starting points, not quotations.",
+  })
+  const buildProcess = useBlockItems<{ step: string; title: string; description: string; icon: string }>('construction', 'build_process')
+  const renovations = useBlockItems<{ id: string; title: string; description: string; icon: string; from: number }>('construction', 'renovation_services')
+  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=construction')
+  const faqs = faqData ?? []
+
+  const { data: packageData } = useQuery<ApiPackage[]>('/public/construction-packages')
+  const packages = useMemo(() => packageData ?? [], [packageData])
+
+  const [selected, setSelected] = useState<string | null>(null)
   const [area, setArea] = useState(180)
   const [briefSent, setBriefSent] = useState(false)
+  const [briefSending, setBriefSending] = useState(false)
+  const [briefError, setBriefError] = useState<string | null>(null)
+  const [briefCaptcha, setBriefCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
+  const [brief, setBrief] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    project_type: 'New build',
+    location: '',
+    area: '',
+    notes: '',
+  })
+  const setBriefField = (key: keyof typeof brief) => (next: string) =>
+    setBrief((prev) => ({ ...prev, [key]: next }))
 
+  // Default to whichever tier the admin flagged as popular, else the middle one.
   const activePackage =
-    CONSTRUCTION_PACKAGES.find((p) => p.id === selected) ?? CONSTRUCTION_PACKAGES[1]
+    packages.find((p) => p.id === selected) ??
+    packages.find((p) => p.is_popular) ??
+    packages[Math.floor(packages.length / 2)]
 
   const estimate = useMemo(() => {
-    const base = activePackage.pricePerSqm * area
+    const base = (activePackage?.price_per_sqm ?? 0) * area
     return {
       base,
       contingency: Math.round(base * 0.15),
@@ -77,23 +103,44 @@ export default function ConstructionPage() {
     }
   }, [activePackage, area])
 
-  const headOfConstruction = getAgent('ag-04')
+  const sendBrief = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBriefSending(true)
+    setBriefError(null)
+    const pkg = packages.find((p) => p.id === (selected ?? activePackage?.id))
+    try {
+      await api.post('/public/contact', {
+        full_name: brief.name,
+        email: brief.email,
+        phone: brief.phone,
+        topic: `Construction — ${brief.project_type}`,
+        budget: pkg ? `${pkg.name} · ~${area} sqm` : `~${area} sqm`,
+        based_in: brief.location || null,
+        message: brief.notes || 'Project brief submitted from the construction page.',
+        ...briefCaptcha,
+      })
+      setBriefSent(true)
+    } catch (err) {
+      setBriefError(err instanceof Error ? err.message : 'That did not send. Please try again.')
+    } finally {
+      setBriefSending(false)
+    }
+  }
+
+  const { data: teamData } = useQuery<ApiTeamMember[]>('/public/team')
+  const headOfConstruction = (teamData ?? []).find(
+    (m) => m.division === 'Construction' && /head/i.test(m.job_title ?? ''),
+  )
 
   return (
     <>
       <Seo
-        title="Construction & Renovation in Kigali — Fixed-Price Building Packages"
-        description="Evaramu Construction builds and renovates in Kigali on fixed-price contracts with a 15% contingency stated up front. Standard, Premium and Luxury finishing packages, weekly cost reporting and remote supervision for diaspora clients."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/construction"
-        keywords={[
-          'construction company Kigali',
-          'house finishing Rwanda',
-          'renovation Kigali',
-          'building cost per sqm Rwanda',
-          'remote build supervision Rwanda',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
-          faqJsonLd(CONSTRUCTION_FAQS),
+          faqJsonLd(faqs),
           breadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: 'Construction', path: '/construction' },
@@ -102,9 +149,9 @@ export default function ConstructionPage() {
       />
 
       <PageHero
-        eyebrow="Evaramu Construction"
-        title="A fixed price, written down"
-        accent="before the first block is laid."
+        eyebrow={heroBlock.eyebrow}
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="The Rwandan market is full of unbranded contractors, verbal contracts and quotes that move once you are committed. We do the opposite: a priced bill of quantities, a contingency stated openly, and a cost sheet you can open at any time."
         crumbs={[{ label: 'Construction' }]}
         image="https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=2000&q=80"
@@ -204,9 +251,9 @@ export default function ConstructionPage() {
       <section id="packages" className="bg-surface py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="Finishing packages"
-            title="Three bands."
-            accent="No hidden fourth."
+            eyebrow={packagesBlock.eyebrow}
+            title={packagesBlock.title}
+            accent={packagesBlock.accent}
             description="Pick the standard that matches what the property needs to do. Most Wealth Cycle builds land on Premium, because it is the specification that rents well and sells well."
           />
 
@@ -215,7 +262,7 @@ export default function ConstructionPage() {
             variants={stagger(0.1)}
             className="mt-14 grid gap-6 lg:grid-cols-3"
           >
-            {CONSTRUCTION_PACKAGES.map((pkg) => {
+            {packages.map((pkg) => {
               const isActive = pkg.id === selected
               return (
                 <motion.article
@@ -231,7 +278,7 @@ export default function ConstructionPage() {
                   {isActive && (
                     <div className="pointer-events-none absolute inset-0 bg-blueprint opacity-60" />
                   )}
-                  {pkg.popular && (
+                  {pkg.is_popular && (
                     <span className="absolute top-8 right-8 inline-flex items-center gap-1.5 rounded-full bg-gold-500 px-3 py-1.5 text-[0.6875rem] font-bold tracking-wide text-white uppercase">
                       <Star className="size-3 fill-white" strokeWidth={0} />
                       Most chosen
@@ -284,7 +331,7 @@ export default function ConstructionPage() {
                           isActive ? 'text-white' : 'text-ink',
                         )}
                       >
-                        {formatCurrency(pkg.pricePerSqm)}
+                        {formatCurrency(pkg.price_per_sqm)}
                         <span
                           className={cn(
                             'ml-1.5 font-sans text-sm font-medium',
@@ -314,7 +361,7 @@ export default function ConstructionPage() {
                     </p>
 
                     <ul className="mt-6 space-y-3">
-                      {pkg.includes.map((item) => (
+                      {(pkg.includes ?? []).map((item) => (
                         <li
                           key={item}
                           className={cn(
@@ -343,7 +390,7 @@ export default function ConstructionPage() {
                         Specification
                       </p>
                       <dl className="mt-3 space-y-2">
-                        {pkg.finishes.map((finish) => (
+                        {(pkg.finishes ?? []).map((finish) => (
                           <div key={finish.label} className="flex gap-2 text-[0.8125rem]">
                             <dt
                               className={cn(
@@ -386,9 +433,9 @@ export default function ConstructionPage() {
         <div className="container-page relative">
           <SectionHeading
             tone="light"
-            eyebrow="Indicative estimate"
-            title="What would your build"
-            accent="actually cost?"
+            eyebrow={estimatorBlock.eyebrow}
+            title={estimatorBlock.title}
+            accent={estimatorBlock.accent}
             description="A first-pass figure using the package you selected above. The real quotation comes after a site visit and a measured bill of quantities — but this tells you whether you are in the right range."
           />
 
@@ -406,7 +453,7 @@ export default function ConstructionPage() {
                     Package
                   </legend>
                   <div className="mt-3 grid gap-2">
-                    {CONSTRUCTION_PACKAGES.map((pkg) => (
+                    {packages.map((pkg) => (
                       <button
                         key={pkg.id}
                         type="button"
@@ -420,7 +467,7 @@ export default function ConstructionPage() {
                       >
                         <span className="text-[0.9375rem] font-semibold">{pkg.name}</span>
                         <span className="text-[0.8125rem] text-white/50">
-                          {formatCurrency(pkg.pricePerSqm)}/sqm
+                          {formatCurrency(pkg.price_per_sqm)}/sqm
                         </span>
                       </button>
                     ))}
@@ -459,7 +506,7 @@ export default function ConstructionPage() {
             <motion.div {...revealProps} variants={fadeUp} className="lg:col-span-7">
               <div className="h-full rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm sm:p-9">
                 <p className="text-[0.75rem] font-bold tracking-wide text-white/45 uppercase">
-                  {activePackage.name} · {area} sqm
+                  {activePackage?.name} · {area} sqm
                 </p>
 
                 <p className="mt-4 font-display text-[2rem] leading-none font-bold text-gold-400 sm:text-[3.25rem]">
@@ -472,12 +519,12 @@ export default function ConstructionPage() {
                 <dl className="mt-9 space-y-4 border-t border-white/10 pt-8">
                   {[
                     {
-                      label: `Build cost (${area} sqm × ${formatCurrency(activePackage.pricePerSqm)})`,
+                      label: `Build cost (${area} sqm × ${formatCurrency(activePackage?.price_per_sqm ?? 0)})`,
                       value: formatCurrency(estimate.base),
                     },
                     { label: 'Contingency (15%, stated up front)', value: formatCurrency(estimate.contingency) },
                     { label: 'Deposit on signature (35%)', value: formatCurrency(estimate.deposit) },
-                    { label: 'Typical duration', value: activePackage.duration },
+                    { label: 'Typical duration', value: activePackage?.duration ?? '—' },
                   ].map((row) => (
                     <div key={row.label} className="flex flex-wrap items-baseline justify-between gap-3">
                       <dt className="text-[0.9375rem] text-white/55">{row.label}</dt>
@@ -510,9 +557,9 @@ export default function ConstructionPage() {
       <section className="bg-canvas-alt py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="How a project runs"
-            title="Six stages, and you know"
-            accent="where you are in all of them."
+            eyebrow={processIntroBlock.eyebrow}
+            title={processIntroBlock.title}
+            accent={processIntroBlock.accent}
           />
 
           <motion.ol
@@ -520,7 +567,7 @@ export default function ConstructionPage() {
             variants={stagger(0.08)}
             className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3"
           >
-            {BUILD_PROCESS.map((stage) => (
+            {buildProcess.map((stage) => (
               <motion.li
                 key={stage.step}
                 variants={fadeUp}
@@ -550,9 +597,9 @@ export default function ConstructionPage() {
       <section className="bg-surface py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
-            eyebrow="Renovation & smaller works"
-            title="Not every project is"
-            accent="a new build."
+            eyebrow={renovationIntroBlock.eyebrow}
+            title={renovationIntroBlock.title}
+            accent={renovationIntroBlock.accent}
             description="Most of what we do is finishing something someone else started, or lifting an existing property to a standard that lets it rent. Prices below are typical starting points, not quotations."
           />
 
@@ -561,7 +608,7 @@ export default function ConstructionPage() {
             variants={stagger(0.07)}
             className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3"
           >
-            {RENOVATION_SERVICES.map((service) => (
+            {renovations.map((service) => (
               <motion.article
                 key={service.id}
                 variants={fadeUp}
@@ -618,7 +665,7 @@ export default function ConstructionPage() {
                   className="mt-9 flex items-center gap-4 rounded-3xl border border-line bg-surface p-6"
                 >
                   <img
-                    src={headOfConstruction.photo}
+                    src={headOfConstruction.photo_url ?? undefined}
                     alt=""
                     aria-hidden
                     loading="lazy"
@@ -626,11 +673,11 @@ export default function ConstructionPage() {
                   />
                   <div className="min-w-0">
                     <p className="font-display text-[1.0625rem] font-semibold text-ink">
-                      {headOfConstruction.name}
+                      {headOfConstruction.full_name}
                     </p>
-                    <p className="text-[0.875rem] text-ink-muted">{headOfConstruction.role}</p>
+                    <p className="text-[0.875rem] text-ink-muted">{headOfConstruction.job_title}</p>
                     <p className="mt-1.5 text-[0.8125rem] text-ink-soft">
-                      {headOfConstruction.deals} projects delivered · {headOfConstruction.rating} rating
+                      {headOfConstruction.deals_closed} projects delivered · {headOfConstruction.rating} rating
                     </p>
                   </div>
                 </motion.div>
@@ -668,7 +715,7 @@ export default function ConstructionPage() {
                       Brief received
                     </h3>
                     <p className="mt-3 max-w-md text-[0.9375rem] leading-relaxed text-ink-soft">
-                      {headOfConstruction?.name ?? 'Our Head of Construction'} will call you within
+                      {headOfConstruction?.full_name ?? 'Our Head of Construction'} will call you within
                       two working hours to arrange the site visit.
                     </p>
                     <Button
@@ -682,10 +729,7 @@ export default function ConstructionPage() {
                 ) : (
                   <form
                     className="space-y-5"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      setBriefSent(true)
-                    }}
+                    onSubmit={sendBrief}
                   >
                     <div className="flex items-center gap-2.5">
                       <HardHat className="size-5 text-gold-600" strokeWidth={2.2} />
@@ -695,11 +739,11 @@ export default function ConstructionPage() {
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <Field id="b-name" label="Your name" required />
-                      <Field id="b-phone" label="Phone or WhatsApp" required type="tel" />
+                      <Field id="b-name" label="Your name" required value={brief.name} onChange={setBriefField('name')} />
+                      <Field id="b-phone" label="Phone or WhatsApp" required type="tel" value={brief.phone} onChange={setBriefField('phone')} />
                     </div>
 
-                    <Field id="b-email" label="Email address" required type="email" />
+                    <Field id="b-email" label="Email address" required type="email" value={brief.email} onChange={setBriefField('email')} />
 
                     <div className="grid gap-5 sm:grid-cols-2">
                       <div>
@@ -711,6 +755,8 @@ export default function ConstructionPage() {
                         </label>
                         <select
                           id="b-type"
+                          value={brief.project_type}
+                          onChange={(e) => setBriefField('project_type')(e.target.value)}
                           className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors focus:border-gold-500 focus:bg-surface focus:outline-none"
                         >
                           <option>New build</option>
@@ -730,11 +776,11 @@ export default function ConstructionPage() {
                         </label>
                         <select
                           id="b-package"
-                          value={selected}
+                          value={selected ?? activePackage?.id ?? ''}
                           onChange={(e) => setSelected(e.target.value)}
                           className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors focus:border-gold-500 focus:bg-surface focus:outline-none"
                         >
-                          {CONSTRUCTION_PACKAGES.map((pkg) => (
+                          {packages.map((pkg) => (
                             <option key={pkg.id} value={pkg.id}>
                               {pkg.name}
                             </option>
@@ -745,8 +791,8 @@ export default function ConstructionPage() {
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <Field id="b-location" label="Plot location (sector or UPI)" />
-                      <Field id="b-area" label="Approximate area (sqm)" type="number" />
+                      <Field id="b-location" label="Plot location (sector or UPI)" value={brief.location} onChange={setBriefField('location')} />
+                      <Field id="b-area" label="Approximate area (sqm)" type="number" value={brief.area} onChange={setBriefField('area')} />
                     </div>
 
                     <div>
@@ -759,19 +805,33 @@ export default function ConstructionPage() {
                       <textarea
                         id="b-notes"
                         rows={4}
+                        value={brief.notes}
+                        onChange={(e) => setBriefField('notes')(e.target.value)}
                         placeholder="Tell us about the plot, what stage it is at, and what you want at the end of it."
                         className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-3.5 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                       />
                     </div>
+
+                    <Captcha value={briefCaptcha} onChange={setBriefCaptcha} scope="contact" compact />
+
+                    {briefError && (
+                      <p
+                        role="alert"
+                        className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[0.875rem] text-red-700"
+                      >
+                        {briefError}
+                      </p>
+                    )}
 
                     <Button
                       type="submit"
                       variant="gold"
                       size="lg"
                       className="w-full"
+                      disabled={briefSending}
                       trailing={<Send className="size-[1.05rem]" strokeWidth={2.2} />}
                     >
-                      Send project brief
+                      {briefSending ? 'Sending…' : 'Send project brief'}
                     </Button>
 
                     <p className="text-center text-[0.8125rem] text-ink-muted">
@@ -821,7 +881,7 @@ export default function ConstructionPage() {
       </section>
 
       <FaqSection
-        faqs={CONSTRUCTION_FAQS}
+        faqs={faqs}
         eyebrow="Construction questions"
         title="What clients ask"
         accent="before they sign."
@@ -837,11 +897,15 @@ function Field({
   label,
   type = 'text',
   required = false,
+  value,
+  onChange,
 }: {
   id: string
   label: string
   type?: string
   required?: boolean
+  value?: string
+  onChange?: (next: string) => void
 }) {
   return (
     <div>
@@ -856,6 +920,8 @@ function Field({
         id={id}
         type={type}
         required={required}
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
         className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors focus:border-gold-500 focus:bg-surface focus:outline-none"
       />
     </div>

@@ -1,19 +1,24 @@
 import {
+  BadgeCheck,
+  Banknote,
   Bath,
   Blocks,
   Building2,
   Calculator,
   Circle,
+  Compass,
   Factory,
   Fence,
   FileCheck2,
   FileSignature,
   FileText,
   Globe2,
+  GraduationCap,
   Handshake,
   HardHat,
   HeartHandshake,
   Home,
+  KeyRound,
   Landmark,
   Layers,
   LayoutGrid,
@@ -29,8 +34,10 @@ import {
   TrendingUp,
   Upload,
   Users,
+  Video,
   Wallet,
-  KeyRound,
+  Waves,
+  Zap,
 } from 'lucide-react'
 import type { LucideIcon, LucideProps } from 'lucide-react'
 
@@ -43,6 +50,13 @@ import type { LucideIcon, LucideProps } from 'lucide-react'
  * here deliberately.
  */
 const REGISTRY: Record<string, LucideIcon> = {
+  Zap,
+  Waves,
+  Video,
+  GraduationCap,
+  Compass,
+  Banknote,
+  BadgeCheck,
   Bath,
   Blocks,
   Building2,

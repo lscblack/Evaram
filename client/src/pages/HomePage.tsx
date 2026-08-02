@@ -11,20 +11,30 @@ import { Testimonials } from '@/components/sections/Testimonials'
 import { JoinTeaser } from '@/components/sections/JoinTeaser'
 import { InsightsPreview } from '@/components/sections/InsightsPreview'
 import { FaqSection } from '@/components/sections/FaqSection'
-import { HOME_FAQS } from '@/data/content'
-import { SITE } from '@/data/site'
+import { useBlock, useQuery } from '@/lib/queries'
+import { useSite } from '@/lib/siteConfig'
+import type { ApiFaq } from '@/types/api'
 
 export default function HomePage() {
+  const seo = useBlock('home', 'seo', {
+    title: "Evaramu Group Ltd — Real Estate, Construction & Property Wealth in Kigali",
+    body: "Buy verified land and property in Rwanda, build with our construction division, earn rental income and grow from one property to a portfolio. Every title verified at NLA. Book a free consultation.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const site = useSite()
+  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=home')
+  const faqs = faqData ?? []
+
   const websiteJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: SITE.name,
-    url: SITE.url,
+    name: site.name,
+    url: site.url,
     potentialAction: {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${SITE.url}/properties?q={search_term_string}`,
+        urlTemplate: `${site.url}/properties?q={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -33,17 +43,11 @@ export default function HomePage() {
   return (
     <>
       <Seo
-        title="Evaramu Group Ltd — Real Estate, Construction & Property Wealth in Kigali"
-        description="Buy verified land and property in Rwanda, build with our construction division, earn rental income and grow from one property to a portfolio. Every title verified at RLA. Book a free consultation."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/"
-        keywords={[
-          'Evaramu Group Ltd',
-          'wealth cycle Rwanda',
-          'verified land Kigali',
-          'Kigali property investment',
-          'build wealth through property Rwanda',
-        ]}
-        jsonLd={[websiteJsonLd, faqJsonLd(HOME_FAQS)]}
+        keywords={seoKeywords}
+        jsonLd={[websiteJsonLd, faqJsonLd(faqs)]}
       />
 
       <Hero />
@@ -57,7 +61,7 @@ export default function HomePage() {
       <Testimonials />
       <JoinTeaser />
       <InsightsPreview />
-      <FaqSection faqs={HOME_FAQS} />
+      <FaqSection faqs={faqs} />
     </>
   )
 }

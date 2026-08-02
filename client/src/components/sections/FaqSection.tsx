@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Minus, Plus } from 'lucide-react'
-import type { Faq } from '@/data/content'
+import type { ApiFaq } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
@@ -13,7 +13,7 @@ export function FaqSection({
   accent = 'before you ask.',
   description,
 }: {
-  faqs: Faq[]
+  faqs: ApiFaq[]
   eyebrow?: string
   title?: string
   accent?: string

@@ -5,30 +5,35 @@ import { ArrowLeft, ArrowUpRight, Check, Clock, Quote, Share2 } from 'lucide-rea
 import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { Button } from '@/components/ui/Button'
 import { Eyebrow } from '@/components/ui/Eyebrow'
-import { INSIGHTS, getInsight } from '@/data/content'
-import { AGENTS } from '@/data/properties'
-import { SITE } from '@/data/site'
+import { useQuery } from '@/lib/queries'
+import { useSite } from '@/lib/siteConfig'
+import type { ApiInsightCard, ApiInsightDetail, ApiTeamMember, Page } from '@/types/api'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
 import { formatDate } from '@/lib/utils'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 export default function InsightDetailPage() {
+  const site = useSite()
   const { slug } = useParams()
-  const post = slug ? getInsight(slug) : undefined
   const [copied, setCopied] = useState(false)
+
+  const {
+    data: post,
+    loading,
+    error,
+  } = useQuery<ApiInsightDetail>(slug ? `/public/insights/${encodeURIComponent(slug)}` : null)
+  const { data: archive } = useQuery<Page<ApiInsightCard>>('/public/insights?per_page=48')
+  const { data: team } = useQuery<ApiTeamMember[]>('/public/team')
 
   const { scrollYProgress } = useScroll()
   const progress = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 })
 
-  const related = useMemo(
-    () =>
-      post
-        ? INSIGHTS.filter(
-            (p) => p.slug !== post.slug && (p.category === post.category || p.featured),
-          ).slice(0, 3)
-        : [],
-    [post],
-  )
+  const related = useMemo(() => {
+    if (!post) return []
+    return (archive?.items ?? [])
+      .filter((p) => p.slug !== post.slug && (p.category === post.category || p.is_featured))
+      .slice(0, 3)
+  }, [post, archive])
 
   useEffect(() => {
     if (!copied) return
@@ -36,10 +41,18 @@ export default function InsightDetailPage() {
     return () => window.clearTimeout(id)
   }, [copied])
 
-  if (!post) return <NotFoundPage />
+  if (loading && !post) {
+    return (
+      <div className="container-page grid min-h-[60dvh] place-items-center">
+        <div className="size-8 animate-spin rounded-full border-2 border-line border-t-gold-500" />
+      </div>
+    )
+  }
+  if (error || !post) return <NotFoundPage />
 
-  const author = AGENTS.find((a) => a.name === post.author)
-  const url = `${SITE.url}/insights/${post.slug}`
+  const author = (team ?? []).find((a) => a.full_name === post.author_name)
+  const body = post.body ?? []
+  const url = `${site.url}/insights/${post.slug}`
 
   const share = async () => {
     if (navigator.share) {
@@ -63,18 +76,18 @@ export default function InsightDetailPage() {
     '@type': 'BlogPosting',
     headline: post.title,
     description: post.excerpt,
-    image: post.cover,
-    datePublished: post.publishedAt,
-    dateModified: post.publishedAt,
-    author: { '@type': 'Person', name: post.author, jobTitle: post.authorRole },
+    image: post.cover_url,
+    datePublished: post.published_at,
+    dateModified: post.published_at,
+    author: { '@type': 'Person', name: post.author_name, jobTitle: post.author_role },
     publisher: {
       '@type': 'Organization',
-      name: SITE.name,
-      logo: { '@type': 'ImageObject', url: `${SITE.url}/brand/logo-horizontal.png` },
+      name: site.name,
+      logo: { '@type': 'ImageObject', url: `${site.url}/brand/logo-horizontal.png` },
     },
     mainEntityOfPage: { '@type': 'WebPage', '@id': url },
-    keywords: post.tags.join(', '),
-    wordCount: post.body.reduce(
+    keywords: (post.tags ?? []).join(', '),
+    wordCount: body.reduce(
       (n, block) => n + (block.text?.split(/\s+/).length ?? 0),
       0,
     ),
@@ -84,13 +97,13 @@ export default function InsightDetailPage() {
     <>
       <Seo
         title={post.title}
-        description={post.excerpt}
+        description={post.excerpt ?? ''}
         path={`/insights/${post.slug}`}
-        image={post.cover}
+        image={post.cover_url ?? undefined}
         type="article"
-        keywords={post.tags}
-        publishedTime={post.publishedAt}
-        author={post.author}
+        keywords={post.tags ?? []}
+        publishedTime={post.published_at ?? undefined}
+        author={post.author_name ?? undefined}
         jsonLd={[
           articleJsonLd,
           breadcrumbJsonLd([
@@ -111,7 +124,7 @@ export default function InsightDetailPage() {
       {/* ---------------- header ---------------- */}
       <section className="relative isolate overflow-hidden bg-navy-950 text-white">
         <div className="absolute inset-0 -z-10">
-          <img src={post.cover} alt="" aria-hidden className="size-full object-cover opacity-25" />
+          <img src={post.cover_url ?? undefined} alt="" aria-hidden className="size-full object-cover opacity-25" />
           <div className="absolute inset-0 bg-gradient-to-b from-navy-950/85 via-navy-950/92 to-navy-950" />
         </div>
         <div className="pointer-events-none absolute inset-0 -z-10 bg-blueprint opacity-50" />
@@ -160,23 +173,23 @@ export default function InsightDetailPage() {
             <div className="flex items-center gap-3.5">
               {author && (
                 <img
-                  src={author.photo}
+                  src={author.photo_url ?? undefined}
                   alt=""
                   aria-hidden
                   className="size-12 rounded-full object-cover ring-2 ring-gold-500/40"
                 />
               )}
               <div>
-                <p className="font-semibold text-white">{post.author}</p>
-                <p className="text-[0.8125rem] text-white/45">{post.authorRole}</p>
+                <p className="font-semibold text-white">{post.author_name}</p>
+                <p className="text-[0.8125rem] text-white/45">{post.author_role}</p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[0.875rem] text-white/50">
-              <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+              <time dateTime={post.published_at ?? ''}>{formatDate(post.published_at ?? '')}</time>
               <span className="flex items-center gap-1.5">
                 <Clock className="size-4" strokeWidth={2.2} />
-                {post.readTime} min read
+                {post.read_time} min read
               </span>
             </div>
 
@@ -213,14 +226,14 @@ export default function InsightDetailPage() {
                 className="overflow-hidden rounded-4xl"
               >
                 <img
-                  src={post.cover}
+                  src={post.cover_url ?? undefined}
                   alt={post.title}
                   className="aspect-16/9 w-full object-cover"
                 />
               </motion.figure>
 
               <motion.div {...revealProps} variants={stagger(0.05)} className="mt-12">
-                {post.body.map((block, i) => {
+                {body.map((block, i) => {
                   if (block.type === 'h2') {
                     return (
                       <motion.h2
@@ -286,7 +299,7 @@ export default function InsightDetailPage() {
                 <span className="mr-2 text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase">
                   Tagged
                 </span>
-                {post.tags.map((tag) => (
+                {(post.tags ?? []).map((tag) => (
                   <span
                     key={tag}
                     className="rounded-full border border-line-strong bg-surface px-3.5 py-1.5 text-[0.8125rem] font-medium text-ink-soft"
@@ -304,7 +317,7 @@ export default function InsightDetailPage() {
                   className="mt-10 flex flex-col gap-5 rounded-3xl border border-line bg-surface p-7 sm:flex-row sm:items-center"
                 >
                   <img
-                    src={author.photo}
+                    src={author.photo_url ?? undefined}
                     alt=""
                     aria-hidden
                     loading="lazy"
@@ -315,11 +328,11 @@ export default function InsightDetailPage() {
                       Written by
                     </p>
                     <p className="mt-1 font-display text-lg font-semibold text-ink">
-                      {author.name}
+                      {author.full_name}
                     </p>
-                    <p className="text-[0.875rem] text-gold-600">{author.role}</p>
+                    <p className="text-[0.875rem] text-gold-600">{author.job_title}</p>
                     <p className="mt-2.5 text-[0.9375rem] leading-relaxed text-ink-soft">
-                      {author.deals} deals closed · {author.specialties.join(', ')}
+                      {author.deals_closed} deals closed · {(author.specialties ?? []).join(', ')}
                     </p>
                   </div>
                   <Button
@@ -327,7 +340,7 @@ export default function InsightDetailPage() {
                     variant="outline"
                     className="shrink-0 sm:self-center"
                   >
-                    Talk to {author.name.split(' ')[0]}
+                    Talk to {author.full_name.split(' ')[0]}
                   </Button>
                 </motion.div>
               )}
@@ -339,7 +352,7 @@ export default function InsightDetailPage() {
                 <div className="rounded-3xl border border-line bg-surface p-7">
                   <h2 className="font-display text-lg font-semibold text-ink">In this report</h2>
                   <ol className="mt-5 space-y-3">
-                    {post.body
+                    {body
                       .filter((b) => b.type === 'h2')
                       .map((b, i) => (
                         <li key={i} className="flex items-start gap-3">
@@ -409,7 +422,7 @@ export default function InsightDetailPage() {
                   >
                     <div className="relative h-48 overflow-hidden">
                       <img
-                        src={item.cover}
+                        src={item.cover_url ?? undefined}
                         alt={item.title}
                         loading="lazy"
                         className="size-full object-cover transition-transform duration-900 ease-brand group-hover:scale-110"
@@ -433,7 +446,7 @@ export default function InsightDetailPage() {
                       <div className="mt-auto flex items-center justify-between gap-3 pt-5 text-[0.8125rem] text-ink-muted">
                         <span className="flex items-center gap-1.5">
                           <Clock className="size-3.5" strokeWidth={2.2} />
-                          {item.readTime} min
+                          {item.read_time} min
                         </span>
                         <ArrowUpRight
                           className="size-4 text-ink-muted transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-gold-600"

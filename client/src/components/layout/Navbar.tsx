@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown, Menu, Phone, Search, X } from 'lucide-react'
-import { NAV_ITEMS, SITE, SOCIALS } from '@/data/site'
 import type { TranslationKey } from '@/data/translations'
+import { useNavItems, useSite, useSocials } from '@/lib/siteConfig'
 import { cn } from '@/lib/utils'
 import { EASE } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
@@ -14,6 +14,9 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 
 export function Navbar() {
+  const site = useSite()
+  const navItems = useNavItems()
+  const socials = useSocials()
   const [scrolled, setScrolled] = useState(false)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -61,7 +64,7 @@ export function Navbar() {
   }
   const cancelClose = () => window.clearTimeout(closeTimer.current)
 
-  const openItem = NAV_ITEMS.find((i) => i.label === openMenu && i.children)
+  const openItem = navItems.find((i) => i.label === openMenu && i.children)
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
@@ -74,16 +77,16 @@ export function Navbar() {
       >
         <div className="container-page flex h-10 items-center justify-between text-[0.75rem]">
           <div className="flex items-center gap-6">
-            <a href={SITE.phoneHref} className="transition-colors hover:text-gold-300">
-              {SITE.phone}
+            <a href={site.phoneHref} className="transition-colors hover:text-gold-300">
+              {site.phone}
             </a>
-            <a href={`mailto:${SITE.email}`} className="transition-colors hover:text-gold-300">
-              {SITE.email}
+            <a href={`mailto:${site.email}`} className="transition-colors hover:text-gold-300">
+              {site.email}
             </a>
-            <span className="text-white/40">{SITE.hours}</span>
+            <span className="text-white/40">{site.hours}</span>
           </div>
           <div className="flex items-center gap-4">
-            {SOCIALS.map((s) => (
+            {socials.map((s) => (
               <a
                 key={s.name}
                 href={s.href}
@@ -119,7 +122,7 @@ export function Navbar() {
 
           {/* desktop nav */}
           <nav className="hidden items-center gap-0.5 xl:flex" aria-label={t('nav.primary')}>
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const hasChildren = Boolean(item.children?.length)
               return (
                 <div
@@ -230,7 +233,7 @@ export function Navbar() {
                   </p>
                   <p className="mt-2.5 text-[0.875rem] leading-relaxed text-ink-muted">
                     {openItem.label === 'Properties'
-                      ? 'Every listing is title-verified at the Rwanda Land Authority before it reaches this site.'
+                      ? 'Every listing is title-verified at the National Land Authority before it reaches this site.'
                       : 'One company that brokers, builds, manages and re-lists — the full value chain.'}
                   </p>
                   <Link
@@ -313,7 +316,7 @@ export function Navbar() {
 
               <nav className="flex-1 overflow-y-auto px-4 py-5" aria-label="Mobile">
                 <ul className="space-y-0.5">
-                  {NAV_ITEMS.map((item) => (
+                  {navItems.map((item) => (
                     <li key={item.label}>
                       {item.children?.length ? (
                         <>
@@ -390,14 +393,14 @@ export function Navbar() {
                   {t('cta.bookConsultation')}
                 </Link>
                 <a
-                  href={SITE.phoneHref}
+                  href={site.phoneHref}
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-line font-semibold text-ink transition-colors hover:border-line-strong"
                 >
                   <Phone className="size-4" strokeWidth={2.1} />
-                  {SITE.phone}
+                  {site.phone}
                 </a>
                 <div className="flex items-center justify-center gap-5 pt-1">
-                  {SOCIALS.map((s) => (
+                  {socials.map((s) => (
                     <a
                       key={s.name}
                       href={s.href}

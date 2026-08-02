@@ -16,85 +16,118 @@ import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { SocialIcon } from '@/components/ui/SocialIcon'
 import { FaqSection } from '@/components/sections/FaqSection'
-import { SITE, SOCIALS } from '@/data/site'
+import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { api } from '@/lib/api'
+import { useSite, useSocials } from '@/lib/siteConfig'
+import { useBlock, useQuery } from '@/lib/queries'
+import type { ApiFaq } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 
 const OFFICE_LAT = -1.9441
 const OFFICE_LNG = 30.0619
 
-const CHANNELS = [
+const channelsFor = (site: ReturnType<typeof useSite>) => [
   {
     icon: MessageCircle,
     title: 'WhatsApp',
-    detail: SITE.whatsapp,
+    detail: site.whatsapp,
     body: 'Fastest way to reach us. Usually answered within minutes during office hours.',
-    href: SITE.whatsappHref,
+    href: site.whatsappHref,
     action: 'Start a chat',
   },
   {
     icon: Phone,
     title: 'Phone',
-    detail: SITE.phone,
+    detail: site.phone,
     body: 'Speak to a consultant directly. If we miss you, we call back the same working day.',
-    href: SITE.phoneHref,
+    href: site.phoneHref,
     action: 'Call now',
   },
   {
     icon: Mail,
     title: 'Email',
-    detail: SITE.email,
+    detail: site.email,
     body: 'Best for documents, drawings and anything that needs a written record.',
-    href: `mailto:${SITE.email}`,
+    href: `mailto:${site.email}`,
     action: 'Send an email',
   },
   {
     icon: MapPin,
     title: 'Our office',
     detail: 'KG 11 Ave, Kimihurura',
-    body: `${SITE.address}. Walk in during office hours or book a slot.`,
+    body: `${site.address}. Walk in during office hours or book a slot.`,
     href: `https://www.google.com/maps/search/?api=1&query=${OFFICE_LAT},${OFFICE_LNG}`,
     action: 'Get directions',
   },
 ]
 
-const CONTACT_FAQS = [
-  {
-    question: 'How quickly will you actually reply?',
-    answer:
-      'Within two working hours. That is not marketing language — it is a culture rule inside the company and we measure it. Competitors take days, and that gap is one of our few genuine advantages.',
-  },
-  {
-    question: 'Can I just walk into the office?',
-    answer:
-      'Yes, during office hours. But you will get more out of it if you book, because then the right consultant is there and has already looked at whatever you want to discuss.',
-  },
-  {
-    question: 'I am abroad — what is the best way to reach you?',
-    answer:
-      'WhatsApp for anything quick, email for anything that needs a paper trail. For a proper conversation, book a diaspora briefing — those slots are scheduled early morning and evening Kigali time to suit European and North American hours.',
-  },
-  {
-    question: 'Do you charge for an initial conversation?',
-    answer:
-      'No. Discovery calls, viewings, Wealth Cycle planning sessions, diaspora briefings and seller valuations are all free. The only paid slot is a construction consultation, and that is credited against your build.',
-  },
-]
 
 export default function ContactPage() {
+  const seo = useBlock('contact', 'seo', {
+    title: "Contact Evaramu Group Ltd — Kigali, Rwanda",
+    body: "Talk to Evaramu Group Ltd about buying, selling, building or managing property in Rwanda. WhatsApp, phone, email or visit our Kimihurura office. Every enquiry answered within two working hours.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const heroBlock = useBlock('contact', 'hero', {
+    eyebrow: "Contact us",
+    title: "Every enquiry answered",
+    accent: "within two hours.",
+    body: "Not a promise on a poster — a rule we measure. Whether you are buying your first plot, selling a family property or building from abroad, tell us what you need and someone who can actually help will get back to you today.",
+  })
+  const sendMessageBlock = useBlock('contact', 'send_message', {
+    eyebrow: "Send a message",
+    title: "Tell us what you",
+    accent: "are trying to do.",
+    body: "The more specific you are, the more useful our first reply will be. Budget and timeline help us most.",
+  })
+  const site = useSite()
+  const CHANNELS = channelsFor(site)
+  const socials = useSocials()
+  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=contact')
+  const faqs = faqData ?? []
+
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
+  const [form, setForm] = useState({
+    full_name: '',
+    phone: '',
+    email: '',
+    topic: 'Buying a property',
+    budget: 'Not sure yet',
+    based_in: '',
+    message: '',
+  })
+  const set = (key: keyof typeof form) => (next: string) =>
+    setForm((prev) => ({ ...prev, [key]: next }))
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSending(true)
+    setError(null)
+    try {
+      await api.post('/public/contact', { ...form, ...captcha })
+      setSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not send. Please try again.')
+    } finally {
+      setSending(false)
+    }
+  }
 
   const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${OFFICE_LNG - 0.012}%2C${OFFICE_LAT - 0.008}%2C${OFFICE_LNG + 0.012}%2C${OFFICE_LAT + 0.008}&layer=mapnik&marker=${OFFICE_LAT}%2C${OFFICE_LNG}`
 
   const contactJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ContactPage',
-    name: `Contact ${SITE.name}`,
-    url: `${SITE.url}/contact`,
+    name: `Contact ${site.name}`,
+    url: `${site.url}/contact`,
     mainEntity: {
       '@type': 'Organization',
-      name: SITE.name,
-      telephone: SITE.phone,
-      email: SITE.email,
+      name: site.name,
+      telephone: site.phone,
+      email: site.email,
       address: {
         '@type': 'PostalAddress',
         streetAddress: 'KG 11 Ave, Kimihurura',
@@ -108,18 +141,13 @@ export default function ContactPage() {
   return (
     <>
       <Seo
-        title="Contact Evaramu Group Ltd — Kigali, Rwanda"
-        description="Talk to Evaramu Group Ltd about buying, selling, building or managing property in Rwanda. WhatsApp, phone, email or visit our Kimihurura office. Every enquiry answered within two working hours."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/contact"
-        keywords={[
-          'contact real estate agency Kigali',
-          'Evaramu contact',
-          'property agent Rwanda phone',
-          'Kimihurura estate agent',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
           contactJsonLd,
-          faqJsonLd(CONTACT_FAQS),
+          faqJsonLd(faqs),
           breadcrumbJsonLd([
             { name: 'Home', path: '/' },
             { name: 'Contact', path: '/contact' },
@@ -128,9 +156,9 @@ export default function ContactPage() {
       />
 
       <PageHero
-        eyebrow="Contact us"
-        title="Every enquiry answered"
-        accent="within two hours."
+        eyebrow={heroBlock.eyebrow}
+        title={heroBlock.title}
+        accent={heroBlock.accent}
         description="Not a promise on a poster — a rule we measure. Whether you are buying your first plot, selling a family property or building from abroad, tell us what you need and someone who can actually help will get back to you today."
         crumbs={[{ label: 'Contact' }]}
         image="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=2000&q=80"
@@ -191,9 +219,9 @@ export default function ContactPage() {
             {/* form */}
             <motion.div {...revealProps} variants={fadeUp} className="lg:col-span-7">
               <SectionHeading
-                eyebrow="Send a message"
-                title="Tell us what you"
-                accent="are trying to do."
+                eyebrow={sendMessageBlock.eyebrow}
+                title={sendMessageBlock.title}
+                accent={sendMessageBlock.accent}
                 description="The more specific you are, the more useful our first reply will be. Budget and timeline help us most."
               />
 
@@ -211,7 +239,7 @@ export default function ContactPage() {
                       is urgent, WhatsApp is faster.
                     </p>
                     <div className="mt-7 flex flex-wrap justify-center gap-3">
-                      <Button href={SITE.whatsappHref} variant="gold">
+                      <Button href={site.whatsappHref} variant="gold">
                         WhatsApp us instead
                       </Button>
                       <Button onClick={() => setSent(false)} variant="outline">
@@ -222,18 +250,15 @@ export default function ContactPage() {
                 ) : (
                   <form
                     className="space-y-5"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      setSent(true)
-                    }}
+                    onSubmit={send}
                   >
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <ContactField id="k-name" label="Full name" required />
-                      <ContactField id="k-phone" label="Phone or WhatsApp" type="tel" required />
+                      <ContactField id="k-name" label="Full name" required value={form.full_name} onChange={set('full_name')} />
+                      <ContactField id="k-phone" label="Phone or WhatsApp" type="tel" required value={form.phone} onChange={set('phone')} />
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <ContactField id="k-email" label="Email" type="email" required />
+                      <ContactField id="k-email" label="Email" type="email" required value={form.email} onChange={set('email')} />
                       <div>
                         <label
                           htmlFor="k-topic"
@@ -243,6 +268,8 @@ export default function ContactPage() {
                         </label>
                         <select
                           id="k-topic"
+                          value={form.topic}
+                          onChange={(e) => set('topic')(e.target.value)}
                           className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] text-ink transition-colors focus:border-gold-500 focus:outline-none"
                         >
                           <option>Buying a property</option>
@@ -266,6 +293,8 @@ export default function ContactPage() {
                         </label>
                         <select
                           id="k-budget"
+                          value={form.budget}
+                          onChange={(e) => set('budget')(e.target.value)}
                           className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] text-ink transition-colors focus:border-gold-500 focus:outline-none"
                         >
                           <option>Not sure yet</option>
@@ -276,7 +305,7 @@ export default function ContactPage() {
                           <option>Above RWF 150M</option>
                         </select>
                       </div>
-                      <ContactField id="k-where" label="Where are you based?" />
+                      <ContactField id="k-where" label="Where are you based?" value={form.based_in} onChange={set('based_in')} />
                     </div>
 
                     <div>
@@ -290,19 +319,33 @@ export default function ContactPage() {
                         id="k-message"
                         rows={5}
                         required
+                        value={form.message}
+                        onChange={(e) => set('message')(e.target.value)}
                         placeholder="What are you trying to achieve, and by when?"
                         className="w-full resize-y rounded-2xl border border-line bg-surface px-4 py-3.5 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
                       />
                     </div>
+
+                    <Captcha value={captcha} onChange={setCaptcha} scope="contact" compact />
+
+                    {error && (
+                      <p
+                        role="alert"
+                        className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[0.875rem] text-red-700"
+                      >
+                        {error}
+                      </p>
+                    )}
 
                     <Button
                       type="submit"
                       variant="gold"
                       size="lg"
                       className="w-full"
+                      disabled={sending}
                       trailing={<Send className="size-[1.05rem]" strokeWidth={2.2} />}
                     >
-                      Send message
+                      {sending ? 'Sending…' : 'Send message'}
                     </Button>
 
                     <p className="text-center text-[0.8125rem] text-ink-muted">
@@ -332,7 +375,7 @@ export default function ContactPage() {
                         className="mt-0.5 size-[1.05rem] shrink-0 text-gold-600"
                         strokeWidth={2.2}
                       />
-                      <span className="text-ink-soft">{SITE.address}</span>
+                      <span className="text-ink-soft">{site.address}</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <Clock
@@ -340,9 +383,9 @@ export default function ContactPage() {
                         strokeWidth={2.2}
                       />
                       <span className="text-ink-soft">
-                        {SITE.hours}
+                        {site.hours}
                         <br />
-                        {SITE.saturdayHours}
+                        {site.saturdayHours}
                         <br />
                         <span className="text-ink-muted">Sunday — closed</span>
                       </span>
@@ -353,10 +396,10 @@ export default function ContactPage() {
                         strokeWidth={2.2}
                       />
                       <a
-                        href={SITE.phoneHref}
+                        href={site.phoneHref}
                         className="text-ink-soft transition-colors hover:text-gold-600"
                       >
-                        {SITE.phone}
+                        {site.phone}
                       </a>
                     </li>
                     <li className="flex items-start gap-3">
@@ -365,10 +408,10 @@ export default function ContactPage() {
                         strokeWidth={2.2}
                       />
                       <a
-                        href={`mailto:${SITE.email}`}
+                        href={`mailto:${site.email}`}
                         className="text-ink-soft transition-colors hover:text-gold-600"
                       >
-                        {SITE.email}
+                        {site.email}
                       </a>
                     </li>
                   </ul>
@@ -392,7 +435,7 @@ export default function ContactPage() {
                   Land tours, renovation reveals, market data and client stories — posted weekly.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
-                  {SOCIALS.map((social) => (
+                  {socials.map((social) => (
                     <a
                       key={social.name}
                       href={social.href}
@@ -406,7 +449,7 @@ export default function ContactPage() {
                   ))}
                 </div>
                 <p className="mt-5 text-[0.875rem] text-ink-muted">
-                  {SITE.handle} on every platform
+                  {site.handle} on every platform
                 </p>
               </div>
 
@@ -430,7 +473,7 @@ export default function ContactPage() {
       </section>
 
       <FaqSection
-        faqs={CONTACT_FAQS}
+        faqs={faqs}
         eyebrow="Getting in touch"
         title="Response times"
         accent="and office hours."
@@ -445,11 +488,15 @@ function ContactField({
   label,
   type = 'text',
   required = false,
+  value,
+  onChange,
 }: {
   id: string
   label: string
   type?: string
   required?: boolean
+  value?: string
+  onChange?: (next: string) => void
 }) {
   return (
     <div>
@@ -464,6 +511,8 @@ function ContactField({
         id={id}
         type={type}
         required={required}
+        value={value}
+        onChange={(e) => onChange?.(e.target.value)}
         className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] text-ink transition-colors focus:border-gold-500 focus:outline-none"
       />
     </div>

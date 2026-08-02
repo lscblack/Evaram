@@ -1,6 +1,4 @@
-import { FORM_CONFIG, type FormField } from '@/data/formConfig'
-import { getCategoryById, getSubCategoryById } from '@/data/properties'
-import type { Property } from '@/types/property'
+import type { ApiCategory, ApiFormField } from '@/types/api'
 
 export interface DetailGroup {
   title: string
@@ -10,6 +8,7 @@ export interface DetailGroup {
 const formatValue = (value: unknown, fieldName = ''): string => {
   if (value === null || value === undefined || value === '') return '—'
   if (Array.isArray(value)) return value.join(', ')
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'number') {
     // Years are identifiers, not quantities — never thousand-separate them.
     if (/year/i.test(fieldName)) return String(value)
@@ -20,21 +19,23 @@ const formatValue = (value: unknown, fieldName = ''): string => {
 
 /**
  * Turns a property's free-form `details` JSONB into labelled, grouped rows by
- * looking the keys up in the same FORM_CONFIG that produced them. Section
- * headers in the config become group boundaries; anything the config does not
- * know about is still shown under "Additional details" rather than dropped.
+ * looking each key up in the same form definition that produced it — now served
+ * from the API, so an admin adding a field sees it here without a deploy.
+ *
+ * Section headers become group boundaries; anything the form no longer knows
+ * about is still shown under "Additional details" rather than silently dropped.
  */
-export function buildDetailGroups(property: Property): DetailGroup[] {
-  const details = property.details
+export function buildDetailGroups(
+  details: Record<string, unknown> | null | undefined,
+  taxonomy: ApiCategory[] | undefined,
+  subcategoryId: string,
+): DetailGroup[] {
   if (!details || Object.keys(details).length === 0) return []
 
-  const categoryName = getCategoryById(property.category_id)?.name
-  const subCategoryName = getSubCategoryById(property.subcategory_id)?.name
-
-  const fields: FormField[] =
-    FORM_CONFIG.find((c) => c.id === categoryName)?.subCategories.find(
-      (s) => s.id === subCategoryName,
-    )?.fields ?? []
+  const fields: ApiFormField[] =
+    taxonomy
+      ?.flatMap((c) => c.subcategories)
+      .find((s) => s.id === subcategoryId)?.fields ?? []
 
   const groups: DetailGroup[] = []
   let current: DetailGroup = { title: 'Specification', items: [] }
@@ -51,20 +52,21 @@ export function buildDetailGroups(property: Property): DetailGroup[] {
     const raw = details[field.name]
     consumed.add(field.name)
     if (raw === undefined || raw === null || raw === '') continue
+    if (Array.isArray(raw) && raw.length === 0) continue
 
-    current.items.push({ label: field.label, value: formatValue(raw, field.name) })
+    current.items.push({
+      label: field.unit ? `${field.label}` : field.label,
+      value: formatValue(raw, field.name),
+    })
   }
 
   if (current.items.length) groups.push(current)
 
-  // Anything present on the record but absent from the form definition.
   const extras = Object.entries(details)
     .filter(([key]) => !consumed.has(key))
     .map(([key, value]) => ({
-      label: key
-        .replace(/_/g, ' ')
-        .replace(/^\w/, (c) => c.toUpperCase()),
-      value: formatValue(value),
+      label: key.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()),
+      value: formatValue(value, key),
     }))
 
   if (extras.length) groups.push({ title: 'Additional details', items: extras })
@@ -73,7 +75,7 @@ export function buildDetailGroups(property: Property): DetailGroup[] {
 }
 
 /** Best-effort YouTube thumbnail + embed URL from a watch/short link. */
-export function parseVideoLink(link?: string): { embed: string; thumb: string } | null {
+export function parseVideoLink(link?: string | null): { embed: string; thumb: string } | null {
   if (!link) return null
   const match = link.match(/(?:youtu\.be\/|v=|embed\/)([\w-]{11})/)
   if (!match) return null

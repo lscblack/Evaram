@@ -192,7 +192,7 @@ export const AGENTS: Agent[] = [
     languages: ['Kinyarwanda', 'English', 'French'],
     deals: 96,
     rating: 5.0,
-    specialties: ['RLA verification', 'Transfer documentation', 'Due diligence'],
+    specialties: ['NLA verification', 'Transfer documentation', 'Due diligence'],
     covers: ['All districts'],
     since: '2025',
     bio: 'Nothing gets listed until I have matched the UPI to the registered owner. I have killed deals at this desk and I would do it again.',
@@ -308,7 +308,7 @@ export const PROPERTIES: Property[] = [
       parcel_size: 812,
       tenure: 'Freehold',
       verified_on: '2025-11-05',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       has_electricity: 'Yes',
@@ -372,7 +372,7 @@ export const PROPERTIES: Property[] = [
       tenure: 'Leasehold',
       lease_period: '99 years from 2018',
       verified_on: '2025-12-15',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       condition: 'Excellent',
@@ -448,7 +448,7 @@ export const PROPERTIES: Property[] = [
       tenure: 'Leasehold',
       lease_period: '99 years from 2015',
       verified_on: '2025-10-24',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       condition: 'Excellent',
@@ -520,7 +520,7 @@ export const PROPERTIES: Property[] = [
       parcel_size: 1500,
       tenure: 'Freehold',
       verified_on: '2026-01-12',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       has_electricity: 'Yes',
@@ -582,7 +582,7 @@ export const PROPERTIES: Property[] = [
       parcel_size: 132,
       tenure: 'Condominium',
       verified_on: '2026-01-26',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       condition: 'Excellent',
@@ -652,7 +652,7 @@ export const PROPERTIES: Property[] = [
       tenure: 'Leasehold',
       lease_period: '99 years from 2019',
       verified_on: '2025-10-04',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       has_electricity: 'Yes',
@@ -718,7 +718,7 @@ export const PROPERTIES: Property[] = [
       tenure: 'Leasehold',
       lease_period: '99 years from 2012',
       verified_on: '2025-11-22',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       condition: 'Good',
@@ -790,7 +790,7 @@ export const PROPERTIES: Property[] = [
       parcel_size: 42000,
       tenure: 'Freehold',
       verified_on: '2025-12-08',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       seasonal: 'Yes',
@@ -856,7 +856,7 @@ export const PROPERTIES: Property[] = [
       tenure: 'Leasehold',
       lease_period: '50 years from 2020',
       verified_on: '2025-10-10',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       condition: 'Excellent',
@@ -928,7 +928,7 @@ export const PROPERTIES: Property[] = [
       tenure: 'Leasehold',
       lease_period: '99 years from 2010',
       verified_on: '2025-08-20',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       condition: 'Excellent',
@@ -1002,7 +1002,7 @@ export const PROPERTIES: Property[] = [
       parcel_size: 28000,
       tenure: 'Freehold',
       verified_on: '2026-01-20',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       products: ['Other'],
@@ -1064,7 +1064,7 @@ export const PROPERTIES: Property[] = [
       tenure: 'Leasehold',
       lease_period: '99 years from 2017',
       verified_on: '2025-12-03',
-      registrar: 'Rwanda Land Authority',
+      registrar: 'National Land Authority',
     },
     details: {
       condition: 'Excellent',

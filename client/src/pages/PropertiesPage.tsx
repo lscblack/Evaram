@@ -6,17 +6,13 @@ import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { PropertyCard } from '@/components/ui/PropertyCard'
 import { PropertyRow } from '@/components/ui/PropertyRow'
 import { Button } from '@/components/ui/Button'
-import {
-  CATEGORIES,
-  DISTRICTS,
-  PRICE_BOUNDS,
-  PROPERTIES,
-  SUBCATEGORIES,
-} from '@/data/properties'
-import type { ListingIntent, Property } from '@/types/property'
-import { SITE } from '@/data/site'
+
+import type { ApiCategory, ApiPropertyCard, CategorySummary, ListingIntent, Page as ApiPage } from '@/types/api'
 import { EASE, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
+import { useBlock, useQuery } from '@/lib/queries'
+import { useSite, useSiteConfig } from '@/lib/siteConfig'
+import { qs } from '@/lib/api'
 import { cn, formatCompactCurrency } from '@/lib/utils'
 
 type SortKey = 'newest' | 'price-asc' | 'price-desc' | 'size-desc' | 'yield-desc'
@@ -32,11 +28,21 @@ const SORTS: { id: SortKey; tKey: string }[] = [
 const PER_PAGE = 9
 
 export default function PropertiesPage() {
+  const seo = useBlock('properties', 'seo', {
+    title: "Properties for Sale & Rent in Rwanda",
+    body: "Browse verified land, houses, apartments and commercial property across Kigali and Rwanda. Every listing is checked against its UPI at the National Land Authority before it goes live.",
+  })
+  const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
+  const site = useSite()
+  const { setting } = useSiteConfig()
+  // The slider ceiling is an admin setting, so it can track the real market.
+  const priceMax = Number(setting('marketplace.price_max', '600000000'))
   const t = useT()
+  const { districts } = useSiteConfig()
   const [params, setParams] = useSearchParams()
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [visible, setVisible] = useState(PER_PAGE)
+  const [perPage, setPerPage] = useState(PER_PAGE)
 
   /* ---- state lives in the URL so every search is shareable ---- */
   const q = params.get('q') ?? ''
@@ -44,7 +50,7 @@ export default function PropertiesPage() {
   const category = params.get('category') ?? ''
   const subcategory = params.get('subcategory') ?? ''
   const district = params.get('district') ?? ''
-  const maxPrice = Number(params.get('maxPrice') ?? PRICE_BOUNDS.max)
+  const maxPrice = Number(params.get('maxPrice') ?? priceMax)
   const verifiedOnly = params.get('verified') === '1'
   const sort = (params.get('sort') as SortKey | null) ?? 'newest'
 
@@ -57,69 +63,47 @@ export default function PropertiesPage() {
 
   const resetAll = () => setParams(new URLSearchParams(), { replace: true })
 
-  const activeCategory = CATEGORIES.find((c) => c.name === category)
+  /* ---- taxonomy and results, both from the API ---- */
+  const { data: categories } = useQuery<CategorySummary[]>('/public/categories')
+  const { data: taxonomy } = useQuery<ApiCategory[]>('/public/taxonomy')
+
+  const activeCategory = categories?.find((c) => c.slug === category)
   const availableSubs = useMemo(
-    () => (activeCategory ? SUBCATEGORIES.filter((s) => s.category_id === activeCategory.id) : []),
-    [activeCategory],
+    () => taxonomy?.find((c) => c.slug === category)?.subcategories ?? [],
+    [taxonomy, category],
   )
 
-  /* ---- filter + sort ---- */
-  const results = useMemo(() => {
-    const needle = q.trim().toLowerCase()
+  // Debounce the keyword so typing does not fire a request per keystroke.
+  const [debouncedQ, setDebouncedQ] = useState(q)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q), 280)
+    return () => window.clearTimeout(timer)
+  }, [q])
 
-    const filtered = PROPERTIES.filter((p) => {
-      if (intent !== 'all' && p.intent !== intent) return false
-      if (activeCategory && p.category_id !== activeCategory.id) return false
-      if (subcategory) {
-        const sub = SUBCATEGORIES.find((s) => s.name === subcategory)
-        if (sub && p.subcategory_id !== sub.id) return false
-      }
-      if (district && p.district !== district) return false
-      if (verifiedOnly && !p.is_verified) return false
-
-      // Rent figures live on a different scale, so only gate sale prices.
-      if (p.intent === 'sale' && (p.estimated_amount ?? 0) > maxPrice) return false
-
-      if (needle) {
-        const haystack = [
-          p.title,
-          p.summary,
-          p.location,
-          p.district,
-          p.sector,
-          p.cell,
-          p.village,
-          p.upi,
-          ...p.tags,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        if (!haystack.includes(needle)) return false
-      }
-      return true
+  const listPath =
+    '/public/properties' +
+    qs({
+      q: debouncedQ || undefined,
+      intent: intent === 'all' ? undefined : intent,
+      category: category || undefined,
+      subcategory: subcategory || undefined,
+      district: district || undefined,
+      max_price: maxPrice < priceMax ? maxPrice : undefined,
+      verified_only: verifiedOnly || undefined,
+      sort,
+      per_page: perPage,
     })
 
-    const priceOf = (p: Property) =>
-      p.intent === 'rent' ? (p.rent_amount ?? 0) : (p.estimated_amount ?? 0)
+  const { data: results, loading } = useQuery<ApiPage<ApiPropertyCard>>(listPath)
+  const items = results?.items ?? []
+  const total = results?.total ?? 0
 
-    return [...filtered].sort((a, b) => {
-      switch (sort) {
-        case 'price-asc':
-          return priceOf(a) - priceOf(b)
-        case 'price-desc':
-          return priceOf(b) - priceOf(a)
-        case 'size-desc':
-          return (b.size ?? 0) - (a.size ?? 0)
-        case 'yield-desc':
-          return (b.projected_yield ?? 0) - (a.projected_yield ?? 0)
-        default:
-          return +new Date(b.created_at) - +new Date(a.created_at)
-      }
-    })
-  }, [q, intent, activeCategory, subcategory, district, maxPrice, verifiedOnly, sort])
+  // A new filter set starts again from the first page-worth of rows.
+  useEffect(() => {
+    setPerPage(PER_PAGE)
+  }, [debouncedQ, intent, category, subcategory, district, maxPrice, verifiedOnly, sort])
 
-  useEffect(() => setVisible(PER_PAGE), [results.length])
+  const totalListings = categories?.reduce((n, c) => n + c.property_count, 0) ?? 0
 
   const activeChips = (
     [
@@ -131,11 +115,11 @@ export default function PropertiesPage() {
       category && { key: 'category', label: activeCategory?.label ?? category },
       subcategory && {
         key: 'subcategory',
-        label: SUBCATEGORIES.find((s) => s.name === subcategory)?.label ?? subcategory,
+        label: availableSubs.find((s) => s.slug === subcategory)?.label ?? subcategory,
       },
       district && { key: 'district', label: district },
       verifiedOnly && { key: 'verified', label: t('market.verifiedOnly') },
-      maxPrice < PRICE_BOUNDS.max && {
+      maxPrice < priceMax && {
         key: 'maxPrice',
         label: `< ${formatCompactCurrency(maxPrice)}`,
       },
@@ -146,11 +130,11 @@ export default function PropertiesPage() {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: 'Properties for sale and rent in Rwanda',
-    numberOfItems: results.length,
-    itemListElement: results.slice(0, 10).map((p, i) => ({
+    numberOfItems: total,
+    itemListElement: items.slice(0, 10).map((p, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      url: `${SITE.url}/properties/${p.id}`,
+      url: `${site.url}/properties/${p.slug}`,
       name: p.title,
     })),
   }
@@ -165,7 +149,7 @@ export default function PropertiesPage() {
           type="search"
           value={q}
           onChange={(e) => setParam('q', e.target.value)}
-          placeholder="Location, UPI, feature…"
+          placeholder="Location, reference, feature…"
           className="h-10 w-full border-b border-line bg-transparent text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
         />
       </Field>
@@ -200,7 +184,7 @@ export default function PropertiesPage() {
             <FilterRow
               active={!category}
               label={t('market.allCategories')}
-              count={PROPERTIES.length}
+              count={totalListings}
               onClick={() => {
                 const next = new URLSearchParams(params)
                 next.delete('category')
@@ -209,16 +193,16 @@ export default function PropertiesPage() {
               }}
             />
           </li>
-          {CATEGORIES.map((c) => (
+          {(categories ?? []).map((c) => (
             <li key={c.id}>
               <FilterRow
-                active={category === c.name}
+                active={category === c.slug}
                 label={c.label}
-                count={PROPERTIES.filter((p) => p.category_id === c.id).length}
+                count={c.property_count}
                 onClick={() => {
                   const next = new URLSearchParams(params)
-                  if (category === c.name) next.delete('category')
-                  else next.set('category', c.name)
+                  if (category === c.slug) next.delete('category')
+                  else next.set('category', c.slug)
                   next.delete('subcategory')
                   setParams(next, { replace: true })
                 }}
@@ -242,8 +226,8 @@ export default function PropertiesPage() {
                 {availableSubs.map((s) => (
                   <Chip
                     key={s.id}
-                    active={subcategory === s.name}
-                    onClick={() => setParam('subcategory', subcategory === s.name ? null : s.name)}
+                    active={subcategory === s.slug}
+                    onClick={() => setParam('subcategory', subcategory === s.slug ? null : s.slug)}
                   >
                     {s.label}
                   </Chip>
@@ -256,7 +240,7 @@ export default function PropertiesPage() {
 
       <Field label={t('market.district')}>
         <div className="flex flex-wrap gap-1.5">
-          {DISTRICTS.map((d) => (
+          {districts.map((d) => (
             <Chip
               key={d}
               active={district === d}
@@ -270,13 +254,13 @@ export default function PropertiesPage() {
 
       <Field
         label={t('market.maxPrice')}
-        aside={maxPrice >= PRICE_BOUNDS.max ? t('market.any') : formatCompactCurrency(maxPrice)}
+        aside={maxPrice >= priceMax ? t('market.any') : formatCompactCurrency(maxPrice)}
       >
         <input
           type="range"
           aria-label={t('market.maxPrice')}
           min={10_000_000}
-          max={PRICE_BOUNDS.max}
+          max={priceMax}
           step={5_000_000}
           value={maxPrice}
           onChange={(e) => setParam('maxPrice', e.target.value)}
@@ -313,16 +297,10 @@ export default function PropertiesPage() {
   return (
     <>
       <Seo
-        title="Properties for Sale & Rent in Rwanda"
-        description="Browse verified land, houses, apartments and commercial property across Kigali and Rwanda. Every listing is checked against its UPI at the Rwanda Land Authority before it goes live."
+        title={seo.title}
+        description={seo.body ?? ''}
         path="/properties"
-        keywords={[
-          'land for sale Kigali',
-          'houses for sale Rwanda',
-          'apartments for rent Kigali',
-          'commercial property Rwanda',
-          'verified UPI land Rwanda',
-        ]}
+        keywords={seoKeywords}
         jsonLd={[
           listJsonLd,
           breadcrumbJsonLd([
@@ -349,15 +327,15 @@ export default function PropertiesPage() {
                 {t('market.title')}
               </h1>
               <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-soft">
-                Every parcel here is checked against its UPI at the Rwanda Land Authority before it
+                Every parcel here is checked against its UPI at the National Land Authority before it
                 reaches this page — tenure, size and coordinates published up front.
               </p>
             </div>
 
             <dl className="flex gap-8 border-t border-line pt-5 lg:border-0 lg:pt-0">
               {[
-                { value: String(PROPERTIES.length), label: 'Live listings' },
-                { value: '7', label: 'Districts' },
+                { value: String(totalListings), label: 'Live listings' },
+                { value: String(districts.length || 7), label: 'Districts' },
                 { value: '100%', label: 'Verified' },
               ].map((stat) => (
                 <div key={stat.label}>
@@ -391,14 +369,11 @@ export default function PropertiesPage() {
             </button>
 
             <p className="shrink-0 text-[0.875rem] text-ink-soft">
-              <span className="font-display text-lg font-semibold text-ink">{results.length}</span>{' '}
+              <span className="font-display text-lg font-semibold text-ink">{total}</span>{' '}
               <span className="hidden sm:inline">
-                {results.length === 1
+                {total === 1
                   ? t('market.oneResult').replace('1 ', '')
-                  : t('market.resultsFound', { count: results.length }).replace(
-                      `${results.length} `,
-                      '',
-                    )}
+                  : t('market.resultsFound', { count: total }).replace(`${total} `, '')}
               </span>
             </p>
 
@@ -486,10 +461,10 @@ export default function PropertiesPage() {
             </aside>
 
             <div>
-              {results.length > 0 ? (
+              {items.length > 0 ? (
                 <>
                   <motion.div
-                    key={`${view}-${results.length}-${sort}`}
+                    key={`${view}-${items.length}-${sort}`}
                     initial="hidden"
                     animate="show"
                     variants={stagger(0.05)}
@@ -499,7 +474,7 @@ export default function PropertiesPage() {
                         : 'flex flex-col gap-4',
                     )}
                   >
-                    {results.slice(0, visible).map((property, i) =>
+                    {items.map((property, i) =>
                       view === 'grid' ? (
                         <PropertyCard key={property.id} property={property} index={i} />
                       ) : (
@@ -508,16 +483,17 @@ export default function PropertiesPage() {
                     )}
                   </motion.div>
 
-                  {visible < results.length && (
+                  {items.length < total && (
                     <div className="mt-12 flex flex-col items-center gap-3">
                       <p className="text-[0.8125rem] text-ink-muted">
-                        {t('market.showing', {
-                          shown: Math.min(visible, results.length),
-                          total: results.length,
-                        })}
+                        {t('market.showing', { shown: items.length, total })}
                       </p>
-                      <Button variant="outline" onClick={() => setVisible((v) => v + PER_PAGE)}>
-                        {t('cta.loadMore')}
+                      <Button
+                        variant="outline"
+                        disabled={loading}
+                        onClick={() => setPerPage((n) => n + PER_PAGE)}
+                      >
+                        {loading ? t('common.loading') : t('cta.loadMore')}
                       </Button>
                     </div>
                   )}
@@ -603,9 +579,9 @@ export default function PropertiesPage() {
               <div className="flex-1 overflow-y-auto px-5 py-6">{filterPanel}</div>
               <div className="shrink-0 border-t border-line bg-surface px-5 py-4">
                 <Button onClick={() => setFiltersOpen(false)} variant="primary" className="w-full">
-                  {results.length === 1
+                  {total === 1
                     ? t('market.oneResult')
-                    : t('market.resultsFound', { count: results.length })}
+                    : t('market.resultsFound', { count: total })}
                 </Button>
               </div>
             </motion.div>

@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowUpRight, Heart } from 'lucide-react'
-import type { Property } from '@/types/property'
-import { getCategoryById, getSubCategoryById } from '@/data/properties'
+import type { ApiPropertyCard } from '@/types/api'
 import { cn, formatArea, formatCompactCurrency } from '@/lib/utils'
 import { fadeUp } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
@@ -26,26 +25,22 @@ export function PropertyCard({
   index = 0,
   compact = false,
 }: {
-  property: Property
+  property: ApiPropertyCard
   index?: number
   compact?: boolean
 }) {
   const t = useT()
   const [saved, setSaved] = useState(false)
 
-  const cover = property.images.find((i) => i.is_cover) ?? property.images[0]
-  const second = property.images[1]
-  const category = getCategoryById(property.category_id)
-  const subCategory = getSubCategoryById(property.subcategory_id)
+  const cover = property.cover_url
+  const second = property.second_image_url ?? property.cover_url
   const status = STATUS[property.status] ?? STATUS.available
 
-  const bedrooms = property.details?.bedrooms as number | undefined
-  const bathrooms = property.details?.bathrooms as number | undefined
-  const builtArea = property.details?.built_area as number | undefined
+  const { bedrooms, bathrooms, built_area: builtArea } = property
 
   const isRent = property.intent === 'rent'
   const price = formatCompactCurrency(
-    isRent ? (property.rent_amount ?? 0) : (property.estimated_amount ?? 0),
+    isRent ? (property.rent_amount ?? 0) : (property.price ?? 0),
     property.currency,
   )
 
@@ -70,14 +65,14 @@ export function PropertyCard({
       {/* ---- media ---- */}
       <div className={cn('relative overflow-hidden', compact ? 'aspect-16/11' : 'aspect-4/3')}>
         <img
-          src={cover?.url}
+          src={cover ?? undefined}
           alt={property.title}
           loading="lazy"
           className="absolute inset-0 size-full object-cover transition-[opacity,transform] duration-700 ease-brand group-hover:scale-105 group-hover:opacity-0"
         />
         {/* second frame revealed on hover — a real peek, not a gimmick */}
         <img
-          src={(second ?? cover)?.url}
+          src={second ?? undefined}
           alt=""
           aria-hidden
           loading="lazy"
@@ -138,15 +133,15 @@ export function PropertyCard({
       {/* ---- body ---- */}
       <div className="flex flex-1 flex-col p-5">
         <p className="flex items-center gap-2 text-[0.6875rem] font-semibold tracking-[0.12em] text-gold-600 uppercase">
-          {category?.label}
+          {property.category_label}
           <span aria-hidden className="size-0.5 rounded-full bg-ink-faint" />
           <span className="truncate font-medium text-ink-muted normal-case tracking-normal">
-            {subCategory?.label}
+            {property.subcategory_label}
           </span>
         </p>
 
         <h3 className="mt-2 font-display text-[1.0625rem] leading-snug font-semibold text-ink transition-colors duration-300 group-hover:text-gold-600">
-          <Link to={`/properties/${property.id}`} className="before:absolute before:inset-0">
+          <Link to={`/properties/${property.slug}`} className="before:absolute before:inset-0">
             {property.title}
           </Link>
         </h3>
@@ -167,7 +162,9 @@ export function PropertyCard({
 
         {/* footer */}
         <div className="mt-auto flex items-center justify-between gap-3 pt-4">
-          <p className="truncate font-mono text-[0.6875rem] text-ink-faint">{property.upi}</p>
+          <p className="truncate font-mono text-[0.6875rem] text-ink-faint">
+            {property.reference_number}
+          </p>
           <span
             aria-hidden
             className="grid size-8 shrink-0 place-items-center rounded-full border border-line text-ink-soft transition-colors duration-300 group-hover:border-gold-500 group-hover:bg-gold-500 group-hover:text-white"

@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Search } from 'lucide-react'
-import { SITE } from '@/data/site'
-import { CATEGORIES, DISTRICTS, PROPERTIES } from '@/data/properties'
+import { useBlockItems, useQuery } from '@/lib/queries'
+import { useSiteConfig, useSite } from '@/lib/siteConfig'
+import type { ApiCategory, ApiPropertyCard } from '@/types/api'
 import { EASE } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { cn, formatCompactCurrency } from '@/lib/utils'
@@ -14,10 +15,16 @@ import { cn, formatCompactCurrency } from '@/lib/utils'
  * asymmetric and type-led rather than a centred image with a floating panel.
  */
 
-const FEATURED = PROPERTIES.filter((p) => p.is_featured).slice(0, 4)
+/** Fallback for `home` → `hero_stats` — the shipped copy. */
+const HERO_STATS_FALLBACK = [
+  { value: '750+', label: 'Properties catalogued' },
+  { value: '20–50%', label: 'Value added by build' },
+  { value: '100%', label: 'Titles verified' },
+]
 
-const MARQUEE_ITEMS = [
-  'Every title verified at the Rwanda Land Authority',
+/** Fallback for `home` → `hero_marquee` — the shipped copy. */
+const MARQUEE_ITEMS_FALLBACK: string[] = [
+  'Every title verified at the National Land Authority',
   'We broker and we build',
   'Response within two hours',
   'Diaspora reporting every month',
@@ -25,6 +32,17 @@ const MARQUEE_ITEMS = [
 ]
 
 export function Hero() {
+  const heroStats = useBlockItems(
+    'home',
+    'hero_stats',
+    HERO_STATS_FALLBACK,
+  )
+  const marqueeItems = useBlockItems(
+    'home',
+    'hero_marquee',
+    MARQUEE_ITEMS_FALLBACK,
+  )
+  const site = useSite()
   const navigate = useNavigate()
   const t = useT()
 
@@ -34,16 +52,22 @@ export function Hero() {
   const [district, setDistrict] = useState('')
   const [query, setQuery] = useState('')
 
-  useEffect(() => {
-    const id = window.setInterval(() => setActive((i) => (i + 1) % FEATURED.length), 5000)
-    return () => window.clearInterval(id)
-  }, [])
+  const { data: featuredData } = useQuery<ApiPropertyCard[]>('/public/properties/featured?limit=4')
+  const featured = useMemo(() => featuredData ?? [], [featuredData])
 
-  const property = FEATURED[active]
-  const cover = useMemo(
-    () => property.images.find((i) => i.is_cover) ?? property.images[0],
-    [property],
-  )
+  const { data: categoryData } = useQuery<ApiCategory[]>('/public/taxonomy')
+  const categories = categoryData ?? []
+  const { districts } = useSiteConfig()
+
+  useEffect(() => {
+    if (featured.length < 2) return
+    const id = window.setInterval(() => setActive((i) => (i + 1) % featured.length), 5000)
+    return () => window.clearInterval(id)
+  }, [featured.length])
+
+  const property = featured[active % Math.max(featured.length, 1)] as
+    | ApiPropertyCard
+    | undefined
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -134,11 +158,7 @@ export function Hero() {
               transition={{ duration: 0.8, delay: 0.65 }}
               className="mt-12 grid max-w-lg grid-cols-3 divide-x divide-line border-t border-line pt-6"
             >
-              {[
-                { value: '750+', label: 'Properties catalogued' },
-                { value: '20–50%', label: 'Value added by build' },
-                { value: '100%', label: 'Titles verified' },
-              ].map((stat, i) => (
+              {heroStats.map((stat, i) => (
                 <div key={stat.label} className={cn(i > 0 && 'pl-5', i < 2 && 'pr-5')}>
                   <dd className="font-display text-xl leading-none font-semibold text-ink sm:text-2xl">
                     {stat.value}
@@ -150,6 +170,7 @@ export function Hero() {
           </div>
 
           {/* ---------- live listing card ---------- */}
+          {property && (
           <motion.div
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
@@ -161,7 +182,7 @@ export function Hero() {
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={property.id}
-                    src={cover?.url}
+                    src={property.cover_url ?? undefined}
                     alt={property.title}
                     initial={{ opacity: 0, scale: 1.06 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -190,7 +211,7 @@ export function Hero() {
                         {t(property.intent === 'rent' ? 'prop.forRent' : 'prop.forSale')}
                       </p>
                       <h2 className="mt-2 max-w-md font-display text-xl leading-snug font-semibold text-white sm:text-2xl">
-                        <Link to={`/properties/${property.id}`} className="hover:text-gold-300">
+                        <Link to={`/properties/${property.slug}`} className="hover:text-gold-300">
                           {property.title}
                         </Link>
                       </h2>
@@ -198,7 +219,7 @@ export function Hero() {
                         {formatCompactCurrency(
                           property.intent === 'rent'
                             ? (property.rent_amount ?? 0)
-                            : (property.estimated_amount ?? 0),
+                            : (property.price ?? 0),
                           property.currency,
                         )}
                         {property.intent === 'rent' && (
@@ -211,7 +232,7 @@ export function Hero() {
                   </AnimatePresence>
 
                   <div className="mt-5 flex items-center gap-1.5">
-                    {FEATURED.map((p, i) => (
+                    {featured.map((p, i) => (
                       <button
                         key={p.id}
                         type="button"
@@ -237,11 +258,12 @@ export function Hero() {
 
               <div className="absolute -top-3 -left-3 hidden rounded-full border border-line bg-surface px-4 py-2 shadow-soft sm:block">
                 <p className="text-[0.6875rem] font-semibold tracking-wide text-ink uppercase">
-                  {t('prop.titleVerified')} · RLA
+                  {t('prop.titleVerified')} · NLA
                 </p>
               </div>
             </div>
           </motion.div>
+          )}
         </div>
 
         {/* ---------- search rail ---------- */}
@@ -298,8 +320,8 @@ export function Hero() {
                 className={cn(field, 'cursor-pointer')}
               >
                 <option value="">{t('market.allTypes')}</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.name}>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.slug}>
                     {c.label}
                   </option>
                 ))}
@@ -314,7 +336,7 @@ export function Hero() {
                 className={cn(field, 'cursor-pointer')}
               >
                 <option value="">{t('market.allDistricts')}</option>
-                {DISTRICTS.map((d) => (
+                {districts.map((d) => (
                   <option key={d} value={d}>
                     {d}
                   </option>
@@ -343,7 +365,7 @@ export function Hero() {
               aria-hidden={copy === 1}
               className="flex animate-marquee shrink-0 items-center gap-10 pr-10 whitespace-nowrap"
             >
-              {MARQUEE_ITEMS.map((item) => (
+              {marqueeItems.map((item) => (
                 <span
                   key={`${copy}-${item}`}
                   className="flex items-center gap-10 text-[0.8125rem] font-medium text-ink-muted"
@@ -358,7 +380,7 @@ export function Hero() {
       </div>
 
       <p className="sr-only">
-        {SITE.name} — {SITE.tagline}
+        {site.name} — {site.tagline}
       </p>
     </section>
   )

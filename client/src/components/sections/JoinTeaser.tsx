@@ -1,30 +1,33 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, BadgeCheck, Banknote, GraduationCap, Users } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { Button } from '@/components/ui/Button'
 import { Counter } from '@/components/ui/Counter'
 import { fadeLeft, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useBlockItems } from '@/lib/queries'
+import { Icon } from '@/components/ui/Icon'
 
-const BENEFITS = [
+/** Fallback for `home` → `join_benefits` — the shipped copy. */
+const BENEFITS_FALLBACK = [
   {
-    icon: Banknote,
+    icon: 'Banknote',
     title: '5–10% commission per deal',
     description: 'Paid on completion, agreed in writing before you start working a lead.',
   },
   {
-    icon: BadgeCheck,
+    icon: 'BadgeCheck',
     title: 'A brand that opens doors',
     description:
       'Walk in as Evaramu, not as an unknown broker. Documented, registered, and trusted.',
   },
   {
-    icon: GraduationCap,
+    icon: 'GraduationCap',
     title: 'Training and a real CRM',
     description:
       'Title verification, negotiation and follow-up — plus a system so no lead goes cold.',
   },
   {
-    icon: Users,
+    icon: 'Users',
     title: 'Leads from our marketing',
     description:
       'Our content engine generates enquiries daily. Qualified leads get routed to agents.',
@@ -32,6 +35,11 @@ const BENEFITS = [
 ]
 
 export function JoinTeaser() {
+  const benefits = useBlockItems(
+    'home',
+    'join_benefits',
+    BENEFITS_FALLBACK,
+  )
   return (
     <section className="relative overflow-hidden bg-navy-950 py-20 text-white lg:py-28">
       <div className="pointer-events-none absolute inset-0 bg-blueprint opacity-60" />
@@ -66,12 +74,11 @@ export function JoinTeaser() {
             </motion.p>
 
             <motion.ul variants={stagger(0.08)} className="mt-10 grid gap-6 sm:grid-cols-2">
-              {BENEFITS.map((benefit) => {
-                const Cmp = benefit.icon
-                return (
+              {benefits.map((benefit) => {
+                                return (
                   <motion.li key={benefit.title} variants={fadeUp} className="group flex gap-4">
                     <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/8 text-gold-400 transition-colors duration-400 group-hover:bg-gold-500 group-hover:text-white">
-                      <Cmp className="size-5" strokeWidth={2} />
+                      <Icon name={benefit.icon} className="size-5" strokeWidth={2} />
                     </span>
                     <div className="min-w-0">
                       <h3 className="font-display text-lg leading-snug font-bold text-white">
