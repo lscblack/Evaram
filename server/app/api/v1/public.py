@@ -337,11 +337,14 @@ async def property_detail(
         province=prop.province,
         cell=prop.cell,
         village=prop.village,
-        latitude=prop.latitude,
-        longitude=prop.longitude,
+        # Withholding the map means withholding the coordinates too — a hidden
+        # <iframe> that still ships lat/long in JSON protects nobody.
+        latitude=prop.latitude if prop.show_on_map else None,
+        longitude=prop.longitude if prop.show_on_map else None,
+        show_on_map=prop.show_on_map,
         gis_coordinates=prop.gis_coordinates,
-        boundary_geojson=prop.boundary_geojson,
-        boundary_points=prop.boundary_points,
+        boundary_geojson=prop.boundary_geojson if prop.show_on_map else None,
+        boundary_points=prop.boundary_points if prop.show_on_map else None,
         boundary_area_sqm=prop.boundary_area_sqm,
         parcel_id=prop.parcel_id,
         land_use=prop.land_use,
@@ -453,7 +456,13 @@ async def construction_packages(db: AsyncSession = Depends(get_db)) -> list[Cons
             .order_by(ConstructionPackage.display_order)
         )
     ).all()
-    return [ConstructionPackageOut.model_validate(r) for r in rows]
+    out = []
+    for row in rows:
+        item = ConstructionPackageOut.model_validate(row)
+        if not row.show_price:
+            item.price_per_sqm = None
+        out.append(item)
+    return out
 
 
 @router.get("/wealth-cycle", response_model=list[WealthCycleStepOut])

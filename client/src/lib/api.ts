@@ -15,7 +15,7 @@ import {
   type SecureSession,
 } from '@/lib/crypto'
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://127.0.0.1:8011'
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://127.0.0.1:8000'
 const PREFIX = '/api/v1'
 
 const ACCESS_KEY = 'evaramu-access'

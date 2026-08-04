@@ -1,11 +1,25 @@
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import asyncpg
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 
 from app.core.config import settings
+
+logger = logging.getLogger("evaramu.db")
+
+#: Connecting to Postgres requires naming a database that already exists, so a
+#: brand-new cluster is reached through one of these to create ours.
+_MAINTENANCE_DATABASES = ("postgres", "template1")
+
+#: Applied once, to a database we just created. Every migration and the seeder
+#: assume these are present.
+_BOOTSTRAP_EXTENSIONS = ("postgis", "pg_trgm")
 
 
 class Base(DeclarativeBase):
@@ -34,6 +48,82 @@ SessionLocal = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
 )
+
+
+async def ensure_database_exists() -> bool:
+    """Create `DB_NAME` on the configured server when it is not there yet.
+
+    Returns True when this call created it. A running server is still a
+    prerequisite — an unreachable host raises, because there is nothing
+    sensible to bootstrap against.
+    """
+    name = settings.DB_NAME
+    conn: asyncpg.Connection | None = None
+    unreachable: Exception | None = None
+
+    for maintenance in _MAINTENANCE_DATABASES:
+        try:
+            conn = await asyncpg.connect(
+                host=settings.DB_HOST,
+                port=settings.DB_PORT,
+                user=settings.DB_USER,
+                password=settings.DB_PASSWORD,
+                database=maintenance,
+            )
+            break
+        except asyncpg.InvalidCatalogNameError:
+            continue  # this cluster has no such maintenance database, try the next
+        except (OSError, asyncpg.PostgresError) as exc:
+            unreachable = exc
+            break
+
+    if conn is None:
+        raise RuntimeError(
+            f"Cannot reach the Postgres server at {settings.DB_HOST}:{settings.DB_PORT} "
+            f"as {settings.DB_USER!r}, so the {name!r} database cannot be created. "
+            "Check that the server is running and the credentials in .env are correct."
+        ) from unreachable
+
+    try:
+        if await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name):
+            return False
+        try:
+            await conn.execute(f'CREATE DATABASE "{name}"')
+        except asyncpg.PostgresError:
+            # Racing workers land here — as DuplicateDatabase, or as a unique
+            # violation on pg_database when two CREATEs truly overlap. Either
+            # way the database being there now is the outcome we wanted.
+            if await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name):
+                return False
+            raise
+        logger.info("created database %r", name)
+    finally:
+        await conn.close()
+
+    return True
+
+
+async def ensure_extensions() -> None:
+    """Enable the extensions the migrations assume, if they are not on yet.
+
+    Creating one needs elevated rights, so this only issues CREATE for the ones
+    genuinely missing and warns instead of failing — the migration that needs
+    the extension will report the real problem in context.
+    """
+    async with engine.connect() as conn:
+        # Autocommit, so one refused CREATE does not poison the next statement.
+        await conn.execution_options(isolation_level="AUTOCOMMIT")
+        installed = set(
+            (await conn.execute(text("SELECT extname FROM pg_extension"))).scalars()
+        )
+        for extension in _BOOTSTRAP_EXTENSIONS:
+            if extension in installed:
+                continue
+            try:
+                await conn.execute(text(f"CREATE EXTENSION IF NOT EXISTS {extension}"))
+                logger.info("enabled extension %s", extension)
+            except SQLAlchemyError as exc:
+                logger.warning("could not enable %s: %s", extension, exc)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

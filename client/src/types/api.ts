@@ -229,6 +229,7 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   vr_tour_url: string | null
   vr_tour_provider: string | null
   show_owner_info: boolean
+  show_on_map: boolean
   owner_contact: string | null
   allow_bidding: boolean
   min_bid: number | null
@@ -350,7 +351,11 @@ export interface ApiPackage {
   tier: string
   tagline: string | null
   description: string | null
-  price_per_sqm: number
+  /** Withheld unless the package publishes its rate. */
+  price_per_sqm: number | null
+  show_price: boolean
+  price_note: string | null
+  suited_to: string | null
   currency: string
   duration: string | null
   includes: string[] | null

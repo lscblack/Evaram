@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 from app.api.v1 import admin_content, admin_properties, admin_taxonomy, auth, public, secure
 from app.core.config import settings
+from app.core.bootstrap import bootstrap_database
 from app.core.database import SessionLocal, dispose_engine, engine
 from app.core.limiter import limiter
 from app.core.secure_route import SecureRoute
@@ -30,6 +31,7 @@ logger = logging.getLogger("evaramu")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await bootstrap_database()
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
     logger.info("database reachable at %s:%s/%s", settings.DB_HOST, settings.DB_PORT, settings.DB_NAME)

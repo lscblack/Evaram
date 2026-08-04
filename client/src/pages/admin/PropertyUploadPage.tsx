@@ -53,9 +53,11 @@ export default function PropertyUploadPage() {
     show_owner_info: false,
     allow_bidding: false,
     is_featured: false,
+    show_on_map: true,
   })
   const [minBid, setMinBid] = useState('')
   const [photos, setPhotos] = useState<StagedFile[]>([])
+  const [geo, setGeo] = useState({ latitude: '', longitude: '', boundary: '' })
   const [virtual, setVirtual] = useState({
     vr_tour_url: '',
     video_360_url: '',
@@ -121,6 +123,23 @@ export default function PropertyUploadPage() {
     setValues((snap.details as FormValues) ?? {})
   }
 
+  /**
+   * Boundary points are pasted as `lat, lng` per line — the format a surveyor's
+   * report already uses, so nobody has to hand-write GeoJSON.
+   */
+  const boundaryPoints = useMemo(() => {
+    const rows = geo.boundary
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const parsed: number[][] = []
+    for (const row of rows) {
+      const [lat, lng] = row.split(/[,\s]+/).map(Number)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) parsed.push([lat, lng])
+    }
+    return parsed
+  }, [geo.boundary])
+
   const setValue = (name: string, value: FieldValue) =>
     setValues((prev) => ({ ...prev, [name]: value }))
 
@@ -147,6 +166,9 @@ export default function PropertyUploadPage() {
         owner_contact: core.owner_contact || null,
         details: values,
         min_bid: flags.allow_bidding && minBid ? Number(minBid) : null,
+        latitude: geo.latitude ? Number(geo.latitude) : null,
+        longitude: geo.longitude ? Number(geo.longitude) : null,
+        boundary_points: boundaryPoints.length >= 3 ? boundaryPoints : null,
         vr_tour_url: virtual.vr_tour_url || null,
         video_360_url: virtual.video_360_url || null,
         video_link: virtual.video_link || null,
@@ -350,6 +372,76 @@ export default function PropertyUploadPage() {
                     placeholder="Cell, village or landmark"
                   />
                 </Field>
+              </div>
+            </div>
+          </Panel>
+
+          {/* ---- where it is ---- */}
+          <Panel title="Location & parcel shape">
+            <div className="grid gap-3.5 p-5 sm:grid-cols-2">
+              <Field label="Latitude" hint="Decimal degrees, e.g. -1.9706">
+                <input
+                  className={FIELD}
+                  value={geo.latitude}
+                  onChange={(e) => setGeo((g) => ({ ...g, latitude: e.target.value }))}
+                  placeholder="-1.9706"
+                  inputMode="decimal"
+                />
+              </Field>
+              <Field label="Longitude" hint="Decimal degrees, e.g. 30.1394">
+                <input
+                  className={FIELD}
+                  value={geo.longitude}
+                  onChange={(e) => setGeo((g) => ({ ...g, longitude: e.target.value }))}
+                  placeholder="30.1394"
+                  inputMode="decimal"
+                />
+              </Field>
+
+              <div className="sm:col-span-2">
+                <Field
+                  label="Parcel boundary"
+                  hint="One corner per line as `latitude, longitude` — straight off the surveyor's report."
+                >
+                  <textarea
+                    rows={6}
+                    className={cn(FIELD, 'h-auto py-2.5 font-mono text-[0.8125rem]')}
+                    value={geo.boundary}
+                    onChange={(e) => setGeo((g) => ({ ...g, boundary: e.target.value }))}
+                    placeholder={'-1.9701, 30.1388\n-1.9701, 30.1400\n-1.9711, 30.1400\n-1.9711, 30.1388'}
+                  />
+                </Field>
+
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <p
+                    className={cn(
+                      'text-[0.75rem]',
+                      boundaryPoints.length >= 3
+                        ? 'text-emerald-700'
+                        : geo.boundary
+                          ? 'text-amber-700'
+                          : 'text-ink-muted',
+                    )}
+                  >
+                    {boundaryPoints.length >= 3
+                      ? `${boundaryPoints.length} corners — the outline and its 3D view will render`
+                      : geo.boundary
+                        ? `${boundaryPoints.length} valid corner(s) — at least 3 are needed`
+                        : 'Leave blank if the parcel has not been surveyed yet'}
+                  </p>
+                  {boundaryPoints.length >= 3 && (
+                    <BoundaryPreview points={boundaryPoints} />
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-2">
+                <Toggle
+                  label="Show the exact location on the public map"
+                  hint="Off still names the district and sector, but withholds the pin and the parcel outline."
+                  checked={flags.show_on_map}
+                  onChange={(v) => setFlags((f) => ({ ...f, show_on_map: v }))}
+                />
               </div>
             </div>
           </Panel>
@@ -560,5 +652,45 @@ function Toggle({
         {hint && <span className="mt-0.5 block text-[0.75rem] text-ink-muted">{hint}</span>}
       </span>
     </label>
+  )
+}
+
+
+/** A thumbnail of the ring, so a mistyped corner is obvious immediately. */
+function BoundaryPreview({ points }: { points: number[][] }) {
+  const lats = points.map((p) => p[0])
+  const lngs = points.map((p) => p[1])
+  const minLat = Math.min(...lats)
+  const maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs)
+  const maxLng = Math.max(...lngs)
+  const spanLat = maxLat - minLat || 1e-6
+  const spanLng = maxLng - minLng || 1e-6
+
+  const d =
+    points
+      .map(([lat, lng], i) => {
+        const x = 3 + ((lng - minLng) / spanLng) * 54
+        const y = 3 + ((maxLat - lat) / spanLat) * 34
+        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
+      })
+      .join(' ') + ' Z'
+
+  return (
+    <svg
+      viewBox="0 0 60 40"
+      className="h-10 w-15 shrink-0 rounded-md border border-line bg-canvas-alt"
+      role="img"
+      aria-label="Parcel outline preview"
+    >
+      <path
+        d={d}
+        fill="var(--color-gold-500)"
+        fillOpacity="0.2"
+        stroke="var(--color-gold-600)"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }

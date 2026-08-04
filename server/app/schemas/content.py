@@ -220,13 +220,23 @@ class ServiceLineOut(ORMModel):
 
 
 class ConstructionPackageOut(ORMModel):
+    """Public package shape.
+
+    The per-square-metre rate is withheld unless the package opts in. A figure
+    quoted before anyone has walked the plot is one clients hold you to, and
+    slope, access and soil move it more than the finish does.
+    """
+
     id: uuid.UUID
     slug: str
     name: str
     tier: str
     tagline: str | None = None
+    suited_to: str | None = None
     description: str | None = None
-    price_per_sqm: float
+    price_per_sqm: float | None = None
+    show_price: bool = False
+    price_note: str | None = None
     currency: str
     duration: str | None = None
     includes: list[str] | None = None

@@ -142,6 +142,7 @@ class PropertyDetail(PropertyCard):
     owner_name: str | None = None
     owner_contact: str | None = None
     show_owner_info: bool = False
+    show_on_map: bool = True
     allow_bidding: bool = False
     min_bid: float | None = None
     bidding_closes_at: datetime | None = None
@@ -163,6 +164,7 @@ class PropertyCardAdmin(PropertyCard):
     upi: str | None = None
     show_on_public: bool = True
     show_owner_info: bool = False
+    show_on_map: bool = True
     allow_bidding: bool = False
     is_archived: bool = False
 
@@ -242,6 +244,7 @@ class PropertyBase(BaseModel):
     #: Off keeps a listing off the public marketplace entirely.
     show_on_public: bool = True
     show_owner_info: bool = False
+    show_on_map: bool = True
     allow_bidding: bool = False
     min_bid: float | None = Field(default=None, ge=0)
     bidding_closes_at: datetime | None = None
@@ -268,6 +271,7 @@ class PropertyUpdate(BaseModel):
     upi: str | None = None
     show_on_public: bool | None = None
     show_owner_info: bool | None = None
+    show_on_map: bool | None = None
     allow_bidding: bool | None = None
     min_bid: float | None = None
     bidding_closes_at: datetime | None = None

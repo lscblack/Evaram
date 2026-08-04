@@ -11,8 +11,11 @@ import app.models  # noqa: F401 — registers every table on Base.metadata
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# `alembic.ini` owns logging for the CLI. When the app runs a migration during
+# startup it sets configure_logger=False, because applying that file there would
+# reconfigure logging for the whole process.
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

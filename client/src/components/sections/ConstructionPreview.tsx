@@ -115,14 +115,16 @@ export function ConstructionPreview() {
                       pkg.is_popular ? 'text-white' : 'text-ink',
                     )}
                   >
-                    {formatCurrency(pkg.price_per_sqm)}
+                    {pkg.price_per_sqm != null
+                      ? formatCurrency(pkg.price_per_sqm)
+                      : 'On quotation'}
                     <span
                       className={cn(
                         'ml-1.5 font-sans text-sm font-medium',
                         pkg.is_popular ? 'text-white/50' : 'text-ink-muted',
                       )}
                     >
-                      /sqm
+                      {pkg.price_per_sqm != null ? '/sqm' : ''}
                     </span>
                   </p>
                   <p

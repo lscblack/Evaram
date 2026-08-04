@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from slugify import slugify
 from sqlalchemy import select, text
 
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import Base, SessionLocal, engine, ensure_database_exists
 from app.core.security import hash_password
 from app.models.content import (
     ConstructionPackage,
@@ -442,12 +442,12 @@ async def seed_properties(db, subs, users) -> None:
     log.info("properties: %d created", created)
 
 
-async def main(reset: bool) -> None:
-    if reset:
-        await reset_schema()
-    else:
-        await ensure_schema()
+async def seed_all() -> None:
+    """Fill an existing schema with the baseline data. Idempotent.
 
+    Kept separate from `main` so application startup can call it against a
+    schema it has just built, without the CLI wrapper.
+    """
     async with SessionLocal() as db:
         users = await seed_users(db)
         subs = await seed_taxonomy(db)
@@ -456,6 +456,18 @@ async def main(reset: bool) -> None:
         await seed_page_content(db)
         await seed_properties(db, subs, users)
         await db.commit()
+
+
+async def main(reset: bool) -> None:
+    if await ensure_database_exists():
+        log.info("database %r created", settings.DB_NAME)
+
+    if reset:
+        await reset_schema()
+    else:
+        await ensure_schema()
+
+    await seed_all()
 
     log.info("─" * 52)
     log.info("seed complete")

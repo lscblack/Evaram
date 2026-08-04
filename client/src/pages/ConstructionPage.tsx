@@ -1,15 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import {
-  ArrowRight,
-  Calculator,
-  Check,
-  HardHat,
-  Send,
-  ShieldCheck,
-  Star,
-  TriangleAlert,
-} from 'lucide-react'
+import { ArrowRight, Check, HardHat, Send, Star, TriangleAlert, Users } from 'lucide-react'
 import { Seo, breadcrumbJsonLd, faqJsonLd } from '@/components/Seo'
 import { PageHero } from '@/components/layout/PageHero'
 import { SectionHeading } from '@/components/ui/SectionHeading'
@@ -70,7 +61,6 @@ export default function ConstructionPage() {
   const packages = useMemo(() => packageData ?? [], [packageData])
 
   const [selected, setSelected] = useState<string | null>(null)
-  const [area, setArea] = useState(180)
   const [briefSent, setBriefSent] = useState(false)
   const [briefSending, setBriefSending] = useState(false)
   const [briefError, setBriefError] = useState<string | null>(null)
@@ -93,15 +83,6 @@ export default function ConstructionPage() {
     packages.find((p) => p.is_popular) ??
     packages[Math.floor(packages.length / 2)]
 
-  const estimate = useMemo(() => {
-    const base = (activePackage?.price_per_sqm ?? 0) * area
-    return {
-      base,
-      contingency: Math.round(base * 0.15),
-      total: Math.round(base * 1.15),
-      deposit: Math.round(base * 1.15 * 0.35),
-    }
-  }, [activePackage, area])
 
   const sendBrief = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -114,7 +95,7 @@ export default function ConstructionPage() {
         email: brief.email,
         phone: brief.phone,
         topic: `Construction — ${brief.project_type}`,
-        budget: pkg ? `${pkg.name} · ~${area} sqm` : `~${area} sqm`,
+        budget: pkg ? pkg.name : 'Not specified',
         based_in: brief.location || null,
         message: brief.notes || 'Project brief submitted from the construction page.',
         ...briefCaptcha,
@@ -311,6 +292,24 @@ export default function ConstructionPage() {
                       {pkg.tagline}
                     </p>
 
+                    {pkg.suited_to && (
+                      <p
+                        className={cn(
+                          'mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-[0.8125rem] leading-snug',
+                          isActive ? 'bg-white/10 text-white/75' : 'bg-canvas-alt text-ink-soft',
+                        )}
+                      >
+                        <Users
+                          className={cn(
+                            'mt-0.5 size-3.5 shrink-0',
+                            isActive ? 'text-gold-400' : 'text-gold-600',
+                          )}
+                          strokeWidth={2.2}
+                        />
+                        {pkg.suited_to}
+                      </p>
+                    )}
+
                     <div
                       className={cn(
                         'mt-7 border-y py-6',
@@ -331,15 +330,19 @@ export default function ConstructionPage() {
                           isActive ? 'text-white' : 'text-ink',
                         )}
                       >
-                        {formatCurrency(pkg.price_per_sqm)}
-                        <span
-                          className={cn(
-                            'ml-1.5 font-sans text-sm font-medium',
-                            isActive ? 'text-white/50' : 'text-ink-muted',
-                          )}
-                        >
-                          /sqm
-                        </span>
+                        {pkg.price_per_sqm != null
+                          ? formatCurrency(pkg.price_per_sqm)
+                          : 'On quotation'}
+                        {pkg.price_per_sqm != null && (
+                          <span
+                            className={cn(
+                              'ml-1.5 font-sans text-sm font-medium',
+                              isActive ? 'text-white/50' : 'text-ink-muted',
+                            )}
+                          >
+                            /sqm
+                          </span>
+                        )}
                       </p>
                       <p
                         className={cn(
@@ -426,134 +429,106 @@ export default function ConstructionPage() {
       {/* ---------------- estimator ---------------- */}
       <section
         id="estimate"
-        className="relative overflow-hidden bg-navy-950 py-20 text-white lg:py-28"
+        className="relative overflow-hidden bg-navy-950 py-16 text-white lg:py-24"
       >
         <div className="pointer-events-none absolute inset-0 bg-blueprint opacity-60" />
-
         <div className="container-page relative">
           <SectionHeading
             tone="light"
             eyebrow={estimatorBlock.eyebrow}
             title={estimatorBlock.title}
             accent={estimatorBlock.accent}
-            description="A first-pass figure using the package you selected above. The real quotation comes after a site visit and a measured bill of quantities — but this tells you whether you are in the right range."
+            description={estimatorBlock.body}
           />
 
-          <div className="mt-14 grid gap-6 lg:grid-cols-12">
-            {/* inputs */}
-            <motion.div {...revealProps} variants={fadeUp} className="lg:col-span-5">
+          <div className="mt-12 grid gap-8 lg:grid-cols-12 lg:gap-12">
+            {/* ---- why we do not publish a rate ---- */}
+            <div className="lg:col-span-7">
+              <p className="text-[1rem] leading-relaxed text-white/70">
+                We are asked for a per-square-metre figure constantly, and we do not publish one.
+                A rate quoted before anyone has stood on the plot is a number you would hold us
+                to — and the plot is exactly what moves it.
+              </p>
+
+              <ul className="mt-8 grid gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10 sm:grid-cols-2">
+                {[
+                  {
+                    icon: 'Landmark',
+                    title: 'Slope and soil',
+                    body: 'A sloping or soft site can add a third to the foundation before a single wall goes up.',
+                  },
+                  {
+                    icon: 'MapPinned',
+                    title: 'Access to the plot',
+                    body: 'If a lorry cannot reach the site, every block and every bag of cement is carried — and that is priced.',
+                  },
+                  {
+                    icon: 'Layers',
+                    title: 'What you are building',
+                    body: 'One household or three, single storey or two — the layout changes the structure, not just the finish.',
+                  },
+                  {
+                    icon: 'Timer',
+                    title: 'When you build',
+                    body: 'Material prices move. We quote against the day you sign, with a 15% contingency stated openly.',
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="bg-navy-950 p-6">
+                    <span className="grid size-10 place-items-center rounded-xl bg-gold-500/15 text-gold-400">
+                      <Icon name={item.icon} className="size-5" strokeWidth={2} />
+                    </span>
+                    <h3 className="mt-4 font-display text-[1.0625rem] font-semibold">
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-[0.875rem] leading-relaxed text-white/55">
+                      {item.body}
+                    </p>
+                  </div>
+                ))}
+              </ul>
+            </div>
+
+            {/* ---- what you get instead ---- */}
+            <div className="lg:col-span-5">
               <div className="rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm">
-                <div className="flex items-center gap-2.5">
-                  <Calculator className="size-5 text-gold-400" strokeWidth={2.2} />
-                  <h3 className="font-display text-lg font-semibold">Your build</h3>
-                </div>
-
-                <fieldset className="mt-7">
-                  <legend className="text-[0.75rem] font-bold tracking-wide text-white/45 uppercase">
-                    Package
-                  </legend>
-                  <div className="mt-3 grid gap-2">
-                    {packages.map((pkg) => (
-                      <button
-                        key={pkg.id}
-                        type="button"
-                        onClick={() => setSelected(pkg.id)}
-                        className={cn(
-                          'flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition-colors',
-                          pkg.id === selected
-                            ? 'border-gold-500 bg-gold-500/15'
-                            : 'border-white/10 hover:border-white/25',
-                        )}
-                      >
-                        <span className="text-[0.9375rem] font-semibold">{pkg.name}</span>
-                        <span className="text-[0.8125rem] text-white/50">
-                          {formatCurrency(pkg.price_per_sqm)}/sqm
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <div className="mt-7">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <label
-                      htmlFor="build-area"
-                      className="text-[0.75rem] font-bold tracking-wide text-white/45 uppercase"
-                    >
-                      Built area
-                    </label>
-                    <span className="font-display text-lg font-semibold text-white">{area} sqm</span>
-                  </div>
-                  <input
-                    id="build-area"
-                    type="range"
-                    min={40}
-                    max={600}
-                    step={10}
-                    value={area}
-                    onChange={(e) => setArea(Number(e.target.value))}
-                    className="mt-4 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/15 accent-gold-500"
-                  />
-                  <div className="mt-2 flex justify-between text-[0.75rem] text-white/40">
-                    <span>40 sqm</span>
-                    <span>600 sqm</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* output */}
-            <motion.div {...revealProps} variants={fadeUp} className="lg:col-span-7">
-              <div className="h-full rounded-3xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm sm:p-9">
-                <p className="text-[0.75rem] font-bold tracking-wide text-white/45 uppercase">
-                  {activePackage?.name} · {area} sqm
+                <h3 className="font-display text-xl font-semibold">What you get instead</h3>
+                <p className="mt-3 text-[0.9375rem] leading-relaxed text-white/60">
+                  Send us the brief below. Within a week of the site visit you receive a written
+                  quotation — not a rate, an actual price for your plot.
                 </p>
 
-                <p className="mt-4 font-display text-[2rem] leading-none font-bold text-gold-400 sm:text-[3.25rem]">
-                  {formatCurrency(estimate.total)}
-                </p>
-                <p className="mt-3 text-[0.9375rem] text-white/55">
-                  Indicative total including the 15% contingency
-                </p>
-
-                <dl className="mt-9 space-y-4 border-t border-white/10 pt-8">
+                <ol className="mt-7 space-y-4">
                   {[
-                    {
-                      label: `Build cost (${area} sqm × ${formatCurrency(activePackage?.price_per_sqm ?? 0)})`,
-                      value: formatCurrency(estimate.base),
-                    },
-                    { label: 'Contingency (15%, stated up front)', value: formatCurrency(estimate.contingency) },
-                    { label: 'Deposit on signature (35%)', value: formatCurrency(estimate.deposit) },
-                    { label: 'Typical duration', value: activePackage?.duration ?? '—' },
-                  ].map((row) => (
-                    <div key={row.label} className="flex flex-wrap items-baseline justify-between gap-3">
-                      <dt className="text-[0.9375rem] text-white/55">{row.label}</dt>
-                      <dd className="font-display text-[1.0625rem] font-semibold text-white">{row.value}</dd>
-                    </div>
+                    'A surveyor and a site supervisor walk the plot with you',
+                    'Drawings and a bill of quantities are prepared',
+                    'A fixed-price contract, with the 15% contingency written into it',
+                    'A payment schedule tied to milestones, not to dates',
+                  ].map((line, i) => (
+                    <li key={line} className="flex gap-3.5">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-gold-500 text-[0.75rem] font-bold text-white">
+                        {i + 1}
+                      </span>
+                      <span className="text-[0.875rem] leading-relaxed text-white/70">{line}</span>
+                    </li>
                   ))}
-                </dl>
+                </ol>
 
-                <div className="mt-9 flex flex-wrap gap-3">
-                  <Button to="/consultation?type=construction" variant="gold" size="lg">
-                    Book a site visit
-                  </Button>
-                  <Button to="/contact" variant="outline-light" size="lg">
-                    Send us your drawings
-                  </Button>
-                </div>
+                <a
+                  href="#brief"
+                  className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gold-500 text-[0.9375rem] font-semibold text-white transition-colors hover:bg-gold-600"
+                >
+                  Request a quotation
+                  <ArrowRight className="size-4" strokeWidth={2.3} />
+                </a>
 
-                <p className="mt-6 flex items-start gap-2.5 text-[0.8125rem] leading-relaxed text-white/45">
-                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-gold-400" strokeWidth={2.2} />
-                  This figure is indicative. Ground conditions, access, service connections and
-                  your specification all move it. The quotation we give after a site visit is fixed.
+                <p className="mt-4 text-center text-[0.75rem] text-white/40">
+                  Free, and with no obligation to build with us.
                 </p>
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
-
-      {/* ---------------- process ---------------- */}
       <section className="bg-canvas-alt py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading
@@ -638,7 +613,7 @@ export default function ConstructionPage() {
       </section>
 
       {/* ---------------- brief form ---------------- */}
-      <section className="bg-canvas py-16 lg:py-24">
+      <section id="brief" className="bg-canvas py-16 lg:py-24">
         <div className="container-page">
           <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
             <motion.div {...revealProps} variants={stagger(0.09)} className="lg:col-span-5">
