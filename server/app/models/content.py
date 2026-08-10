@@ -435,6 +435,12 @@ class SellerSubmission(Base, UUIDPrimaryKey, TimestampMixin):
 
     #: Our own handle for the submission — quoted back to the seller.
     reference: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    #: Set when the form was filled by a signed-in user, so they can follow the
+    #: submission from their account. Anonymous submissions are still accepted —
+    #: an owner should not have to register to ask us to sell for them.
+    submitted_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
     #: The parcel identifier. Required: without it there is nothing to verify.
     upi: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
@@ -544,3 +550,82 @@ class SellerSubmissionFile(Base, UUIDPrimaryKey, TimestampMixin):
     bytes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     submission: Mapped["SellerSubmission"] = relationship(back_populates="files")
+
+
+class PropertyRequestStatus(str, enum.Enum):
+    OPEN = "open"
+    MATCHED = "matched"
+    FULFILLED = "fulfilled"
+    CLOSED = "closed"
+
+
+class PropertyRequest(Base, UUIDPrimaryKey, TimestampMixin):
+    """A buyer describing what they want when nothing listed matches.
+
+    The mirror image of `SellerSubmission`: that one is an owner offering a
+    parcel, this is a buyer asking for one. Most of our stock never reaches the
+    public catalogue, so a standing request is how a consultant knows to call
+    someone the week a matching parcel comes in.
+    """
+
+    __tablename__ = "property_requests"
+    __table_args__ = (
+        Index("ix_request_status_created", "status", "created_at"),
+        Index("ix_request_district", "district"),
+    )
+
+    #: Quoted back to the buyer so they can refer to it.
+    reference: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    #: Set when a signed-in user submitted it, so it shows in their account.
+    requested_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+
+    full_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(240))
+    phone: Mapped[str] = mapped_column(String(48), nullable=False)
+
+    #: "sale" or "rent" — what the buyer is after, mirroring ListingIntent.
+    intent: Mapped[str] = mapped_column(String(16), default="sale", nullable=False)
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("property_categories.id", ondelete="SET NULL")
+    )
+    subcategory_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("property_subcategories.id", ondelete="SET NULL")
+    )
+
+    district: Mapped[str | None] = mapped_column(String(80))
+    sector: Mapped[str | None] = mapped_column(String(80))
+    #: Free text — buyers think in neighbourhoods, not administrative units.
+    preferred_areas: Mapped[str | None] = mapped_column(String(320))
+
+    budget_min: Mapped[float | None] = mapped_column(Numeric(16, 2))
+    budget_max: Mapped[float | None] = mapped_column(Numeric(16, 2))
+    currency: Mapped[str] = mapped_column(String(8), default="RWF", nullable=False)
+
+    size_min: Mapped[float | None] = mapped_column(Float)
+    bedrooms_min: Mapped[int | None] = mapped_column(Integer)
+    #: How soon they want to move — drives how hard a consultant chases it.
+    timeline: Mapped[str | None] = mapped_column(String(80))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    status: Mapped[PropertyRequestStatus] = mapped_column(
+        SAEnum(
+            PropertyRequestStatus,
+            name="property_request_status",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=PropertyRequestStatus.OPEN,
+        nullable=False,
+        index=True,
+    )
+    review_note: Mapped[str | None] = mapped_column(Text)
+    assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    #: Set once a consultant ties the request to a parcel that satisfies it.
+    matched_property_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("properties.id", ondelete="SET NULL")
+    )
+
+    ip_address: Mapped[str | None] = mapped_column(String(64))

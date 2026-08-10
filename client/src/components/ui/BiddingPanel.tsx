@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useQuery } from '@/lib/queries'
+import { useFormErrors } from '@/lib/formErrors'
+import { useT } from '@/lib/i18n'
 import { formatCurrency } from '@/lib/utils'
 import type { ApiPropertyDetail, BidSummary } from '@/types/api'
 
@@ -17,6 +19,7 @@ import type { ApiPropertyDetail, BidSummary } from '@/types/api'
  * account, so every bid an agent chases has a verified name behind it.
  */
 export function BiddingPanel({ property }: { property: ApiPropertyDetail }) {
+  const t = useT()
   const { user } = useAuth()
   const location = useLocation()
 
@@ -28,7 +31,7 @@ export function BiddingPanel({ property }: { property: ApiPropertyDetail }) {
   const [amount, setAmount] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFormErrors(['amount', 'message'])
   const [placed, setPlaced] = useState(false)
 
   if (!property.allow_bidding) return null
@@ -40,7 +43,7 @@ export function BiddingPanel({ property }: { property: ApiPropertyDetail }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
-    setError(null)
+    errors.clear()
     try {
       await api.post(`/public/properties/${property.id}/bids`, {
         amount: Number(amount),
@@ -51,7 +54,7 @@ export function BiddingPanel({ property }: { property: ApiPropertyDetail }) {
       setMessage('')
       refetch()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'That offer did not go through.')
+      errors.capture(err)
     } finally {
       setBusy(false)
     }
@@ -155,12 +158,16 @@ export function BiddingPanel({ property }: { property: ApiPropertyDetail }) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={floor ? String(floor) : 'Amount'}
-                className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] tabular-nums transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+                className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] tabular-nums text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
               />
-              {floor > 0 && (
-                <p className="mt-1.5 text-[0.75rem] text-ink-faint">
-                  Minimum {formatCurrency(floor, property.currency)}
-                </p>
+              {errors.for('amount') ? (
+                <p className="mt-1.5 text-[0.75rem] text-red-600">{errors.for('amount')}</p>
+              ) : (
+                floor > 0 && (
+                  <p className="mt-1.5 text-[0.75rem] text-ink-faint">
+                    Minimum {formatCurrency(floor, property.currency)}
+                  </p>
+                )
               )}
             </div>
 
@@ -173,17 +180,17 @@ export function BiddingPanel({ property }: { property: ApiPropertyDetail }) {
                 rows={2}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Anything the seller should know? (optional)"
-                className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-3 text-[0.875rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+                placeholder={t('bid.notePlaceholder')}
+                className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-3 text-[0.875rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
               />
             </div>
 
-            {error && (
+            {errors.general && (
               <p
                 role="alert"
                 className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[0.8125rem] text-red-700"
               >
-                {error}
+                {errors.general}
               </p>
             )}
 

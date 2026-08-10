@@ -14,6 +14,7 @@ from app.models.property import (
     PropertySaleRecord,
     PropertyStatus,
 )
+from app.models.user import User
 from app.schemas.property import BidSummary, SaleRecordCreate
 
 #: Statuses that still count towards the public "highest offer".
@@ -263,6 +264,14 @@ async def record_sale(
         notes=payload.notes,
     )
     db.add(record)
+
+    # Keep the agent's deal counter honest. The sale records are the source of
+    # truth — this column is a cache so the team page does not have to aggregate
+    # on every request.
+    if prop.agent_id:
+        agent = await db.scalar(select(User).where(User.id == prop.agent_id))
+        if agent:
+            agent.deals_closed = (agent.deals_closed or 0) + 1
 
     prop.status = PropertyStatus.SOLD
     prop.is_archived = True

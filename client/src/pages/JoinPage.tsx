@@ -12,8 +12,10 @@ import { FaqSection } from '@/components/sections/FaqSection'
 import type { ApiFaq, ApiTeamMember } from '@/types/api'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
 import { api } from '@/lib/api'
-import { useBlockItems, useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useBlockItems, useLocalizedQuery, useQuery } from '@/lib/queries'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
+import { useFormErrors } from '@/lib/formErrors'
 import { cn, formatCompactCurrency, formatCurrency } from '@/lib/utils'
 
 type RoleId = 'agent' | 'broker' | 'contractor' | 'staff'
@@ -138,6 +140,7 @@ const CULTURE_RULES_FALLBACK: { body: string; title: string }[] = [
 
 
 export default function JoinPage() {
+  const t = useT()
   const seo = useBlock('join', 'seo', {
     title: "Join Evaramu — Careers, Agents, Brokers & Contractors in Rwanda",
     body: "Join Evaramu Group Ltd as a commission sales agent, independent broker partner, vetted sub-contractor or full-time team member. 5–10% commission, real marketing behind you, and payment on a documented schedule.",
@@ -175,7 +178,7 @@ export default function JoinPage() {
   const { data: teamData } = useQuery<ApiTeamMember[]>('/public/team')
   const team = teamData ?? []
 
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=join')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=join')
   const faqs = faqData ?? []
 
   const [roleId, setRoleId] = useState<RoleId>('agent')
@@ -184,7 +187,10 @@ export default function JoinPage() {
   const [rate, setRate] = useState(7)
   const [applied, setApplied] = useState(false)
   const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFormErrors([
+    'full_name', 'phone', 'email', 'role_applied', 'area_covered',
+    'years_experience', 'pitch', 'portfolio_url', 'captcha_answer',
+  ])
   const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
   const [form, setForm] = useState({
     full_name: '',
@@ -201,7 +207,7 @@ export default function JoinPage() {
   const apply = async (e: React.FormEvent) => {
     e.preventDefault()
     setSending(true)
-    setError(null)
+    errors.clear()
     try {
       await api.post('/public/applications', {
         full_name: form.full_name,
@@ -216,7 +222,10 @@ export default function JoinPage() {
       })
       setApplied(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'That did not send. Please try again.')
+      errors.capture(err)
+      // A consumed challenge cannot be replayed — force a fresh one so the
+      // next attempt is not rejected for a reason the user cannot see.
+      setCaptcha(EMPTY_CAPTCHA)
     } finally {
       setSending(false)
     }
@@ -255,7 +264,7 @@ export default function JoinPage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="There are more than 200 informal brokers in Rwanda with genuine local knowledge and nothing behind them — no brand, no documentation, no marketing, no follow-up system. If that is you, this is the offer."
-        crumbs={[{ label: 'Join us' }]}
+        crumbs={[{ label: t('nav.join') }]}
         image="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=2000&q=80"
         stats={[
           { value: '5–10%', label: 'Commission per closed deal' },
@@ -719,12 +728,12 @@ export default function JoinPage() {
                     onSubmit={apply}
                   >
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <DarkField id="a-name" label="Full name" required value={form.full_name} onChange={set('full_name')} />
-                      <DarkField id="a-phone" label="Phone or WhatsApp" type="tel" required value={form.phone} onChange={set('phone')} />
+                      <DarkField id="a-name" label="Full name" required value={form.full_name} onChange={set('full_name')} error={errors.for('full_name')} />
+                      <DarkField id="a-phone" label="Phone or WhatsApp" type="tel" required value={form.phone} onChange={set('phone')} error={errors.for('phone')} />
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <DarkField id="a-email" label="Email" type="email" required value={form.email} onChange={set('email')} />
+                      <DarkField id="a-email" label="Email" type="email" required value={form.email} onChange={set('email')} error={errors.for('email')} />
                       <div>
                         <label
                           htmlFor="a-role"
@@ -748,8 +757,8 @@ export default function JoinPage() {
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <DarkField id="a-area" label="Area or sector you cover" value={form.area_covered} onChange={set('area_covered')} />
-                      <DarkField id="a-years" label="Years of experience" type="number" value={form.years_experience} onChange={set('years_experience')} />
+                      <DarkField id="a-area" label="Area or sector you cover" value={form.area_covered} onChange={set('area_covered')} error={errors.for('area_covered')} />
+                      <DarkField id="a-years" label="Years of experience" type="number" value={form.years_experience} onChange={set('years_experience')} error={errors.for('years_experience')} />
                     </div>
 
                     <div>
@@ -758,16 +767,33 @@ export default function JoinPage() {
                         className="mb-2 block text-[0.75rem] font-bold tracking-wide text-white/45 uppercase"
                       >
                         What would you bring us?
+                        <span className="ml-1 text-gold-400">*</span>
+                        <span className="ml-2 normal-case text-white/35">
+                          at least 10 characters
+                        </span>
                       </label>
                       <textarea
                         id="a-about"
                         rows={4}
                         required
+                        minLength={10}
                         value={form.pitch}
                         onChange={(e) => set('pitch')(e.target.value)}
+                        aria-invalid={errors.for('pitch') ? true : undefined}
+                        aria-describedby={errors.for('pitch') ? 'a-about-error' : undefined}
                         placeholder="Your network, the deals you have done, the work you are proud of. Be specific — vague applications do not get read twice."
-                        className="w-full resize-y rounded-2xl border border-white/15 bg-white/5 px-4 py-3.5 text-[0.9375rem] text-white transition-colors placeholder:text-white/30 focus:border-gold-500 focus:outline-none"
+                        className={cn(
+                          'w-full resize-y rounded-2xl border bg-white/5 px-4 py-3.5 text-[0.9375rem] text-white transition-colors placeholder:text-white/30 focus:outline-none',
+                          errors.for('pitch')
+                            ? 'border-red-400/70 focus:border-red-400'
+                            : 'border-white/15 focus:border-gold-500',
+                        )}
                       />
+                      {errors.for('pitch') && (
+                        <p id="a-about-error" className="mt-1.5 text-[0.75rem] text-red-300">
+                          {errors.for('pitch')}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -785,6 +811,11 @@ export default function JoinPage() {
                         placeholder="https://…"
                         className="h-12 w-full rounded-2xl border border-white/15 bg-white/5 px-4 text-[0.9375rem] text-white transition-colors placeholder:text-white/30 focus:border-gold-500 focus:outline-none"
                       />
+                      {errors.for('portfolio_url') && (
+                        <p className="mt-1.5 text-[0.75rem] text-red-300">
+                          {errors.for('portfolio_url')}
+                        </p>
+                      )}
                     </div>
 
                     <label className="flex cursor-pointer items-start gap-3">
@@ -801,14 +832,19 @@ export default function JoinPage() {
 
                     <div className="rounded-2xl border border-white/15 bg-white/5 p-4 [&_input]:border-white/15 [&_input]:bg-white/5 [&_input]:text-white [&_label]:text-white/45">
                       <Captcha value={captcha} onChange={setCaptcha} scope="application" compact />
+                      {errors.for('captcha_answer') && (
+                        <p className="mt-2 text-[0.75rem] text-red-300">
+                          {errors.for('captcha_answer')}
+                        </p>
+                      )}
                     </div>
 
-                    {error && (
+                    {errors.general && (
                       <p
                         role="alert"
                         className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-[0.875rem] text-red-200"
                       >
-                        {error}
+                        {errors.general}
                       </p>
                     )}
 
@@ -849,6 +885,7 @@ function DarkField({
   required = false,
   value,
   onChange,
+  error,
 }: {
   id: string
   label: string
@@ -856,6 +893,7 @@ function DarkField({
   required?: boolean
   value?: string
   onChange?: (next: string) => void
+  error?: string
 }) {
   return (
     <div>
@@ -872,8 +910,18 @@ function DarkField({
         required={required}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
-        className="h-12 w-full rounded-2xl border border-white/15 bg-white/5 px-4 text-[0.9375rem] text-white transition-colors focus:border-gold-500 focus:outline-none"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={cn(
+          'h-12 w-full rounded-2xl border bg-white/5 px-4 text-[0.9375rem] text-white transition-colors focus:outline-none',
+          error ? 'border-red-400/70 focus:border-red-400' : 'border-white/15 focus:border-gold-500',
+        )}
       />
+      {error && (
+        <p id={`${id}-error`} className="mt-1.5 text-[0.75rem] text-red-300">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

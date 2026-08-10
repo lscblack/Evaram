@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
+import { enterProps, fadeUp, revealEarly } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ page */
@@ -13,8 +14,14 @@ export function PageHeader({
   description?: string
   action?: React.ReactNode
 }) {
+  // Animated here rather than in each screen: every console page opens with a
+  // PageHeader, so this is the one place that gives all fourteen the same entrance.
   return (
-    <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <motion.div
+      variants={fadeUp}
+      {...enterProps}
+      className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
+    >
       <div>
         <h1 className="font-display text-[1.625rem] leading-tight font-semibold text-ink">
           {title}
@@ -24,7 +31,7 @@ export function PageHeader({
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}
-    </div>
+    </motion.div>
   )
 }
 
@@ -39,8 +46,14 @@ export function Panel({
   children: React.ReactNode
   className?: string
 }) {
+  // Reveals on scroll rather than on mount: a settings screen can carry a dozen
+  // panels, and animating the ones below the fold immediately wastes the effect.
   return (
-    <section className={cn('overflow-hidden rounded-2xl border border-line bg-surface', className)}>
+    <motion.section
+      variants={fadeUp}
+      {...revealEarly}
+      className={cn('overflow-hidden rounded-2xl border border-line bg-surface', className)}
+    >
       {title && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <h2 className="font-display text-[1rem] font-semibold text-ink">{title}</h2>
@@ -48,7 +61,7 @@ export function Panel({
         </header>
       )}
       {children}
-    </section>
+    </motion.section>
   )
 }
 

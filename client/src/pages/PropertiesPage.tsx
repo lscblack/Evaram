@@ -6,6 +6,7 @@ import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { PropertyCard } from '@/components/ui/PropertyCard'
 import { PropertyRow } from '@/components/ui/PropertyRow'
 import { Button } from '@/components/ui/Button'
+import { PropertyRequestForm } from '@/components/ui/PropertyRequestForm'
 
 import type { ApiCategory, ApiPropertyCard, CategorySummary, ListingIntent, Page as ApiPage } from '@/types/api'
 import { EASE, stagger } from '@/lib/motion'
@@ -43,6 +44,7 @@ export default function PropertiesPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [perPage, setPerPage] = useState(PER_PAGE)
+  const [wantForm, setWantForm] = useState(false)
 
   /* ---- state lives in the URL so every search is shareable ---- */
   const q = params.get('q') ?? ''
@@ -149,7 +151,7 @@ export default function PropertiesPage() {
           type="search"
           value={q}
           onChange={(e) => setParam('q', e.target.value)}
-          placeholder="Location, reference, feature…"
+          placeholder={t('market.searchPlaceholder')}
           className="h-10 w-full border-b border-line bg-transparent text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
         />
       </Field>
@@ -334,9 +336,9 @@ export default function PropertiesPage() {
 
             <dl className="flex gap-8 border-t border-line pt-5 lg:border-0 lg:pt-0">
               {[
-                { value: String(totalListings), label: 'Live listings' },
-                { value: String(districts.length || 7), label: 'Districts' },
-                { value: '100%', label: 'Verified' },
+                { value: String(totalListings), label: t('market.liveListings') },
+                { value: String(districts.length || 7), label: t('market.districts') },
+                { value: '100%', label: t('market.verified') },
               ].map((stat) => (
                 <div key={stat.label}>
                   <dd className="font-display text-xl leading-none font-semibold text-ink">
@@ -510,10 +512,17 @@ export default function PropertiesPage() {
                     <Button onClick={resetAll} variant="outline">
                       {t('market.clearFilters')}
                     </Button>
-                    <Button to="/contact" variant="gold">
-                      Tell us what you need
+                    <Button onClick={() => setWantForm(true)} variant="gold">
+                      {t('request.title')}
                     </Button>
                   </div>
+
+                  {/* The dead end is the point of highest intent: this buyer
+                      wants something we do not have listed, which is exactly
+                      what a consultant needs to know. */}
+                  {wantForm && (
+                    <PropertyRequestForm className="mt-8 text-left" />
+                  )}
                 </div>
               )}
 

@@ -6,9 +6,11 @@ import { Seo } from '@/components/Seo'
 import { PageHero } from '@/components/layout/PageHero'
 import { Button } from '@/components/ui/Button'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { AccountDashboard } from '@/components/account/AccountDashboard'
 import { useAuth } from '@/lib/auth'
 import { useBlock } from '@/lib/queries'
 import { EASE } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { LoginChallenge } from '@/types/api'
 
@@ -23,6 +25,7 @@ type Mode = 'signin' | 'register'
  * means signing in first — this is where that happens.
  */
 export default function AccountPage() {
+  const t = useT()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const { user, login, register, verifyOtp, resendOtp } = useAuth()
@@ -43,11 +46,14 @@ export default function AccountPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /** Where to land after signing in — usually back on the property. */
-  const next = params.get('next') || '/properties'
+  /** Where to land after signing in — set when the visitor was sent here
+   *  mid-flow, e.g. from a property they wanted to bid on. Absent means they
+   *  came to /account deliberately, so they get their dashboard instead of
+   *  being bounced somewhere they did not ask for. */
+  const next = params.get('next')
 
   useEffect(() => {
-    if (user) navigate(next, { replace: true })
+    if (user && next) navigate(next, { replace: true })
   }, [user, navigate, next])
 
   const set = (key: keyof typeof form) => (value: string) =>
@@ -87,7 +93,8 @@ export default function AccountPage() {
     setError(null)
     try {
       await verifyOtp(challenge.pre_auth_token, code)
-      navigate(next, { replace: true })
+      // No `next` means they came here on purpose — stay and show the dashboard.
+      navigate(next ?? '/account', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That code was not accepted.')
     } finally {
@@ -109,7 +116,7 @@ export default function AccountPage() {
         title={block.title}
         accent={block.accent}
         description={block.body}
-        crumbs={[{ label: 'Account' }]}
+        crumbs={[{ label: t('nav.account') }]}
         compact
       />
 
@@ -121,7 +128,9 @@ export default function AccountPage() {
             transition={{ duration: 0.6, ease: EASE }}
             className="mx-auto max-w-md rounded-3xl border border-line bg-surface p-7 shadow-soft sm:p-9"
           >
-            {stage === 'form' ? (
+            {user ? (
+              <AccountDashboard />
+            ) : stage === 'form' ? (
               <>
                 <div className="mb-7 flex gap-2 rounded-full border border-line p-1">
                   {(['signin', 'register'] as const).map((m) => (
@@ -152,7 +161,7 @@ export default function AccountPage() {
                         required
                         value={form.full_name}
                         onChange={set('full_name')}
-                        placeholder="Your full name"
+                        placeholder={t('account.namePlaceholder')}
                       />
                       <IconField
                         id="acc-phone"
@@ -161,7 +170,7 @@ export default function AccountPage() {
                         type="tel"
                         value={form.phone}
                         onChange={set('phone')}
-                        placeholder="Phone or WhatsApp"
+                        placeholder={t('account.phonePlaceholder')}
                       />
                     </>
                   )}

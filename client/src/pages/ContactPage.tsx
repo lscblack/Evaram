@@ -19,9 +19,12 @@ import { FaqSection } from '@/components/sections/FaqSection'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
 import { api } from '@/lib/api'
 import { useSite, useSocials } from '@/lib/siteConfig'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiFaq } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
+import { useFormErrors } from '@/lib/formErrors'
+import { cn } from '@/lib/utils'
 
 const OFFICE_LAT = -1.9441
 const OFFICE_LNG = 30.0619
@@ -63,6 +66,7 @@ const channelsFor = (site: ReturnType<typeof useSite>) => [
 
 
 export default function ContactPage() {
+  const t = useT()
   const seo = useBlock('contact', 'seo', {
     title: "Contact Evaramu Group Ltd — Kigali, Rwanda",
     body: "Talk to Evaramu Group Ltd about buying, selling, building or managing property in Rwanda. WhatsApp, phone, email or visit our Kimihurura office. Every enquiry answered within two working hours.",
@@ -83,12 +87,14 @@ export default function ContactPage() {
   const site = useSite()
   const CHANNELS = channelsFor(site)
   const socials = useSocials()
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=contact')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=contact')
   const faqs = faqData ?? []
 
   const [sent, setSent] = useState(false)
   const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFormErrors([
+    'full_name', 'phone', 'email', 'topic', 'budget', 'based_in', 'message', 'captcha_answer',
+  ])
   const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
   const [form, setForm] = useState({
     full_name: '',
@@ -105,12 +111,13 @@ export default function ContactPage() {
   const send = async (e: React.FormEvent) => {
     e.preventDefault()
     setSending(true)
-    setError(null)
+    errors.clear()
     try {
       await api.post('/public/contact', { ...form, ...captcha })
       setSent(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'That did not send. Please try again.')
+      errors.capture(err)
+      setCaptcha(EMPTY_CAPTCHA)  // a consumed challenge cannot be replayed
     } finally {
       setSending(false)
     }
@@ -160,7 +167,7 @@ export default function ContactPage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="Not a promise on a poster — a rule we measure. Whether you are buying your first plot, selling a family property or building from abroad, tell us what you need and someone who can actually help will get back to you today."
-        crumbs={[{ label: 'Contact' }]}
+        crumbs={[{ label: t('nav.contact') }]}
         image="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=2000&q=80"
         compact
       />
@@ -253,12 +260,12 @@ export default function ContactPage() {
                     onSubmit={send}
                   >
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <ContactField id="k-name" label="Full name" required value={form.full_name} onChange={set('full_name')} />
-                      <ContactField id="k-phone" label="Phone or WhatsApp" type="tel" required value={form.phone} onChange={set('phone')} />
+                      <ContactField id="k-name" label="Full name" required value={form.full_name} onChange={set('full_name')} error={errors.for('full_name')} />
+                      <ContactField id="k-phone" label="Phone or WhatsApp" type="tel" required value={form.phone} onChange={set('phone')} error={errors.for('phone')} />
                     </div>
 
                     <div className="grid gap-5 sm:grid-cols-2">
-                      <ContactField id="k-email" label="Email" type="email" required value={form.email} onChange={set('email')} />
+                      <ContactField id="k-email" label="Email" type="email" required value={form.email} onChange={set('email')} error={errors.for('email')} />
                       <div>
                         <label
                           htmlFor="k-topic"
@@ -305,7 +312,7 @@ export default function ContactPage() {
                           <option>Above RWF 150M</option>
                         </select>
                       </div>
-                      <ContactField id="k-where" label="Where are you based?" value={form.based_in} onChange={set('based_in')} />
+                      <ContactField id="k-where" label="Where are you based?" value={form.based_in} onChange={set('based_in')} error={errors.for('based_in')} />
                     </div>
 
                     <div>
@@ -317,23 +324,24 @@ export default function ContactPage() {
                       </label>
                       <textarea
                         id="k-message"
+                        aria-invalid={errors.for('message') ? true : undefined}
                         rows={5}
                         required
                         value={form.message}
                         onChange={(e) => set('message')(e.target.value)}
                         placeholder="What are you trying to achieve, and by when?"
-                        className="w-full resize-y rounded-2xl border border-line bg-surface px-4 py-3.5 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
+                        className="w-full resize-y rounded-2xl border border-line bg-surface px-4 py-3.5 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
                       />
                     </div>
 
                     <Captcha value={captcha} onChange={setCaptcha} scope="contact" compact />
 
-                    {error && (
+                    {errors.general && (
                       <p
                         role="alert"
                         className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[0.875rem] text-red-700"
                       >
-                        {error}
+                        {errors.general}
                       </p>
                     )}
 
@@ -490,6 +498,7 @@ function ContactField({
   required = false,
   value,
   onChange,
+  error,
 }: {
   id: string
   label: string
@@ -497,6 +506,7 @@ function ContactField({
   required?: boolean
   value?: string
   onChange?: (next: string) => void
+  error?: string
 }) {
   return (
     <div>
@@ -513,8 +523,18 @@ function ContactField({
         required={required}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
-        className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] text-ink transition-colors focus:border-gold-500 focus:outline-none"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
+        className={cn(
+          'h-12 w-full rounded-2xl border bg-surface px-4 text-[0.9375rem] text-ink transition-colors focus:outline-none',
+          error ? 'border-red-400 focus:border-red-500' : 'border-line focus:border-gold-500',
+        )}
       />
+      {error && (
+        <p id={`${id}-error`} className="mt-1.5 text-[0.75rem] text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

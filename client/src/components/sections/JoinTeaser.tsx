@@ -4,6 +4,7 @@ import { Eyebrow } from '@/components/ui/Eyebrow'
 import { Button } from '@/components/ui/Button'
 import { Counter } from '@/components/ui/Counter'
 import { fadeLeft, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { useBlockItems } from '@/lib/queries'
 import { Icon } from '@/components/ui/Icon'
 
@@ -35,6 +36,7 @@ const BENEFITS_FALLBACK = [
 ]
 
 export function JoinTeaser() {
+  const t = useT()
   const benefits = useBlockItems(
     'home',
     'join_benefits',
@@ -52,7 +54,7 @@ export function JoinTeaser() {
         <div className="grid items-center gap-14 lg:grid-cols-12 lg:gap-16">
           <motion.div {...revealProps} variants={stagger(0.09)} className="lg:col-span-6">
             <motion.div variants={fadeUp}>
-              <Eyebrow tone="light">Join the agency</Eyebrow>
+              <Eyebrow tone="light">{t('section.joinAgency')}</Eyebrow>
             </motion.div>
 
             <motion.h2

@@ -9,9 +9,10 @@ import { Icon } from '@/components/ui/Icon'
 import { FaqSection } from '@/components/sections/FaqSection'
 import { SellerIntakeForm } from '@/components/ui/SellerIntakeForm'
 import type { ApiCategory, ApiFaq } from '@/types/api'
-import { useBlockItems, useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useBlockItems, useLocalizedQuery, useQuery } from '@/lib/queries'
 
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 
 
 
@@ -40,6 +41,7 @@ const WHY_LIST_FALLBACK: { body: string; icon: string; title: string }[] = [
 ]
 
 export default function SellPage() {
+  const t = useT()
   const seo = useBlock('sell', 'seo', {
     title: "Sell or List Your Property in Rwanda",
     body: "List your land, house or commercial property with Evaramu. Free valuation, drone video and professional photography included, buyers qualified before viewing, and commission agreed in writing before we start.",
@@ -73,7 +75,7 @@ export default function SellPage() {
     title: "What actually happens",
     accent: "next.",
   })
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=sell')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=sell')
   const faqs = faqData ?? []
 
   const { data: taxonomy } = useQuery<ApiCategory[]>('/public/taxonomy')
@@ -102,7 +104,7 @@ export default function SellPage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="Tell us about it below and we will come back within two working hours with a valuation appointment. No listing fee, no exclusivity trap, and commission agreed in writing before anything begins."
-        crumbs={[{ label: 'Sell a property' }]}
+        crumbs={[{ label: t('nav.sell') }]}
         image="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=2000&q=80"
         stats={[
           { value: 'Free', label: 'Valuation and marketing' },

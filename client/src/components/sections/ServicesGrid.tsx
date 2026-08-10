@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowUpRight, Check } from 'lucide-react'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiServiceLine } from '@/types/api'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
+import type { TranslationKey } from '@/data/translations'
 import { cn } from '@/lib/utils'
 
 const DIVISION_STYLES: Record<string, string> = {
@@ -15,13 +17,14 @@ const DIVISION_STYLES: Record<string, string> = {
 }
 
 export function ServicesGrid() {
+  const t = useT()
   const block = useBlock('home', 'services', {
     eyebrow: "What we do",
     title: "Two divisions.",
     accent: "One value chain.",
     body: "Most agencies sell and disappear. Most builders never see the buyer. Evaramu Realty and Evaramu Construction sit inside the same company — which is why we can add value to a property instead of just transacting on it.",
   })
-  const { data } = useQuery<ApiServiceLine[]>('/public/services')
+  const { data } = useLocalizedQuery<ApiServiceLine>('/public/services')
   const services = data ?? []
 
   if (services.length === 0) return null
@@ -33,7 +36,7 @@ export function ServicesGrid() {
           eyebrow={block.eyebrow}
           title={block.title}
           accent={block.accent}
-          description="Most agencies sell and disappear. Most builders never see the buyer. Evaramu Realty and Evaramu Construction sit inside the same company — which is why we can add value to a property instead of just transacting on it."
+          description={block.body}
         />
 
         <motion.div
@@ -57,7 +60,7 @@ export function ServicesGrid() {
                     DIVISION_STYLES[service.division],
                   )}
                 >
-                  {service.division}
+                  {t(`division.${service.division}` as TranslationKey)}
                 </span>
               </div>
 
@@ -87,7 +90,7 @@ export function ServicesGrid() {
                 to={service.href ?? '/services'}
                 className="group/link mt-7 inline-flex items-center gap-2 text-[0.9375rem] font-bold text-ink transition-colors hover:text-gold-600 before:absolute before:inset-0"
               >
-                Learn more
+                {t('cta.learnMore')}
                 <ArrowUpRight
                   className="size-4 transition-transform duration-300 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5"
                   strokeWidth={2.4}

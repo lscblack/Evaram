@@ -9,9 +9,10 @@ import { Eyebrow } from '@/components/ui/Eyebrow'
 import { FaqSection } from '@/components/sections/FaqSection'
 import { DiasporaSection } from '@/components/sections/DiasporaSection'
 
-import { useBlockItems, useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useBlockItems, useLocalizedQuery } from '@/lib/queries'
 import type { ApiFaq, ApiServiceLine } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 const DIVISION_STYLES: Record<string, string> = {
@@ -50,6 +51,7 @@ const MANAGEMENT_INCLUDES_FALLBACK: { body: string; title: string }[] = [
 
 
 export default function ServicesPage() {
+  const t = useT()
   const seo = useBlock('services', 'seo', {
     title: "Our Services — Real Estate, Construction & Property Management in Rwanda",
     body: "Buy verified property, sell with proper marketing, build with fixed-price contracts, let us manage your rentals, or invest from abroad with full remote reporting. One company across the whole value chain.",
@@ -78,9 +80,9 @@ export default function ServicesPage() {
     accent: "every month.",
     body: "The diaspora segment is the most underserved in Rwanda precisely because distance makes accountability optional. We removed the option.",
   })
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=services')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=services')
   const faqs = faqData ?? []
-  const { data: serviceData } = useQuery<ApiServiceLine[]>('/public/services')
+  const { data: serviceData } = useLocalizedQuery<ApiServiceLine>('/public/services')
   const services = serviceData ?? []
 
   return (
@@ -104,7 +106,7 @@ export default function ServicesPage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="Most agencies broker. Most builders build. Nobody manages what they sold you. Evaramu Realty and Evaramu Construction sit inside the same company, which is why we can add value to a property instead of just transacting on it."
-        crumbs={[{ label: 'Services' }]}
+        crumbs={[{ label: t('nav.services') }]}
         image="https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=2000&q=80"
         stats={[
           { value: '2', label: 'Active divisions' },

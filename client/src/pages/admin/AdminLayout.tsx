@@ -21,7 +21,7 @@ import { Logo } from '@/components/ui/Logo'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { RouteLoader } from '@/components/layout/RouteLoader'
 import { useAuth } from '@/lib/auth'
-import { EASE } from '@/lib/motion'
+import { EASE, routeTransition } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/api'
 
@@ -225,7 +225,13 @@ export default function AdminLayout() {
 
         <main className="p-4 sm:p-6 lg:p-8">
           <Suspense fallback={<RouteLoader />}>
-            <Outlet />
+            {/* Keyed on the path so each console screen transitions, while the
+                sidebar and its open/closed state survive the navigation. */}
+            <AnimatePresence mode="wait">
+              <motion.div key={location.pathname} {...routeTransition}>
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </Suspense>
         </main>
       </div>

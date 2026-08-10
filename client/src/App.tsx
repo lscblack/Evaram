@@ -7,6 +7,8 @@ import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import { FloatingActions } from '@/components/layout/FloatingActions'
 import { RouteLoader } from '@/components/layout/RouteLoader'
 import { FallbackBadge } from '@/components/layout/FallbackBadge'
+import { ScrollProgress } from '@/components/layout/ScrollProgress'
+import { routeTransition } from '@/lib/motion'
 import HomePage from '@/pages/HomePage'
 
 const PropertiesPage = lazy(() => import('@/pages/PropertiesPage'))
@@ -76,6 +78,7 @@ export default function App() {
   return (
     <div className="flex min-h-dvh flex-col">
       <ScrollToTop />
+      <ScrollProgress />
       <Navbar />
 
       {/* Offset equals the fixed header: 72px bar on mobile; 40px utility bar
@@ -83,13 +86,7 @@ export default function App() {
       <main id="main" className="flex-1 pt-18 lg:pt-30">
         <Suspense fallback={<RouteLoader />}>
           <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-            >
+            <motion.div key={location.pathname} {...routeTransition}>
               <Routes location={location}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/properties" element={<PropertiesPage />} />

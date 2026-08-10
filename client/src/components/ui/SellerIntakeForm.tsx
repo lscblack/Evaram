@@ -6,6 +6,8 @@ import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captc
 import { api } from '@/lib/api'
 import { useSiteConfig } from '@/lib/siteConfig'
 import { cn } from '@/lib/utils'
+import { useFormErrors } from '@/lib/formErrors'
+import { useT } from '@/lib/i18n'
 
 const INPUT =
   'h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] text-ink ' +
@@ -49,6 +51,7 @@ interface Receipt {
  * publish listings themselves.
  */
 export function SellerIntakeForm() {
+  const t = useT()
   const { districts } = useSiteConfig()
 
   const [parcel, setParcel] = useState({
@@ -66,7 +69,7 @@ export function SellerIntakeForm() {
   const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
   const [busy, setBusy] = useState(false)
   const [step, setStep] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const errors = useFormErrors(['upi', 'district', 'sector', 'location', 'property_type', 'asking_price', 'size', 'notes', 'owners', 'captcha_answer'])
   const [done, setDone] = useState<Receipt | null>(null)
 
   const setParcelField = (key: keyof typeof parcel) => (value: string) =>
@@ -78,7 +81,7 @@ export function SellerIntakeForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
-    setError(null)
+    errors.clear()
     try {
       setStep('Recording the parcel…')
       const receipt = await api.post<Receipt>('/public/seller-submissions', {
@@ -121,7 +124,7 @@ export function SellerIntakeForm() {
 
       setDone(receipt)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'That did not send. Please try again.')
+      errors.capture(err)
     } finally {
       setBusy(false)
       setStep('')
@@ -192,7 +195,7 @@ export function SellerIntakeForm() {
               onChange={(e) => setParcelField('district')(e.target.value)}
               className={INPUT}
             >
-              <option value="">Choose…</option>
+              <option value="">{t('ui.choose')}</option>
               {districts.map((d) => (
                 <option key={d} value={d}>
                   {d}
@@ -220,7 +223,7 @@ export function SellerIntakeForm() {
               id="s-type"
               value={parcel.property_type}
               onChange={(e) => setParcelField('property_type')(e.target.value)}
-              placeholder="Residential plot, house, farmland…"
+              placeholder={t('sell.typePlaceholder')}
               className={INPUT}
             />
           </div>
@@ -259,8 +262,8 @@ export function SellerIntakeForm() {
               rows={3}
               value={parcel.notes}
               onChange={(e) => setParcelField('notes')(e.target.value)}
-              placeholder="Access, what is on the plot, why you are selling, any dispute history."
-              className="w-full resize-y rounded-2xl border border-line bg-surface px-4 py-3.5 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
+              placeholder={t('sell.notesPlaceholder')}
+              className="w-full resize-y rounded-2xl border border-line bg-surface px-4 py-3.5 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
             />
           </div>
         </div>
@@ -446,12 +449,12 @@ export function SellerIntakeForm() {
 
       <Captcha value={captcha} onChange={setCaptcha} scope="listing" compact />
 
-      {error && (
+      {errors.general && (
         <p
           role="alert"
           className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[0.875rem] text-red-700"
         >
-          {error}
+          {errors.general}
         </p>
       )}
 

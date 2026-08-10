@@ -854,7 +854,7 @@ export default function PropertyDetailPage() {
                         value={enquiry.name}
                         onChange={(e) => setEnquiry((v) => ({ ...v, name: e.target.value }))}
                         placeholder="Your name"
-                        className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
+                        className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
                       />
                       <label htmlFor="enq-contact" className="sr-only">
                         Email or phone
@@ -865,7 +865,7 @@ export default function PropertyDetailPage() {
                         value={enquiry.contact}
                         onChange={(e) => setEnquiry((v) => ({ ...v, contact: e.target.value }))}
                         placeholder="Email or phone number"
-                        className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
+                        className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
                       />
                       <Captcha value={enquiryCaptcha} onChange={setEnquiryCaptcha} scope="enquiry" compact />
 

@@ -5,6 +5,7 @@ import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { PageHero } from '@/components/layout/PageHero'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { useSite } from '@/lib/siteConfig'
 
 interface LegalSection {
@@ -144,6 +145,7 @@ const TERMS: LegalDoc = {
 }
 
 export default function LegalPage() {
+  const t = useT()
   const site = useSite()
   const { pathname } = useLocation()
   const isPrivacy = pathname.startsWith('/privacy')
@@ -169,7 +171,7 @@ export default function LegalPage() {
         title={doc.title}
         accent={doc.accent}
         description={doc.intro}
-        crumbs={[{ label: isPrivacy ? 'Privacy' : 'Terms' }]}
+        crumbs={[{ label: isPrivacy ? t('footer.privacy') : t('footer.terms') }]}
         compact
       />
 

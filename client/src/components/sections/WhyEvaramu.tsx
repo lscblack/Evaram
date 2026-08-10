@@ -4,6 +4,7 @@ import { useBlock, useBlockItems } from '@/lib/queries'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 
 /** The seven gaps, from the business plan's competitor analysis. */
 /** Fallback for `home` → `why_gaps` — the shipped copy. */
@@ -46,6 +47,7 @@ const GAPS_FALLBACK: { gap: string; them: string; us: string }[] = [
 ]
 
 export function WhyEvaramu() {
+  const t = useT()
   const gaps = useBlockItems(
     'home',
     'why_gaps',
@@ -66,7 +68,7 @@ export function WhyEvaramu() {
           eyebrow={block.eyebrow}
           title={block.title}
           accent={block.accent}
-          description="99% are single-owner informal operations with no systems, no branding and no technology. The few large formal players ignore the middle market entirely. Here is the difference, line by line."
+          description={block.body}
         />
 
         {/* ---- trust points ---- */}
@@ -103,13 +105,13 @@ export function WhyEvaramu() {
           {/* header */}
           <div className="hidden grid-cols-12 gap-6 bg-navy-950 px-8 py-5 text-white md:grid">
             <p className="col-span-3 text-[0.6875rem] font-bold tracking-[0.2em] text-white/50 uppercase">
-              The gap
+              {t('compare.gap')}
             </p>
             <p className="col-span-4 text-[0.6875rem] font-bold tracking-[0.2em] text-white/50 uppercase">
-              What competitors do
+              {t('compare.competitors')}
             </p>
             <p className="col-span-5 text-[0.6875rem] font-bold tracking-[0.2em] text-gold-400 uppercase">
-              What Evaramu does
+              {t('compare.evaramu')}
             </p>
           </div>
 

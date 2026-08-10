@@ -215,6 +215,262 @@ export const TRANSLATIONS = {
   'footer.company': { en: 'Company', rw: 'Isosiyete', fr: 'Entreprise' },
   'footer.emailPlaceholder': { en: 'you@example.com', rw: 'wowe@urugero.com', fr: 'vous@exemple.com' },
   'footer.subscribe': { en: 'Subscribe', rw: 'Iyandikishe', fr: 'S’abonner' },
+  'footer.startCycle': { en: 'Start the cycle', rw: 'Tangira uruziga', fr: 'Commencer le cycle' },
+  'footer.ctaBody': {
+    en: 'Book a free 30-minute consultation. Tell us your budget and your goal — we will tell you honestly what is achievable and how long it will take.',
+    rw: 'Fata igihe cy’iminota 30 cyo kuganira ku buntu. Tubwire ingengo y’imari n’intego yawe — tuzakubwira ukuri ku byashoboka n’igihe bizatwara.',
+    fr: 'Réservez une consultation gratuite de 30 minutes. Dites-nous votre budget et votre objectif — nous vous dirons honnêtement ce qui est réalisable et en combien de temps.',
+  },
+  'footer.emailLabel': { en: 'Email address', rw: 'Aderesi ya imeyili', fr: 'Adresse e-mail' },
+  'footer.allListings': { en: 'All listings', rw: 'Amatangazo yose', fr: 'Toutes les annonces' },
+  'footer.landPlots': { en: 'Land & plots', rw: 'Ubutaka n’ibibanza', fr: 'Terrains et parcelles' },
+  'footer.housesApartments': {
+    en: 'Houses & apartments',
+    rw: 'Amazu n’apartema',
+    fr: 'Maisons et appartements',
+  },
+  'footer.commercialIndustrial': {
+    en: 'Commercial & industrial',
+    rw: 'Iby’ubucuruzi n’inganda',
+    fr: 'Commercial et industriel',
+  },
+  'footer.sellYours': { en: 'Sell your property', rw: 'Gurisha umutungo wawe', fr: 'Vendre votre bien' },
+  'footer.constructionRenovation': {
+    en: 'Construction & renovation',
+    rw: 'Ubwubatsi no kuvugurura',
+    fr: 'Construction et rénovation',
+  },
+  'footer.propertyManagement': {
+    en: 'Property management',
+    rw: 'Gucunga imitungo',
+    fr: 'Gestion immobilière',
+  },
+  'footer.diasporaServices': {
+    en: 'Diaspora services',
+    rw: 'Serivisi z’abo mu mahanga',
+    fr: 'Services diaspora',
+  },
+  'footer.aboutEvaramu': { en: 'About Evaramu', rw: 'Ibyerekeye Evaramu', fr: 'À propos d’Evaramu' },
+  'footer.joinAgency': { en: 'Join our agency', rw: 'Injira mu kigo cyacu', fr: 'Rejoindre notre agence' },
+  'footer.insightsReports': {
+    en: 'Insights & market reports',
+    rw: 'Ubushishozi na raporo z’isoko',
+    fr: 'Analyses et rapports de marché',
+  },
+  'footer.contactUs': { en: 'Contact us', rw: 'Twandikire', fr: 'Nous contacter' },
+
+  /* ---------------- home sections ---------------- */
+  'filter.featured': { en: 'Featured', rw: 'Byatoranyijwe', fr: 'En vedette' },
+  'filter.residential': { en: 'Residential', rw: 'Iby’ubuturo', fr: 'Résidentiel' },
+  'filter.commercial': { en: 'Commercial', rw: 'Iby’ubucuruzi', fr: 'Commercial' },
+  'filter.agricultural': { en: 'Agricultural', rw: 'Iby’ubuhinzi', fr: 'Agricole' },
+  'filter.toRent': { en: 'To rent', rw: 'Bikodeshwa', fr: 'À louer' },
+
+  'division.Realty': { en: 'Realty', rw: 'Imitungo', fr: 'Immobilier' },
+  'division.Construction': { en: 'Construction', rw: 'Ubwubatsi', fr: 'Construction' },
+  'division.Group': { en: 'Group', rw: 'Ikigo', fr: 'Groupe' },
+
+  'section.forDiaspora': { en: 'For the diaspora', rw: 'Ku bo mu mahanga', fr: 'Pour la diaspora' },
+  'section.joinAgency': { en: 'Join the agency', rw: 'Injira mu kigo', fr: 'Rejoindre l’agence' },
+
+  'stories.previous': { en: 'Previous story', rw: 'Inkuru ibanza', fr: 'Témoignage précédent' },
+  'stories.next': { en: 'Next story', rw: 'Inkuru ikurikira', fr: 'Témoignage suivant' },
+  'stories.ratingNote': {
+    en: 'Average client rating across verified testimonials and Google Business reviews. We ask every client for one — and we publish the ones we get.',
+    rw: 'Impuzandengo y’amanota y’abakiriya mu byo batubwiye byemejwe no muri Google Business. Dusaba buri mukiriya kutugezaho iryo tekereza — kandi dutangaza ayo twakiriye.',
+    fr: 'Note moyenne des clients, sur les témoignages vérifiés et les avis Google Business. Nous la demandons à chaque client — et nous publions celles que nous recevons.',
+  },
+  'stories.dealsYearOne': {
+    en: 'Deals closed in year one',
+    rw: 'Amasezerano yasojwe mu mwaka wa mbere',
+    fr: 'Transactions conclues la première année',
+  },
+  'stories.renovations': {
+    en: 'Renovation projects completed',
+    rw: 'Imishinga yo kuvugurura yarangiye',
+    fr: 'Projets de rénovation achevés',
+  },
+  'stories.rentalUnits': {
+    en: 'Rental units under management',
+    rw: 'Amazu akodeshwa ducunga',
+    fr: 'Logements locatifs en gestion',
+  },
+  'stories.titlesVerified': {
+    en: 'Titles verified before transacting',
+    rw: 'Impapuro zemejwe mbere yo gukora ubucuruzi',
+    fr: 'Titres vérifiés avant toute transaction',
+  },
+
+  'cta.exploreConstruction': {
+    en: 'Explore construction',
+    rw: 'Sura ubwubatsi',
+    fr: 'Découvrir la construction',
+  },
+  'cta.getQuote': { en: 'Get a quote', rw: 'Saba igiciro', fr: 'Demander un devis' },
+  'cta.bookFreeCall': {
+    en: 'Book a free call',
+    rw: 'Fata igihe cyo kuvugana ku buntu',
+    fr: 'Réserver un appel gratuit',
+  },
+  'cta.allInsights': { en: 'All insights', rw: 'Ubushishozi bwose', fr: 'Toutes les analyses' },
+  'cta.readMarketReports': {
+    en: 'Read our market reports',
+    rw: 'Soma raporo zacu z’isoko',
+    fr: 'Lire nos rapports de marché',
+  },
+  'cta.seeFullModel': {
+    en: 'See the full model',
+    rw: 'Reba uburyo bwose',
+    fr: 'Voir le modèle complet',
+  },
+  'pkg.mostChosen': { en: 'Most chosen', rw: 'Ikoreshwa cyane', fr: 'Le plus choisi' },
+  'compare.gap': { en: 'The gap', rw: 'Icyuho', fr: 'L’écart' },
+  'compare.competitors': {
+    en: 'What competitors do',
+    rw: 'Ibyo abandi bakora',
+    fr: 'Ce que font les concurrents',
+  },
+  'compare.evaramu': {
+    en: 'What Evaramu does',
+    rw: 'Ibyo Evaramu ikora',
+    fr: 'Ce que fait Evaramu',
+  },
+
+  'nav.account': { en: 'Account', rw: 'Konti', fr: 'Compte' },
+
+  /* ---------------- page-level copy ---------------- */
+  'insights.searchPlaceholder': {
+    en: 'Search articles…',
+    rw: 'Shakisha inyandiko…',
+    fr: 'Rechercher des articles…',
+  },
+  'insights.actOnIt': { en: 'Act on it', rw: 'Bikoreshe', fr: 'Passer à l’action' },
+  'insights.keepReading': { en: 'Keep reading', rw: 'Komeza usome', fr: 'Poursuivre la lecture' },
+  'market.searchPlaceholder': {
+    en: 'Location, reference, feature…',
+    rw: 'Ahantu, nimero, ikiranga…',
+    fr: 'Lieu, référence, caractéristique…',
+  },
+  'market.liveListings': { en: 'Live listings', rw: 'Amatangazo ariho', fr: 'Annonces en ligne' },
+  'market.districts': { en: 'Districts', rw: 'Uturere', fr: 'Districts' },
+  'market.verified': { en: 'Verified', rw: 'Byemejwe', fr: 'Vérifié' },
+  'account.namePlaceholder': {
+    en: 'Your full name',
+    rw: 'Amazina yawe yose',
+    fr: 'Votre nom complet',
+  },
+  'account.phonePlaceholder': {
+    en: 'Phone or WhatsApp',
+    rw: 'Telefoni cyangwa WhatsApp',
+    fr: 'Téléphone ou WhatsApp',
+  },
+
+  /* ---------------- buyer requests ---------------- */
+  'request.title': {
+    en: 'Tell us what you are looking for',
+    rw: 'Tubwire icyo ushaka',
+    fr: 'Dites-nous ce que vous cherchez',
+  },
+  'request.body': {
+    en: 'Most of what we handle never reaches this page. Describe the property you want and a consultant will call you when a match comes in — usually before it is listed.',
+    rw: 'Byinshi dukora ntibigera kuri uru rupapuro. Sobanura umutungo ushaka maze umujyanama akuhamagare igihe habonetse uhuye nawe — akenshi mbere y’uko utangazwa.',
+    fr: 'L’essentiel de ce que nous traitons n’arrive jamais sur cette page. Décrivez le bien que vous voulez et un consultant vous appellera dès qu’une correspondance arrive — souvent avant sa publication.',
+  },
+  'request.name': { en: 'Your name', rw: 'Amazina yawe', fr: 'Votre nom' },
+  'request.phone': { en: 'Phone', rw: 'Telefoni', fr: 'Téléphone' },
+  'request.email': { en: 'Email (optional)', rw: 'Imeyili (si itegeko)', fr: 'E-mail (facultatif)' },
+  'request.lookingTo': { en: 'Looking to', rw: 'Ushaka', fr: 'Vous souhaitez' },
+  'request.areas': { en: 'Preferred areas', rw: 'Ahantu wifuza', fr: 'Zones souhaitées' },
+  'request.areasHint': {
+    en: 'Neighbourhoods, not just the district.',
+    rw: 'Utudugudu, atari akarere gusa.',
+    fr: 'Les quartiers, pas seulement le district.',
+  },
+  'request.areasPlaceholder': {
+    en: 'Kibagabaga, Kanombe…',
+    rw: 'Kibagabaga, Kanombe…',
+    fr: 'Kibagabaga, Kanombe…',
+  },
+  'request.budgetMin': { en: 'Budget from (RWF)', rw: 'Ingengo guhera kuri (RWF)', fr: 'Budget à partir de (RWF)' },
+  'request.budgetMax': { en: 'Budget up to (RWF)', rw: 'Ingengo ntarengwa (RWF)', fr: 'Budget maximum (RWF)' },
+  'request.bedrooms': { en: 'Bedrooms (minimum)', rw: 'Ibyumba byo kuraramo (byibura)', fr: 'Chambres (minimum)' },
+  'request.timeline': { en: 'Timeline', rw: 'Igihe', fr: 'Échéance' },
+  'request.timelinePlaceholder': {
+    en: 'Within 3 months',
+    rw: 'Mu mezi 3',
+    fr: 'Sous 3 mois',
+  },
+  'request.notes': { en: 'Anything else', rw: 'Ikindi cyose', fr: 'Autre chose' },
+  'request.notesPlaceholder': {
+    en: 'Access to a tarmac road, title already subdivided, must take a two-storey build…',
+    rw: 'Kugera ku muhanda wa kaburimbo, ikibanza cyaracicwemo, gishobora kubakwaho amagorofa abiri…',
+    fr: 'Accès à une route bitumée, titre déjà morcelé, doit supporter un R+1…',
+  },
+  'request.submit': { en: 'Send my request', rw: 'Ohereza icyifuzo cyanjye', fr: 'Envoyer ma demande' },
+  'request.thanksTitle': {
+    en: 'Request received',
+    rw: 'Icyifuzo cyakiriwe',
+    fr: 'Demande reçue',
+  },
+
+  /* ---------------- account dashboard ---------------- */
+  'account.myRequests': { en: 'My requests', rw: 'Ibyifuzo byanjye', fr: 'Mes demandes' },
+  'account.myOffers': { en: 'My offers', rw: 'Ibyo natanze', fr: 'Mes offres' },
+  'account.wanted': { en: 'Properties I am looking for', rw: 'Imitungo nshaka', fr: 'Biens recherchés' },
+  'account.selling': { en: 'Properties I asked you to sell', rw: 'Imitungo nasabye ko mugurisha', fr: 'Biens que j’ai demandé de vendre' },
+  'account.noWanted': {
+    en: 'You have not asked us to find anything yet.',
+    rw: 'Nta kintu urasaba ko tugushakira.',
+    fr: 'Vous ne nous avez encore rien demandé de chercher.',
+  },
+  'account.noSelling': {
+    en: 'You have not asked us to sell anything yet.',
+    rw: 'Nta kintu urasaba ko tugurisha.',
+    fr: 'Vous ne nous avez encore rien demandé de vendre.',
+  },
+  'account.signOut': { en: 'Sign out', rw: 'Sohoka', fr: 'Se déconnecter' },
+  'account.submitted': { en: 'Submitted', rw: 'Byoherejwe', fr: 'Envoyé le' },
+  'status.new': { en: 'New', rw: 'Gishya', fr: 'Nouveau' },
+  'status.reviewing': { en: 'Being reviewed', rw: 'Kirimo gusuzumwa', fr: 'En cours d’examen' },
+  'status.accepted': { en: 'Accepted', rw: 'Cyemewe', fr: 'Accepté' },
+  'status.rejected': { en: 'Not taken on', rw: 'Nticyakiriwe', fr: 'Non retenu' },
+  'status.open': { en: 'Open', rw: 'Gifunguye', fr: 'Ouvert' },
+  'status.matched': { en: 'Match found', rw: 'Habonetse uhuye', fr: 'Correspondance trouvée' },
+  'status.fulfilled': { en: 'Fulfilled', rw: 'Cyasohojwe', fr: 'Satisfait' },
+  'status.closed': { en: 'Closed', rw: 'Cyarafunzwe', fr: 'Clôturé' },
+
+  /* ---------------- controls & forms ---------------- */
+  'ui.backToTop': { en: 'Back to top', rw: 'Subira hejuru', fr: 'Retour en haut' },
+  'ui.previousMonth': { en: 'Previous month', rw: 'Ukwezi gushize', fr: 'Mois précédent' },
+  'ui.nextMonth': { en: 'Next month', rw: 'Ukwezi gutaha', fr: 'Mois prochain' },
+  'ui.newChallenge': { en: 'New challenge', rw: 'Ikibazo gishya', fr: 'Nouveau défi' },
+  'ui.yourAnswer': { en: 'Your answer', rw: 'Igisubizo cyawe', fr: 'Votre réponse' },
+  'ui.expand': { en: 'Expand', rw: 'Agura', fr: 'Agrandir' },
+  'ui.close': { en: 'Close', rw: 'Funga', fr: 'Fermer' },
+  'ui.select': { en: 'Select…', rw: 'Hitamo…', fr: 'Sélectionner…' },
+  'ui.choose': { en: 'Choose…', rw: 'Hitamo…', fr: 'Choisir…' },
+  'ui.findDetail': { en: 'Find a detail…', rw: 'Shakisha ikintu…', fr: 'Trouver un détail…' },
+  'bid.notePlaceholder': {
+    en: 'Anything the seller should know? (optional)',
+    rw: 'Hari icyo ushaka ko umugurisha amenya? (si itegeko)',
+    fr: 'Quelque chose à signaler au vendeur ? (facultatif)',
+  },
+  'sell.typePlaceholder': {
+    en: 'Residential plot, house, farmland…',
+    rw: 'Ikibanza cy’ubuturo, inzu, ubutaka bw’ubuhinzi…',
+    fr: 'Parcelle résidentielle, maison, terrain agricole…',
+  },
+  'sell.notesPlaceholder': {
+    en: 'Access, what is on the plot, why you are selling, any dispute history.',
+    rw: 'Uko hinjirwa, ibiri ku kibanza, impamvu ugurisha, n’amakimbirane yabayeho.',
+    fr: 'Accès, ce qui se trouve sur la parcelle, pourquoi vous vendez, tout litige passé.',
+  },
+
+  'hero.searchPlaceholder': {
+    en: 'Kanombe, Kimironko, UPI…',
+    rw: 'Kanombe, Kimironko, UPI…',
+    fr: 'Kanombe, Kimironko, UPI…',
+  },
 } satisfies Record<string, Entry>
 
 export type TranslationKey = keyof typeof TRANSLATIONS

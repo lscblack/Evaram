@@ -14,6 +14,7 @@ from app.core.deps import require_admin, require_agent, require_super_admin
 from app.core.email import send_welcome_email
 from app.core.security import generate_token, hash_password, validate_password_strength
 from app.models.content import (
+    PropertyRequest,
     AuditLog,
     BlockedDate,
     Booking,
@@ -36,6 +37,9 @@ from app.models.user import User, UserRole, UserStatus
 from app.schemas.auth import UserCreate, UserPublic, UserUpdate
 from app.schemas.common import Message, Page
 from app.schemas.content import (
+    InboxStatusChange,
+    PropertyRequestOut,
+    PropertyRequestReview,
     SellerSubmissionOut,
     SubmissionReview,
     AuditLogOut,
@@ -929,3 +933,132 @@ async def review_submission(
     await db.commit()
     await db.refresh(row)
     return SellerSubmissionOut.model_validate(row)
+
+
+# ================================================================ buyer requests
+@router.get(
+    "/property-requests",
+    response_model=Page[PropertyRequestOut],
+    summary="Buyers asking us to find something",
+)
+async def property_requests(
+    request_status: str | None = Query(None, alias="status"),
+    q: str | None = Query(None, description="Reference, name, phone or area"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(24, ge=1, le=96),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_agent),
+) -> Page[PropertyRequestOut]:
+    stmt = select(PropertyRequest)
+    if request_status:
+        stmt = stmt.where(PropertyRequest.status == request_status)
+    if q:
+        needle = f"%{q.strip()}%"
+        stmt = stmt.where(
+            PropertyRequest.reference.ilike(needle)
+            | PropertyRequest.full_name.ilike(needle)
+            | PropertyRequest.phone.ilike(needle)
+            | PropertyRequest.preferred_areas.ilike(needle)
+        )
+
+    total = await db.scalar(
+        select(func.count()).select_from(
+            stmt.order_by(None).with_only_columns(PropertyRequest.id).subquery()
+        )
+    ) or 0
+    rows = (
+        await db.scalars(
+            stmt.order_by(PropertyRequest.created_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+    ).all()
+    return Page.build([PropertyRequestOut.model_validate(r) for r in rows], total, page, per_page)
+
+
+@router.post(
+    "/property-requests/{request_id}/review",
+    response_model=Message,
+    summary="Move a buyer request along",
+)
+async def review_property_request(
+    request: Request,
+    request_id: uuid.UUID,
+    payload: PropertyRequestReview,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_agent),
+) -> Message:
+    row = await db.scalar(select(PropertyRequest).where(PropertyRequest.id == request_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Request not found")
+
+    row.status = payload.status
+    if payload.review_note is not None:
+        row.review_note = payload.review_note
+    if payload.matched_property_id is not None:
+        row.matched_property_id = payload.matched_property_id
+    # Left unset means "leave it with whoever has it", not "unassign".
+    if payload.assigned_to_id is not None:
+        row.assigned_to_id = payload.assigned_to_id
+
+    await record(
+        db, actor=actor, action="property_request.review", entity_type="property_request",
+        entity_id=row.id, summary=f"{row.reference} marked {payload.status.value}",
+        changes={"status": payload.status.value}, request=request,
+    )
+    await db.commit()
+    return Message(detail=f"Request {row.reference} updated")
+
+
+@router.post(
+    "/enquiries/{message_id}/status",
+    response_model=Message,
+    summary="Mark a message handled",
+)
+async def change_enquiry_status(
+    request: Request,
+    message_id: uuid.UUID,
+    payload: InboxStatusChange,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_agent),
+) -> Message:
+    row = await db.scalar(select(ContactMessage).where(ContactMessage.id == message_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Message not found")
+
+    row.status = payload.status
+    # Records who owns it now, so two people do not answer the same message.
+    row.handled_by_id = actor.id
+    await record(
+        db, actor=actor, action="enquiry.status", entity_type="contact_message",
+        entity_id=row.id, summary=f"Message from {row.full_name} marked {payload.status}",
+        changes={"status": payload.status}, request=request,
+    )
+    await db.commit()
+    return Message(detail=f"Message marked {payload.status}")
+
+
+@router.post(
+    "/applications/{application_id}/status",
+    response_model=Message,
+    summary="Move an application along",
+)
+async def change_application_status(
+    request: Request,
+    application_id: uuid.UUID,
+    payload: InboxStatusChange,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_agent),
+) -> Message:
+    row = await db.scalar(select(JobApplication).where(JobApplication.id == application_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")
+
+    row.status = payload.status
+    await record(
+        db, actor=actor, action="application.status", entity_type="job_application",
+        entity_id=row.id, summary=f"{row.full_name} marked {payload.status}",
+        changes={"status": payload.status}, request=request,
+    )
+    await db.commit()
+    return Message(detail=f"Application marked {payload.status}")

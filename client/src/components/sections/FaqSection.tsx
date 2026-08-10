@@ -5,6 +5,7 @@ import type { ApiFaq } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 
 export function FaqSection({
   faqs,
@@ -19,6 +20,7 @@ export function FaqSection({
   accent?: string
   description?: string
 }) {
+  const t = useT()
   const [open, setOpen] = useState<number | null>(0)
 
   return (
@@ -46,7 +48,7 @@ export function FaqSection({
                   honestly whether we can help.
                 </p>
                 <Button to="/consultation" variant="gold" className="mt-5 w-full sm:w-auto">
-                  Book a free call
+                  {t('cta.bookFreeCall')}
                 </Button>
               </div>
             </motion.div>

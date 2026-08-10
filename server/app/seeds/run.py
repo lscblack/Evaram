@@ -14,7 +14,7 @@ import logging
 from datetime import date, timedelta
 
 from slugify import slugify
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app.core.database import Base, SessionLocal, engine, ensure_database_exists
 from app.core.security import hash_password
@@ -34,6 +34,7 @@ from app.models.content import (
 )
 from app.models.property import (
     ListingIntent,
+    PropertySaleRecord,
     MediaKind,
     Property,
     PropertyMedia,
@@ -51,7 +52,7 @@ from app.models.taxonomy import (
 )
 from app.models.user import User, UserRole, UserStatus
 from app.core.config import settings
-from app.seeds import demo_content, sample_properties, site_content
+from app.seeds import content_translations, demo_content, sample_properties, site_content
 from app.seeds.form_config import FORM_CONFIG, OPTION_SETS
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s")
@@ -76,6 +77,9 @@ async def ensure_schema() -> None:
 
 
 async def seed_users(db) -> dict[str, User]:
+    # deals_closed starts at 0 for everyone: it is incremented when a sale is
+    # actually recorded (see bidding_service). Seeding invented figures here is
+    # what made the team page show numbers no one could trace to a transaction.
     people = [
         {
             "email": settings.SUPER_ADMIN_EMAIL, "full_name": settings.SUPER_ADMIN_NAME,
@@ -85,7 +89,7 @@ async def seed_users(db) -> dict[str, User]:
         {
             "email": "aline@evaramu.rw", "full_name": "Aline Uwase", "role": UserRole.ADMIN,
             "job_title": "Head of Real Estate", "division": "Realty", "is_public": True,
-            "phone": "+250 788 000 001", "joined_year": "2025", "rating": 4.9, "deals_closed": 64,
+            "phone": "+250 788 000 001", "joined_year": "2025", "rating": 4.9, "deals_closed": 0,
             "languages": ["Kinyarwanda", "English", "French"],
             "specialties": ["Residential land", "Diaspora clients", "Wealth Cycle"],
             "covers": ["Gasabo", "Kicukiro"], "display_order": 1,
@@ -96,7 +100,7 @@ async def seed_users(db) -> dict[str, User]:
         {
             "email": "eric@evaramu.rw", "full_name": "Eric Mugisha", "role": UserRole.AGENT,
             "job_title": "Senior Property Consultant", "division": "Realty", "is_public": True,
-            "phone": "+250 788 000 002", "joined_year": "2025", "rating": 4.8, "deals_closed": 51,
+            "phone": "+250 788 000 002", "joined_year": "2025", "rating": 4.8, "deals_closed": 0,
             "languages": ["Kinyarwanda", "English", "Swahili"],
             "specialties": ["Commercial plots", "Negotiation", "Bugesera corridor"],
             "covers": ["Bugesera", "Rwamagana", "Nyarugenge"], "display_order": 2,
@@ -108,7 +112,7 @@ async def seed_users(db) -> dict[str, User]:
             "email": "claudine@evaramu.rw", "full_name": "Claudine Ingabire",
             "role": UserRole.AGENT, "job_title": "Diaspora Relations Lead", "division": "Realty",
             "is_public": True, "phone": "+250 788 000 003", "joined_year": "2025", "rating": 5.0,
-            "deals_closed": 38, "languages": ["Kinyarwanda", "English", "French", "Dutch"],
+            "deals_closed": 0, "languages": ["Kinyarwanda", "English", "French", "Dutch"],
             "specialties": ["Remote purchase", "Title verification", "Video reporting"],
             "covers": ["Europe", "North America", "Kigali"], "display_order": 3,
             "photo_url": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=800&q=80",
@@ -118,7 +122,7 @@ async def seed_users(db) -> dict[str, User]:
         {
             "email": "patrick@evaramu.rw", "full_name": "Patrick Habimana", "role": UserRole.ADMIN,
             "job_title": "Head of Construction", "division": "Construction", "is_public": True,
-            "phone": "+250 788 000 004", "joined_year": "2025", "rating": 4.9, "deals_closed": 27,
+            "phone": "+250 788 000 004", "joined_year": "2025", "rating": 4.9, "deals_closed": 0,
             "languages": ["Kinyarwanda", "English"],
             "specialties": ["Supervised builds", "Renovation", "Cost control"],
             "covers": ["Kigali", "Eastern Province"], "display_order": 4,
@@ -130,7 +134,7 @@ async def seed_users(db) -> dict[str, User]:
             "email": "sandrine@evaramu.rw", "full_name": "Sandrine Mukamana",
             "role": UserRole.AGENT, "job_title": "Property Manager", "division": "Realty",
             "is_public": True, "phone": "+250 788 000 005", "joined_year": "2026", "rating": 4.9,
-            "deals_closed": 22, "languages": ["Kinyarwanda", "English", "French"],
+            "deals_closed": 0, "languages": ["Kinyarwanda", "English", "French"],
             "specialties": ["Tenant screening", "Rent collection", "Monthly reporting"],
             "covers": ["Nyarutarama", "Kacyiru", "Remera"], "display_order": 5,
             "photo_url": "https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?auto=format&fit=crop&w=800&q=80",
@@ -141,7 +145,7 @@ async def seed_users(db) -> dict[str, User]:
             "email": "bosco@evaramu.rw", "full_name": "Jean Bosco Nsengimana",
             "role": UserRole.AGENT, "job_title": "Site Supervisor", "division": "Construction",
             "is_public": True, "phone": "+250 788 000 006", "joined_year": "2026", "rating": 4.7,
-            "deals_closed": 19, "languages": ["Kinyarwanda", "Swahili", "English"],
+            "deals_closed": 0, "languages": ["Kinyarwanda", "Swahili", "English"],
             "specialties": ["Daily supervision", "Snagging", "Sub-contractor vetting"],
             "covers": ["Kigali sites"], "display_order": 6,
             "photo_url": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=80",
@@ -151,7 +155,7 @@ async def seed_users(db) -> dict[str, User]:
         {
             "email": "divine@evaramu.rw", "full_name": "Divine Umutoni", "role": UserRole.ADMIN,
             "job_title": "Land & Title Officer", "division": "Group", "is_public": True,
-            "phone": "+250 788 000 007", "joined_year": "2025", "rating": 5.0, "deals_closed": 96,
+            "phone": "+250 788 000 007", "joined_year": "2025", "rating": 5.0, "deals_closed": 0,
             "languages": ["Kinyarwanda", "English", "French"],
             "specialties": ["NLA verification", "Transfer documentation", "Due diligence"],
             "covers": ["All districts"], "display_order": 7,
@@ -162,7 +166,7 @@ async def seed_users(db) -> dict[str, User]:
         {
             "email": "kevin@evaramu.rw", "full_name": "Kevin Rukundo", "role": UserRole.AGENT,
             "job_title": "Property Consultant", "division": "Realty", "is_public": True,
-            "phone": "+250 788 000 008", "joined_year": "2026", "rating": 4.7, "deals_closed": 17,
+            "phone": "+250 788 000 008", "joined_year": "2026", "rating": 4.7, "deals_closed": 0,
             "languages": ["Kinyarwanda", "English"],
             "specialties": ["First-time buyers", "Middle market", "Kanombe & Kabuga"],
             "covers": ["Kicukiro", "Kabuga"], "display_order": 8,
@@ -340,6 +344,77 @@ async def seed_settings(db) -> None:
     log.info("settings, navigation and catalogue content seeded")
 
 
+async def reconcile_deal_counts(db) -> None:
+    """Set every agent's `deals_closed` to the number of sales actually recorded.
+
+    The column is a cache that `bidding_service` increments as sales complete.
+    This recomputes it from `property_sale_records`, which is the source of
+    truth — it both corrects the invented figures earlier seeds wrote and
+    repairs any drift if a sale record is ever deleted by hand.
+    """
+    counts = dict(
+        (
+            await db.execute(
+                select(PropertySaleRecord.agent_id, func.count(PropertySaleRecord.id))
+                .where(PropertySaleRecord.agent_id.is_not(None))
+                .group_by(PropertySaleRecord.agent_id)
+            )
+        ).all()
+    )
+
+    corrected = 0
+    for user in (await db.scalars(select(User))).all():
+        actual = counts.get(user.id, 0)
+        if user.deals_closed != actual:
+            user.deals_closed = actual
+            corrected += 1
+
+    await db.flush()
+    if corrected:
+        log.info("deal counts: %d user(s) reconciled against sale records", corrected)
+
+
+async def seed_translations(db) -> None:
+    """Attach Kinyarwanda and French to content rows that have none yet.
+
+    Deliberately only fills empty ones. Once an admin translates a row in the
+    dashboard, the repo stops being the source of truth for it — re-running the
+    seeder must not undo their work.
+    """
+    plans = (
+        (ServiceLine, "slug", content_translations.SERVICE_LINES),
+        (ConstructionPackage, "slug", content_translations.CONSTRUCTION_PACKAGES),
+        (ConsultationType, "slug", content_translations.CONSULTATION_TYPES),
+        (WealthCycleStep, "step", content_translations.WEALTH_CYCLE),
+        (MarketStat, "key", content_translations.MARKET_STATS),
+        (Testimonial, "author_name", content_translations.TESTIMONIALS),
+        (Faq, "question", content_translations.FAQS),
+    )
+
+    filled = 0
+    for model, key_field, table in plans:
+        for row in (await db.scalars(select(model))).all():
+            if row.translations:
+                continue
+            entry = table.get(getattr(row, key_field))
+            if entry:
+                row.translations = entry
+                filled += 1
+
+    # Content blocks need both halves of their natural key to be unambiguous —
+    # `seo` and `hero` exist on almost every page.
+    for row in (await db.scalars(select(ContentBlock))).all():
+        if row.translations:
+            continue
+        entry = content_translations.CONTENT_BLOCKS.get(f"{row.page}/{row.key}")
+        if entry:
+            row.translations = entry
+            filled += 1
+
+    await db.flush()
+    log.info("translations: %d rows filled", filled)
+
+
 async def seed_strings(db) -> None:
     for key, values in demo_content.UI_STRINGS.items():
         if not await db.scalar(select(UiString.id).where(UiString.key == key)):
@@ -455,6 +530,9 @@ async def seed_all() -> None:
         await seed_strings(db)
         await seed_page_content(db)
         await seed_properties(db, subs, users)
+        # Last, so they can correct rows the passes above just created.
+        await seed_translations(db)
+        await reconcile_deal_counts(db)
         await db.commit()
 
 

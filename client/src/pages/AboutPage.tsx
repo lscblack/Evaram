@@ -13,6 +13,7 @@ import { useSite } from '@/lib/siteConfig'
 import type { ApiTeamMember } from '@/types/api'
 
 import { fadeRight, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 
 /** Fallback for `about` → `divisions` — the shipped copy. */
 const DIVISIONS_FALLBACK: { active: boolean; focus: string; icon: string; name: string; status: string }[] = [
@@ -103,6 +104,7 @@ const GOVERNANCE_FALLBACK: { responsibility: string; role: string }[] = [
 ]
 
 export default function AboutPage() {
+  const t = useT()
   const seo = useBlock('about', 'seo', {
     title: "About Evaramu Group Ltd — Kigali Real Estate & Construction",
     body: "Evaramu Group Ltd is a registered Rwandan real estate, construction and property wealth company based in Kigali. Two active divisions, an internal board, and a culture built on documentation and speed.",
@@ -175,7 +177,7 @@ export default function AboutPage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="Evaramu Group Ltd finds the right property, helps clients buy it, builds or renovates it, manages it, and when the time is right helps them sell and reinvest. A client who starts with one property can realistically grow to four or five within three years."
-        crumbs={[{ label: 'About' }]}
+        crumbs={[{ label: t('nav.about') }]}
         image="https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=2000&q=80"
         stats={[
           { value: '2025', label: 'Founded in Kigali' },

@@ -8,18 +8,21 @@ import { PropertyCard } from '@/components/ui/PropertyCard'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
+import type { TranslationKey } from '@/data/translations'
 import { cn } from '@/lib/utils'
 import { EASE } from '@/lib/motion'
 
-const FILTERS = [
-  { id: 'featured', label: 'Featured' },
-  { id: 'residential', label: 'Residential' },
-  { id: 'commercial', label: 'Commercial' },
-  { id: 'agricultural', label: 'Agricultural' },
-  { id: 'rent', label: 'To rent' },
+const FILTERS: { id: string; label: TranslationKey }[] = [
+  { id: 'featured', label: 'filter.featured' },
+  { id: 'residential', label: 'filter.residential' },
+  { id: 'commercial', label: 'filter.commercial' },
+  { id: 'agricultural', label: 'filter.agricultural' },
+  { id: 'rent', label: 'filter.toRent' },
 ]
 
 export function FeaturedProperties() {
+  const t = useT()
   const block = useBlock('home', 'featured', {
     eyebrow: "Current listings",
     title: "Verified properties,",
@@ -63,7 +66,7 @@ export function FeaturedProperties() {
           eyebrow={block.eyebrow}
           title={block.title}
           accent={block.accent}
-          description="Every listing below has been checked against its UPI at the National Land Authority. You see the parcel size, the tenure and the coordinates before you ever pick up the phone."
+          description={block.body}
           action={
             <Button
               to="/properties"
@@ -103,7 +106,7 @@ export function FeaturedProperties() {
                   transition={{ duration: 0.4, ease: EASE }}
                 />
               )}
-              <span className="relative">{f.label}</span>
+              <span className="relative">{t(f.label)}</span>
             </button>
           ))}
         </motion.div>

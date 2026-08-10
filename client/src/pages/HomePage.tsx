@@ -11,7 +11,7 @@ import { Testimonials } from '@/components/sections/Testimonials'
 import { JoinTeaser } from '@/components/sections/JoinTeaser'
 import { InsightsPreview } from '@/components/sections/InsightsPreview'
 import { FaqSection } from '@/components/sections/FaqSection'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import { useSite } from '@/lib/siteConfig'
 import type { ApiFaq } from '@/types/api'
 
@@ -22,7 +22,7 @@ export default function HomePage() {
   })
   const seoKeywords = (seo.items as { text: string }[]).map((k) => k.text)
   const site = useSite()
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=home')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=home')
   const faqs = faqData ?? []
 
   const websiteJsonLd = {

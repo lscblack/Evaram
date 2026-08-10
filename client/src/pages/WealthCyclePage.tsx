@@ -9,13 +9,15 @@ import { Icon } from '@/components/ui/Icon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { FaqSection } from '@/components/sections/FaqSection'
 
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery, useQuery } from '@/lib/queries'
 import type { ApiCycleStep, ApiFaq, ApiTestimonial, ContentBlock } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn, formatCompactCurrency, formatCurrency } from '@/lib/utils'
 
 
 export default function WealthCyclePage() {
+  const t = useT()
   const seo = useBlock('wealth-cycle', 'seo', {
     title: "The Evaramu Wealth Cycle — From One Property to a Portfolio",
     body: "Buy, build, earn, sell, reinvest, repeat. The full six-step model Evaramu uses to grow a client from one property to four or five within three years — with the complete arithmetic published.",
@@ -45,12 +47,12 @@ export default function WealthCyclePage() {
     accent: "become?",
     body: "Move the sliders. This is an indicative model built on the same assumptions we use in a planning session — a build uplift of roughly 35%, corridor appreciation of 16% a year, and rent at around 9% of value.",
   })
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=wealth-cycle')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=wealth-cycle')
   const faqs = faqData ?? []
 
-  const { data: stepData } = useQuery<ApiCycleStep[]>('/public/wealth-cycle')
+  const { data: stepData } = useLocalizedQuery<ApiCycleStep>('/public/wealth-cycle')
   const steps = stepData ?? []
-  const { data: storyData } = useQuery<ApiTestimonial[]>('/public/testimonials')
+  const { data: storyData } = useLocalizedQuery<ApiTestimonial>('/public/testimonials')
   const { data: blocks } = useQuery<ContentBlock[]>('/public/content/wealth-cycle')
 
   /** The worked client journey, editable in the admin as a content block. */
@@ -121,7 +123,7 @@ export default function WealthCyclePage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="The Wealth Cycle is the reason clients come back to us for their second, third and fourth property. We find it, help you buy it, build on it, tenant it, tell you when to sell — then put the proceeds to work again."
-        crumbs={[{ label: 'Wealth Cycle' }]}
+        crumbs={[{ label: t('nav.wealthCycle') }]}
         image="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=2000&q=80"
         stats={[
           { value: '1 → 4–5', label: 'Properties within 3 years' },

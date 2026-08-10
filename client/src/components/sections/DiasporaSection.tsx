@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { Button } from '@/components/ui/Button'
 import { EASE, fadeRight, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { useBlockItems } from '@/lib/queries'
 import { Icon } from '@/components/ui/Icon'
 
@@ -35,6 +36,7 @@ const PROMISES_FALLBACK = [
 ]
 
 export function DiasporaSection() {
+  const t = useT()
   const promises = useBlockItems(
     'home',
     'diaspora_promises',
@@ -91,7 +93,7 @@ export function DiasporaSection() {
             className="lg:col-span-7 lg:pl-4"
           >
             <motion.div variants={fadeUp}>
-              <Eyebrow>For the diaspora</Eyebrow>
+              <Eyebrow>{t('section.forDiaspora')}</Eyebrow>
             </motion.div>
 
             <motion.h2

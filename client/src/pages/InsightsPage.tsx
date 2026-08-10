@@ -7,7 +7,7 @@ import { PageHero } from '@/components/layout/PageHero'
 import { Button } from '@/components/ui/Button'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { api } from '@/lib/api'
-import { useI18n } from '@/lib/i18n'
+import { useI18n, useT } from '@/lib/i18n'
 import { useBlock, useQuery } from '@/lib/queries'
 import type { ApiInsightCard, Page } from '@/types/api'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
@@ -15,6 +15,7 @@ import { useSite } from '@/lib/siteConfig'
 import { cn, formatDate } from '@/lib/utils'
 
 export default function InsightsPage() {
+  const t = useT()
   const seo = useBlock('insights', 'seo', {
     title: "Insights & Market Reports — Rwanda Property",
     body: "Kigali land price reports, rental yield analysis, construction cost breakdowns and practical guides for diaspora buyers. Published monthly by Evaramu Group Ltd.",
@@ -110,7 +111,7 @@ export default function InsightsPage() {
         title={block.title}
         accent={block.accent}
         description="We treat that as an opportunity. Monthly market reports, wealth education, construction costs and honest guides for buying from abroad — written by the people actually doing the deals."
-        crumbs={[{ label: 'Insights' }]}
+        crumbs={[{ label: t('nav.insights') }]}
         image="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2000&q=80"
         compact
       />
@@ -159,8 +160,8 @@ export default function InsightsPage() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search articles…"
-                className="h-12 w-full rounded-full border border-line bg-surface pr-4 pl-11 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
+                placeholder={t('insights.searchPlaceholder')}
+                className="h-12 w-full rounded-full border border-line bg-surface pr-4 pl-11 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
               />
             </div>
           </motion.div>
@@ -326,7 +327,7 @@ export default function InsightsPage() {
 
             <div className="relative grid gap-10 lg:grid-cols-12 lg:items-center lg:gap-14">
               <div className="lg:col-span-7">
-                <Eyebrow tone="light">Kigali Market Report</Eyebrow>
+                <Eyebrow tone="light">{t('footer.newsletter')}</Eyebrow>
                 <h2 className="mt-5 text-[1.75rem] leading-[1.15] font-semibold sm:text-[2.125rem]">
                   One email a month.
                   <span className="text-gradient-gold"> No listings spam.</span>
@@ -357,7 +358,7 @@ export default function InsightsPage() {
                     />
                     <button
                       type="submit"
-                      aria-label="Subscribe"
+                      aria-label={t('footer.subscribe')}
                       className="grid size-11 shrink-0 place-items-center rounded-full bg-gold-500 text-white transition-colors hover:bg-gold-600"
                     >
                       <Send className="size-[1.05rem]" strokeWidth={2.2} />

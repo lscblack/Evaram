@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import type { ApiFormField } from '@/types/api'
 import { cn } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export type FieldValue = string | number | string[] | boolean | undefined
 export type FormValues = Record<string, FieldValue>
@@ -28,6 +29,7 @@ export function DynamicField({
   value: FieldValue
   onChange: (name: string, value: FieldValue) => void
 }) {
+  const t = useT()
   const span = WIDTHS[field.width ?? 'full'] ?? WIDTHS.full
 
   if (field.type === 'section_header') {
@@ -65,7 +67,7 @@ export function DynamicField({
             onChange={(e) => onChange(field.name, e.target.value)}
             className={INPUT}
           >
-            <option value="">Select…</option>
+            <option value="">{t('ui.select')}</option>
             {field.options?.map((option) => (
               <option key={option} value={option}>
                 {option}

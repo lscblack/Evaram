@@ -22,7 +22,7 @@ import { SectionHeading } from '@/components/ui/SectionHeading'
 import { FaqSection } from '@/components/sections/FaqSection'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
 import { api } from '@/lib/api'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery, useQuery } from '@/lib/queries'
 import type {
   ApiConsultationType,
   ApiFaq,
@@ -30,6 +30,7 @@ import type {
   AvailabilityDay,
 } from '@/types/api'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { useSite } from '@/lib/siteConfig'
 import { cn, toDateKey } from '@/lib/utils'
 
@@ -45,6 +46,7 @@ const MODE_ICONS: Record<string, typeof Phone> = {
 }
 
 export default function ConsultationPage() {
+  const t = useT()
   const seo = useBlock('consultation', 'seo', {
     title: "Book a Consultation — Evaramu Group Ltd",
     body: "Book a free consultation with Evaramu in Kigali: a discovery call, property viewing, Wealth Cycle planning session, construction consultation or diaspora investment briefing. Pick a date and time that works for you.",
@@ -63,7 +65,7 @@ export default function ConsultationPage() {
     body: "We would rather tell you honestly that now is not the right time than take you through a process that wastes your money and our reputation.",
   })
   const site = useSite()
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=consultation')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=consultation')
   const faqs = faqData ?? []
 
   const [params] = useSearchParams()
@@ -73,7 +75,7 @@ export default function ConsultationPage() {
     propertyId ? `/public/properties/${encodeURIComponent(propertyId)}` : null,
   )
 
-  const { data: typeData } = useQuery<ApiConsultationType[]>('/public/consultation-types')
+  const { data: typeData } = useLocalizedQuery<ApiConsultationType>('/public/consultation-types')
   const types = useMemo(() => typeData ?? [], [typeData])
 
   const [typeId, setTypeId] = useState<string | null>(null)
@@ -221,7 +223,7 @@ export default function ConsultationPage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="Tell us your budget and what you are trying to achieve. We will tell you plainly whether we can help, what it would realistically cost, and how long it would take. No pressure, no obligation."
-        crumbs={[{ label: 'Book a consultation' }]}
+        crumbs={[{ label: t('cta.bookConsultation') }]}
         image="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=2000&q=80"
         compact
       />
@@ -610,7 +612,7 @@ export default function ConsultationPage() {
                           value={contact.full_name}
                           onChange={(e) => setContact((c) => ({ ...c, full_name: e.target.value }))}
                           placeholder="Your full name"
-                          className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+                          className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
                       </div>
                       <div>
@@ -624,7 +626,7 @@ export default function ConsultationPage() {
                           value={contact.phone}
                           onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
                           placeholder="Phone or WhatsApp number"
-                          className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+                          className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
                       </div>
                       <div>
@@ -637,7 +639,7 @@ export default function ConsultationPage() {
                           value={contact.email}
                           onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
                           placeholder="Email (optional)"
-                          className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+                          className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
                       </div>
                       <div>
@@ -650,7 +652,7 @@ export default function ConsultationPage() {
                           value={contact.notes}
                           onChange={(e) => setContact((c) => ({ ...c, notes: e.target.value }))}
                           placeholder="Anything we should know beforehand?"
-                          className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-3 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+                          className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-3 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
                         />
                       </div>
 

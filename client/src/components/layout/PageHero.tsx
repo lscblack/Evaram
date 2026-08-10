@@ -1,8 +1,11 @@
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import { Eyebrow } from '@/components/ui/Eyebrow'
-import { EASE, fadeUp, stagger } from '@/lib/motion'
+import { EASE, blurUp, fadeUp, staggerSlow } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
+import { useHeroScroll, useParallax } from '@/lib/scroll'
 import { cn } from '@/lib/utils'
 
 export interface Crumb {
@@ -35,8 +38,15 @@ export function PageHero({
   children?: React.ReactNode
   compact?: boolean
 }) {
+  const t = useT()
+  const sectionRef = useRef<HTMLElement>(null)
+  // The image drifts against the copy as the banner leaves; the copy itself
+  // fades so the transition into the page body is not a hard edge.
+  const imageY = useParallax(sectionRef, 90)
+  const { opacity: copyOpacity } = useHeroScroll(sectionRef)
+
   return (
-    <section className="relative isolate overflow-hidden bg-navy-950 text-white">
+    <section ref={sectionRef} className="relative isolate overflow-hidden bg-navy-950 text-white">
       {image && (
         <div className="absolute inset-0 -z-10">
           <motion.img
@@ -46,7 +56,9 @@ export function PageHero({
             initial={{ scale: 1.14 }}
             animate={{ scale: 1 }}
             transition={{ duration: 9, ease: 'linear' }}
-            className="size-full object-cover"
+            style={{ y: imageY }}
+            // Taller than the section so the parallax travel never exposes an edge.
+            className="absolute inset-x-0 -top-12 h-[calc(100%+6rem)] w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-navy-950 via-navy-950/93 to-navy-950/60" />
           <div className="absolute inset-0 bg-gradient-to-t from-navy-950 to-transparent" />
@@ -61,7 +73,8 @@ export function PageHero({
       <motion.div
         initial="hidden"
         animate="show"
-        variants={stagger(0.09, 0.05)}
+        variants={staggerSlow(0.05)}
+        style={{ opacity: copyOpacity }}
         className={cn('container-page relative', compact ? 'py-12 lg:py-16' : 'py-16 lg:py-24')}
       >
         {/* breadcrumbs */}
@@ -70,7 +83,7 @@ export function PageHero({
             <ol className="flex flex-wrap items-center gap-1.5 text-[0.8125rem] text-white/45">
               <li>
                 <Link to="/" className="transition-colors hover:text-gold-300">
-                  Home
+                  {t('nav.home')}
                 </Link>
               </li>
               {crumbs.map((crumb, i) => (
@@ -99,7 +112,7 @@ export function PageHero({
           )}
 
           <motion.h1
-            variants={fadeUp}
+            variants={blurUp}
             className={cn(
               'mt-5 leading-[1.08] font-bold text-white',
               compact

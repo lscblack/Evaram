@@ -98,7 +98,7 @@ export function ImmersiveViewer({ property }: { property: ApiPropertyDetail }) {
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          aria-label="Expand"
+          aria-label={t('ui.expand')}
           className="grid size-8 place-items-center rounded-lg border border-line text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
         >
           <Maximize2 className="size-3.5" strokeWidth={2.2} />
@@ -122,7 +122,7 @@ export function ImmersiveViewer({ property }: { property: ApiPropertyDetail }) {
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                aria-label="Close"
+                aria-label={t('ui.close')}
                 className="grid size-11 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
               >
                 <X className="size-5" strokeWidth={2.2} />

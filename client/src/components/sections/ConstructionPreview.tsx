@@ -1,20 +1,22 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, Check, Star } from 'lucide-react'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiPackage } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn, formatCurrency } from '@/lib/utils'
 
 export function ConstructionPreview() {
+  const t = useT()
   const block = useBlock('home', 'construction', {
     eyebrow: "Evaramu Construction",
     title: "Fixed prices, written down",
     accent: "before we start.",
     body: "Construction cost overrun is the highest risk in this business. We manage it the only honest way: a fixed-price contract, a 15% contingency stated openly at signature, and a cost sheet you can open at any time.",
   })
-  const { data } = useQuery<ApiPackage[]>('/public/construction-packages')
+  const { data } = useLocalizedQuery<ApiPackage>('/public/construction-packages')
   const packages = data ?? []
 
   if (packages.length === 0) return null
@@ -26,7 +28,7 @@ export function ConstructionPreview() {
           eyebrow={block.eyebrow}
           title={block.title}
           accent={block.accent}
-          description="Construction cost overrun is the highest risk in this business. We manage it the only honest way: a fixed-price contract, a 15% contingency stated openly at signature, and a cost sheet you can open at any time."
+          description={block.body}
           action={
             <Button
               to="/construction"
@@ -38,7 +40,7 @@ export function ConstructionPreview() {
                 />
               }
             >
-              Explore construction
+              {t('cta.exploreConstruction')}
             </Button>
           }
         />
@@ -64,7 +66,7 @@ export function ConstructionPreview() {
                   <div className="pointer-events-none absolute inset-0 bg-blueprint opacity-60" />
                   <span className="absolute top-7 right-7 inline-flex items-center gap-1.5 rounded-full bg-gold-500 px-3 py-1.5 text-[0.6875rem] font-bold tracking-wide text-white uppercase">
                     <Star className="size-3 fill-white" strokeWidth={0} />
-                    Most chosen
+                    {t('pkg.mostChosen')}
                   </span>
                 </>
               )}
@@ -160,7 +162,7 @@ export function ConstructionPreview() {
                   variant={pkg.is_popular ? 'gold' : 'outline'}
                   className="mt-8 w-full"
                 >
-                  Get a quote
+                  {t('cta.getQuote')}
                 </Button>
               </div>
             </motion.article>

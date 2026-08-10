@@ -279,6 +279,8 @@ export interface ApiNavItem {
   icon: string | null
   description: string | null
   children: Omit<ApiNavItem, 'menu' | 'children'>[]
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ContentBlock {
@@ -310,6 +312,8 @@ export interface ApiTestimonial {
   rating: number
   display_order: number
   is_published: boolean
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ApiTeamMember {
@@ -342,6 +346,8 @@ export interface ApiServiceLine {
   bullets: string[] | null
   href: string | null
   display_order: number
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ApiPackage {
@@ -362,6 +368,8 @@ export interface ApiPackage {
   finishes: { label: string; value: string }[] | null
   is_popular: boolean
   display_order: number
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ApiCycleStep {
@@ -371,6 +379,8 @@ export interface ApiCycleStep {
   action: string
   outcome: string
   icon: string | null
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ApiMarketStat {
@@ -382,6 +392,8 @@ export interface ApiMarketStat {
   icon: string | null
   source: string | null
   display_order: number
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ApiFaq {
@@ -390,6 +402,8 @@ export interface ApiFaq {
   question: string
   answer: string
   display_order: number
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ApiInsightCard {
@@ -405,6 +419,8 @@ export interface ApiInsightCard {
   author_role: string | null
   is_featured: boolean
   published_at: string | null
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface ApiInsightDetail extends ApiInsightCard {
@@ -427,6 +443,8 @@ export interface ApiConsultationType {
   available_days: number[] | null
   slots: string[] | null
   display_order: number
+  /** Per-locale field overrides; see lib/localize.ts. */
+  translations?: Record<string, Record<string, unknown>> | null
 }
 
 export interface AvailabilityDay {
@@ -515,4 +533,71 @@ export interface AuditEntry {
   changes: Record<string, [unknown, unknown]> | null
   ip_address: string | null
   created_at: string
+}
+
+
+/* ------------------------------------------------- seller & buyer requests */
+
+export type SellerSubmissionStatus = 'new' | 'reviewing' | 'accepted' | 'rejected'
+
+export interface ApiSubmissionOwner {
+  id: string
+  full_name: string
+  phone: string
+  email: string | null
+  national_id: string | null
+  is_primary: boolean
+}
+
+/** An owner asking us to sell for them. */
+export interface ApiSellerSubmission {
+  id: string
+  reference: string
+  upi: string
+  district: string | null
+  sector: string | null
+  location: string | null
+  property_type: string | null
+  asking_price: number | null
+  size: number | null
+  notes: string | null
+  status: SellerSubmissionStatus
+  review_note: string | null
+  property_id: string | null
+  created_at: string
+  owners: ApiSubmissionOwner[]
+}
+
+export type PropertyRequestStatus = 'open' | 'matched' | 'fulfilled' | 'closed'
+
+/** A buyer describing what they want when nothing listed matches. */
+export interface ApiPropertyRequest {
+  id: string
+  reference: string
+  full_name: string
+  email: string | null
+  phone: string
+  intent: 'sale' | 'rent'
+  category_id: string | null
+  subcategory_id: string | null
+  district: string | null
+  sector: string | null
+  preferred_areas: string | null
+  budget_min: number | null
+  budget_max: number | null
+  currency: string
+  size_min: number | null
+  bedrooms_min: number | null
+  timeline: string | null
+  notes: string | null
+  status: PropertyRequestStatus
+  review_note: string | null
+  matched_property_id: string | null
+  created_at: string
+}
+
+export interface PropertyRequestReceipt {
+  id: string
+  reference: string
+  detail: string
 }

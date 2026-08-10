@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Quote, Star } from 'lucide-react'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiTestimonial } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { EASE, fadeUp, revealProps } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 export function Testimonials() {
+  const t = useT()
   const block = useBlock('home', 'testimonials', {
     eyebrow: "Client stories",
     title: "The proof is not our brochure.",
@@ -16,7 +18,7 @@ export function Testimonials() {
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState(1)
 
-  const { data } = useQuery<ApiTestimonial[]>('/public/testimonials')
+  const { data } = useLocalizedQuery<ApiTestimonial>('/public/testimonials')
   const items = data ?? []
   const active = items[index % Math.max(items.length, 1)]
 
@@ -91,7 +93,7 @@ export function Testimonials() {
                 <button
                   type="button"
                   onClick={() => go(-1)}
-                  aria-label="Previous story"
+                  aria-label={t('stories.previous')}
                   className="grid size-12 place-items-center rounded-full border border-white/20 text-white transition-all duration-300 hover:-translate-y-0.5 hover:border-gold-500 hover:bg-gold-500"
                 >
                   <ArrowLeft className="size-5" strokeWidth={2.2} />
@@ -99,7 +101,7 @@ export function Testimonials() {
                 <button
                   type="button"
                   onClick={() => go(1)}
-                  aria-label="Next story"
+                  aria-label={t('stories.next')}
                   className="grid size-12 place-items-center rounded-full border border-white/20 text-white transition-all duration-300 hover:-translate-y-0.5 hover:border-gold-500 hover:bg-gold-500"
                 >
                   <ArrowRight className="size-5" strokeWidth={2.2} />
@@ -149,16 +151,15 @@ export function Testimonials() {
                 <span className="ml-2 font-display text-xl font-semibold text-white">4.9</span>
               </div>
               <p className="mt-3 text-[0.9375rem] leading-relaxed text-white/60">
-                Average client rating across verified testimonials and Google Business reviews.
-                We ask every client for one — and we publish the ones we get.
+                {t('stories.ratingNote')}
               </p>
 
               <dl className="mt-8 space-y-6 border-t border-white/10 pt-8">
                 {[
-                  { value: '10+', label: 'Deals closed in year one' },
-                  { value: '3–5', label: 'Renovation projects completed' },
-                  { value: '15+', label: 'Rental units under management' },
-                  { value: '100%', label: 'Titles verified before transacting' },
+                  { value: '10+', label: t('stories.dealsYearOne') },
+                  { value: '3–5', label: t('stories.renovations') },
+                  { value: '15+', label: t('stories.rentalUnits') },
+                  { value: '100%', label: t('stories.titlesVerified') },
                 ].map((item) => (
                   <div key={item.label} className="flex items-baseline justify-between gap-4">
                     <dt className="text-[0.9375rem] text-white/55">{item.label}</dt>

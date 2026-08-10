@@ -6,9 +6,11 @@ import type { ApiInsightCard, Page } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { formatDate } from '@/lib/utils'
 
 export function InsightsPreview() {
+  const t = useT()
   const block = useBlock('home', 'insights', {
     eyebrow: "Insights",
     title: "We publish what we",
@@ -30,7 +32,7 @@ export function InsightsPreview() {
           eyebrow={block.eyebrow}
           title={block.title}
           accent={block.accent}
-          description="Monthly market reports, wealth education and construction cost breakdowns. Almost no agent in Rwanda publishes anything useful — we treat that as an opportunity."
+          description={block.body}
           action={
             <Button
               to="/insights"
@@ -42,7 +44,7 @@ export function InsightsPreview() {
                 />
               }
             >
-              All insights
+              {t('cta.allInsights')}
             </Button>
           }
         />

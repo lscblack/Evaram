@@ -9,10 +9,12 @@ import { useQuery } from '@/lib/queries'
 import { useSite } from '@/lib/siteConfig'
 import type { ApiInsightCard, ApiInsightDetail, ApiTeamMember, Page } from '@/types/api'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { formatDate } from '@/lib/utils'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 export default function InsightDetailPage() {
+  const t = useT()
   const site = useSite()
   const { slug } = useParams()
   const [copied, setCopied] = useState(false)
@@ -370,7 +372,7 @@ export default function InsightDetailPage() {
                 <div className="relative overflow-hidden rounded-3xl bg-navy-950 p-7 text-white">
                   <div className="pointer-events-none absolute inset-0 bg-blueprint opacity-60" />
                   <div className="relative">
-                    <Eyebrow tone="light">Act on it</Eyebrow>
+                    <Eyebrow tone="light">{t('insights.actOnIt')}</Eyebrow>
                     <h2 className="mt-4 font-display text-xl font-semibold">
                       Reading is the easy part.
                     </h2>
@@ -399,7 +401,7 @@ export default function InsightDetailPage() {
                 className="flex flex-wrap items-end justify-between gap-6"
               >
                 <div>
-                  <Eyebrow>Keep reading</Eyebrow>
+                  <Eyebrow>{t('insights.keepReading')}</Eyebrow>
                   <h2 className="mt-4 font-display text-2xl font-semibold text-ink">
                     Related insights
                   </h2>

@@ -28,11 +28,12 @@ from sqlalchemy.orm import selectinload
 from app.core import cache
 from app.core.config import settings as app_settings
 from app.core.database import get_db
-from app.core.deps import client_ip, get_current_user
+from app.core.deps import client_ip, get_current_user, get_optional_user
 from app.core.email import send_booking_confirmation, send_enquiry_notification
 from app.core.limiter import limiter
 from app.core.security import generate_reference, utcnow
 from app.models.content import (
+    PropertyRequest,
     BlockedDate,
     Booking,
     BookingStatus,
@@ -68,7 +69,11 @@ from app.models.user import User, UserRole, UserStatus
 from app.schemas.common import Message, Page
 from app.schemas.auth import TeamMemberPublic
 from app.schemas.content import (
+    PropertyRequestCreate,
+    PropertyRequestOut,
+    PropertyRequestReceipt,
     SellerSubmissionCreate,
+    SellerSubmissionOut,
     SellerSubmissionReceipt,
     SubmissionFileOut,
     SubmissionOwnerOut,
@@ -823,6 +828,7 @@ async def create_seller_submission(
     request: Request,
     payload: SellerSubmissionCreate,
     db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
 ) -> SellerSubmissionReceipt:
     """Records the parcel and every registered owner.
 
@@ -842,6 +848,9 @@ async def create_seller_submission(
 
     submission = SellerSubmission(
         reference=reference,
+        # Anonymous submissions stay allowed; when we do know who it is, the
+        # link is what makes the submission visible in their account.
+        submitted_by_id=user.id if user else None,
         upi=payload.upi.strip(),
         district=payload.district,
         sector=payload.sector,
@@ -1084,3 +1093,111 @@ async def sitemap_data(db: AsyncSession = Depends(get_db)) -> dict:
         "properties": [{"slug": s, "updated_at": u.isoformat()} for s, u in props],
         "insights": [{"slug": s, "updated_at": u.isoformat()} for s, u in articles],
     }
+
+
+# --------------------------------------------------------------- buyer requests
+@router.post(
+    "/property-requests",
+    response_model=PropertyRequestReceipt,
+    status_code=status.HTTP_201_CREATED,
+    summary="Ask us to find a property",
+)
+@limiter.limit("10/hour")
+async def create_property_request(
+    request: Request,
+    payload: PropertyRequestCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+) -> PropertyRequestReceipt:
+    """Records what a buyer wants when the catalogue has nothing that fits.
+
+    Most of our stock never reaches the public listing pages, so this is the
+    only way a consultant knows to call someone the week a matching parcel
+    arrives. Accepted from anonymous visitors too — requiring an account here
+    would lose exactly the buyers we most want to hear from.
+    """
+    await captcha_service.verify(
+        db, payload.captcha_token, payload.captcha_answer, scope="enquiry"
+    )
+
+    reference = generate_reference("REQ")
+    while await db.scalar(
+        select(PropertyRequest.id).where(PropertyRequest.reference == reference)
+    ):
+        reference = generate_reference("REQ")
+
+    row = PropertyRequest(
+        reference=reference,
+        requested_by_id=user.id if user else None,
+        full_name=payload.full_name.strip(),
+        email=payload.email,
+        phone=payload.phone.strip(),
+        intent=payload.intent,
+        category_id=payload.category_id,
+        subcategory_id=payload.subcategory_id,
+        district=payload.district,
+        sector=payload.sector,
+        preferred_areas=payload.preferred_areas,
+        budget_min=payload.budget_min,
+        budget_max=payload.budget_max,
+        size_min=payload.size_min,
+        bedrooms_min=payload.bedrooms_min,
+        timeline=payload.timeline,
+        notes=payload.notes,
+        ip_address=client_ip(request),
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+
+    return PropertyRequestReceipt(
+        id=row.id,
+        reference=row.reference,
+        detail=(
+            f"Request {row.reference} received. A consultant will contact you when "
+            "something matching comes in — usually well before it reaches the site."
+        ),
+    )
+
+
+@router.get(
+    "/my/property-requests",
+    response_model=list[PropertyRequestOut],
+    summary="Requests I have made",
+)
+async def my_property_requests(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[PropertyRequestOut]:
+    rows = (
+        await db.scalars(
+            select(PropertyRequest)
+            .where(PropertyRequest.requested_by_id == user.id)
+            .order_by(PropertyRequest.created_at.desc())
+        )
+    ).all()
+    return [PropertyRequestOut.model_validate(r) for r in rows]
+
+
+@router.get(
+    "/my/seller-submissions",
+    response_model=list[SellerSubmissionOut],
+    summary="Properties I have asked you to sell",
+)
+async def my_seller_submissions(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[SellerSubmissionOut]:
+    """Only submissions made while signed in appear here.
+
+    A submission filed anonymously has no owner to match against — the seller
+    tracks that one by its reference number instead.
+    """
+    rows = (
+        await db.scalars(
+            select(SellerSubmission)
+            .where(SellerSubmission.submitted_by_id == user.id)
+            .order_by(SellerSubmission.created_at.desc())
+        )
+    ).all()
+    return [SellerSubmissionOut.model_validate(r) for r in rows]

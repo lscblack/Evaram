@@ -307,7 +307,7 @@ export function Hero() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Kanombe, Kimironko, UPI…"
+                placeholder={t('hero.searchPlaceholder')}
                 className={field}
               />
             </label>

@@ -1,10 +1,12 @@
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.models.content import (
     BookingStatus,
+    PropertyRequestStatus,
     SellerSubmissionStatus,
     SettingType,
     SubmissionFileKind,
@@ -501,3 +503,89 @@ class SellerSubmissionOut(ORMModel):
 class SubmissionReview(BaseModel):
     status: SellerSubmissionStatus
     review_note: str | None = Field(default=None, max_length=2000)
+
+
+# ------------------------------------------------------- buyer property requests
+class PropertyRequestCreate(BaseModel):
+    """What a buyer tells us when nothing in the catalogue fits."""
+
+    full_name: str = Field(min_length=2, max_length=160)
+    phone: str = Field(min_length=6, max_length=48)
+    email: EmailStr | None = None
+
+    intent: Literal["sale", "rent"] = "sale"
+    category_id: uuid.UUID | None = None
+    subcategory_id: uuid.UUID | None = None
+
+    district: str | None = Field(default=None, max_length=80)
+    sector: str | None = Field(default=None, max_length=80)
+    preferred_areas: str | None = Field(default=None, max_length=320)
+
+    budget_min: float | None = Field(default=None, ge=0)
+    budget_max: float | None = Field(default=None, ge=0)
+    size_min: float | None = Field(default=None, ge=0)
+    bedrooms_min: int | None = Field(default=None, ge=0, le=40)
+    timeline: str | None = Field(default=None, max_length=80)
+    notes: str | None = Field(default=None, max_length=4000)
+
+    captcha_token: str | None = None
+    captcha_answer: str | None = None
+
+    @model_validator(mode="after")
+    def check_budget(self) -> "PropertyRequestCreate":
+        if (
+            self.budget_min is not None
+            and self.budget_max is not None
+            and self.budget_min > self.budget_max
+        ):
+            raise ValueError("The minimum budget cannot be above the maximum.")
+        return self
+
+
+class PropertyRequestOut(ORMModel):
+    id: uuid.UUID
+    reference: str
+    full_name: str
+    email: str | None = None
+    phone: str
+    intent: str
+    category_id: uuid.UUID | None = None
+    subcategory_id: uuid.UUID | None = None
+    district: str | None = None
+    sector: str | None = None
+    preferred_areas: str | None = None
+    budget_min: float | None = None
+    budget_max: float | None = None
+    currency: str
+    size_min: float | None = None
+    bedrooms_min: int | None = None
+    timeline: str | None = None
+    notes: str | None = None
+    status: PropertyRequestStatus
+    review_note: str | None = None
+    matched_property_id: uuid.UUID | None = None
+    created_at: datetime
+
+
+class PropertyRequestReceipt(BaseModel):
+    id: uuid.UUID
+    reference: str
+    detail: str
+
+
+class PropertyRequestReview(BaseModel):
+    status: PropertyRequestStatus
+    review_note: str | None = Field(default=None, max_length=2000)
+    matched_property_id: uuid.UUID | None = None
+    assigned_to_id: uuid.UUID | None = None
+
+
+class InboxStatusChange(BaseModel):
+    """Moving a message or an application along.
+
+    Free-form rather than an enum: these two tables store status as a plain
+    string, and constraining it here would reject values already in the data.
+    """
+
+    status: Literal["new", "reading", "handled", "closed", "shortlisted", "rejected"]
+    note: str | None = Field(default=None, max_length=2000)

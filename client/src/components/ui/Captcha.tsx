@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
+import { useT } from '@/lib/i18n'
 import { api } from '@/lib/api'
 
 /** The server binds each challenge to the endpoint that will consume it. */
@@ -42,6 +43,7 @@ export function Captcha({
   scope: CaptchaScope
   compact?: boolean
 }) {
+  const t = useT()
   const [challenge, setChallenge] = useState<Challenge | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -91,7 +93,7 @@ export function Captcha({
           type="button"
           onClick={() => void load()}
           disabled={loading}
-          aria-label="New challenge"
+          aria-label={t('ui.newChallenge')}
           className="grid size-9 shrink-0 place-items-center rounded-full border border-line text-ink-soft transition-colors hover:border-line-strong hover:text-ink disabled:opacity-50"
         >
           <RefreshCw className={loading ? 'size-4 animate-spin' : 'size-4'} strokeWidth={2.2} />
@@ -104,8 +106,8 @@ export function Captcha({
         autoComplete="off"
         value={value.captcha_answer}
         onChange={(e) => onChange({ captcha_token: challenge.token, captcha_answer: e.target.value })}
-        placeholder="Your answer"
-        className="h-11 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+        placeholder={t('ui.yourAnswer')}
+        className="h-11 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
       />
     </div>
   )

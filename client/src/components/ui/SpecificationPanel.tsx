@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Check, ChevronDown, Minus, Search, X } from 'lucide-react'
 import { Icon } from '@/components/ui/Icon'
 import { EASE } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { DetailGroup } from '@/lib/propertyDetails'
 
@@ -65,6 +66,7 @@ function BooleanValue({ value }: { value: string }) {
  * someone is hunting one specific number.
  */
 export function SpecificationPanel({ groups }: { groups: DetailGroup[] }) {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
@@ -117,8 +119,8 @@ export function SpecificationPanel({ groups }: { groups: DetailGroup[] }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find a detail…"
-            className="h-11 w-full rounded-full border border-line bg-surface pr-4 pl-10 text-[0.875rem] transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
+            placeholder={t('ui.findDetail')}
+            className="h-11 w-full rounded-full border border-line bg-surface pr-4 pl-10 text-[0.875rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:outline-none"
           />
         </div>
       </div>
@@ -152,7 +154,7 @@ export function SpecificationPanel({ groups }: { groups: DetailGroup[] }) {
                     setCollapsed((prev) => ({ ...prev, [group.title]: !prev[group.title] }))
                   }
                   aria-expanded={isOpen}
-                  className="flex w-full items-center justify-between gap-3 border-b border-line bg-canvas-alt px-5 py-3.5 text-left transition-colors hover:bg-canvas"
+                  className="flex w-full items-center justify-between gap-3 border-b border-line bg-canvas-alt px-5 py-3.5 text-left text-ink transition-colors hover:bg-canvas"
                 >
                   <span className="flex items-center gap-2.5">
                     <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-surface text-gold-600">

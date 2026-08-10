@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowUp, CalendarCheck, MessageCircle, Plus, X } from 'lucide-react'
 import { EASE } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { useSite } from '@/lib/siteConfig'
 
 const actionsFor = (site: { whatsappHref: string }) => [
@@ -22,6 +23,7 @@ const actionsFor = (site: { whatsappHref: string }) => [
 
 /** Persistent WhatsApp / booking / back-to-top cluster. */
 export function FloatingActions() {
+  const t = useT()
   const site = useSite()
   const actions = actionsFor(site)
   const [open, setOpen] = useState(false)
@@ -45,7 +47,7 @@ export function FloatingActions() {
             exit={{ opacity: 0, scale: 0.7 }}
             transition={{ duration: 0.25, ease: EASE }}
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            aria-label="Back to top"
+            aria-label={t('ui.backToTop')}
             className="grid size-11 place-items-center rounded-full border border-line bg-surface text-ink shadow-soft transition-colors hover:bg-accent-soft"
           >
             <ArrowUp className="size-[1.05rem]" strokeWidth={2.4} />

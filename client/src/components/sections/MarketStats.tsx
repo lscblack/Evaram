@@ -1,21 +1,23 @@
 import { motion } from 'framer-motion'
 import { ArrowUpRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiMarketStat } from '@/types/api'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 
 /** The market case — why property in Rwanda, in four numbers. */
 export function MarketStats() {
+  const t = useT()
   const block = useBlock('home', 'market', {
     eyebrow: "The market",
     title: "The demand is structural,",
     accent: "not speculative.",
     body: "Rwanda needs more than 30,000 new housing units a year and delivered 13.8% of that in 2024. The gap is not a trend that might reverse — it is arithmetic, and it is widening.",
   })
-  const { data } = useQuery<ApiMarketStat[]>('/public/market-stats')
+  const { data } = useLocalizedQuery<ApiMarketStat>('/public/market-stats')
   const stats = data ?? []
 
   if (stats.length === 0) return null
@@ -29,13 +31,13 @@ export function MarketStats() {
           eyebrow={block.eyebrow}
           title={block.title}
           accent={block.accent}
-          description="Rwanda needs more than 30,000 new housing units a year and delivered 13.8% of that in 2024. The gap is not a trend that might reverse — it is arithmetic, and it is widening."
+          description={block.body}
           action={
             <Link
               to="/insights"
               className="group inline-flex items-center gap-2 text-[0.9375rem] font-bold text-gold-600 transition-colors hover:text-gold-700"
             >
-              Read our market reports
+              {t('cta.readMarketReports')}
               <ArrowUpRight
                 className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                 strokeWidth={2.4}

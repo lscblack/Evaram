@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, api } from '@/lib/api'
+import { useLocalize, useLocalizeAll, type Translatable } from '@/lib/localize'
 
 interface Entry {
   value: unknown
@@ -121,6 +122,29 @@ export function useQuery<T>(
 }
 
 /**
+ * `useQuery` for a list of admin-authored content.
+ *
+ * Identical to `useQuery`, except each row is merged with the active locale's
+ * fields before it reaches the component — so a section renders in Kinyarwanda
+ * or French without any of its JSX knowing. Admin screens deliberately keep
+ * using plain `useQuery`: an editor must see the English row it is editing,
+ * plus the raw `translations` blob, not a merged view of the two.
+ */
+export function useLocalizedQuery<T extends Translatable>(
+  path: string | null,
+  options: { ttl?: number; enabled?: boolean } = {},
+): QueryState<T[]> {
+  const query = useQuery<T[]>(path, options)
+  const localizeAll = useLocalizeAll()
+  const { data } = query
+  const localized = useMemo(
+    () => (data === undefined ? undefined : localizeAll(data)),
+    [data, localizeAll],
+  )
+  return { ...query, data: localized }
+}
+
+/**
  * Re-runs a query on an interval. Used by the admin dashboard so its counters
  * stay live without a websocket. Pauses while the tab is hidden.
  */
@@ -192,18 +216,20 @@ export function useMutation<TBody, TResult>(
  * resolves and cannot go blank.
  */
 export function useBlockItems<T>(page: string, key: string, fallback: T[] = []): T[] {
-  const { data, loading } = useQuery<{ key: string; items: unknown[] | null }[]>(
-    `/public/content/${page}`,
-  )
+  const { data, loading } = useQuery<
+    ({ key: string; items: unknown[] | null } & Translatable)[]
+  >(`/public/content/${page}`)
+  const localize = useLocalize()
   return useMemo(() => {
-    const items = (data ?? []).find((b) => b.key === key)?.items
+    const row = (data ?? []).find((b) => b.key === key)
+    const items = row ? localize(row).items : undefined
     const live = Boolean(items && items.length)
     noteFallback(`${page}/${key}`, !live && !loading)
     // An admin emptying a list should not blank the section — fall back to the
     // shipped copy, exactly as `useBlock` does for headings.
     return live ? (items as T[]) : fallback
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, key, loading])
+  }, [data, key, loading, localize])
 }
 
 
@@ -265,7 +291,7 @@ export interface Block {
  */
 export function useBlock(page: string, key: string, fallback: Partial<Block> = {}): Block {
   const query = useQuery<
-    {
+    ({
       key: string
       eyebrow: string | null
       title: string | null
@@ -275,14 +301,16 @@ export function useBlock(page: string, key: string, fallback: Partial<Block> = {
       cta_label: string | null
       cta_href: string | null
       image_url: string | null
-    }[]
+    } & Translatable)[]
   >(`/public/content/${page}`)
   const loading = query.loading
   const data = query.data
+  const localize = useLocalize()
 
   return useMemo(() => {
-    const row = (data ?? []).find((b) => b.key === key)
-    noteFallback(`${page}/${key}`, !row && !loading)
+    const found = (data ?? []).find((b) => b.key === key)
+    noteFallback(`${page}/${key}`, !found && !loading)
+    const row = found ? localize(found) : undefined
     return {
       eyebrow: row?.eyebrow ?? fallback.eyebrow,
       title: row?.title ?? fallback.title ?? '',
@@ -296,5 +324,5 @@ export function useBlock(page: string, key: string, fallback: Partial<Block> = {
     // The fallback is an inline literal at every call site; comparing it by
     // identity would recompute on every render for no benefit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, key, loading])
+  }, [data, key, loading, localize])
 }

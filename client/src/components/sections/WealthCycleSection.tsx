@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { useBlock, useQuery } from '@/lib/queries'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiCycleStep } from '@/types/api'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 /**
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils'
  * timeline on mobile.
  */
 export function WealthCycleSection() {
+  const t = useT()
   const block = useBlock('home', 'wealth_cycle', {
     eyebrow: "Our signature model",
     title: "The Evaramu",
@@ -21,7 +23,7 @@ export function WealthCycleSection() {
     body: "Most agencies close a sale and disappear. We stay. Buy, build, earn, sell, reinvest, repeat — six steps that turn one property into four or five within three years.",
   })
   const [active, setActive] = useState(0)
-  const { data } = useQuery<ApiCycleStep[]>('/public/wealth-cycle')
+  const { data } = useLocalizedQuery<ApiCycleStep>('/public/wealth-cycle')
   const steps = data ?? []
   const step = steps[active]
 
@@ -42,7 +44,7 @@ export function WealthCycleSection() {
           eyebrow={block.eyebrow}
           title={block.title}
           accent={block.accent}
-          description="Most agencies close a sale and disappear. We stay. Buy, build, earn, sell, reinvest, repeat — six steps that turn one property into four or five within three years."
+          description={block.body}
         />
 
         {/* ---------- desktop ring ---------- */}
@@ -194,7 +196,7 @@ export function WealthCycleSection() {
               />
             }
           >
-            See the full model
+            {t('cta.seeFullModel')}
           </Button>
         </motion.div>
       </div>

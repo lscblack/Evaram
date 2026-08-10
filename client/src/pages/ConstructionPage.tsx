@@ -11,13 +11,15 @@ import { FaqSection } from '@/components/sections/FaqSection'
 
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
 import { api } from '@/lib/api'
-import { useBlock, useBlockItems, useQuery } from '@/lib/queries'
+import { useBlock, useBlockItems, useLocalizedQuery, useQuery } from '@/lib/queries'
 import type { ApiFaq, ApiPackage, ApiTeamMember } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 import { cn, formatCurrency } from '@/lib/utils'
 
 
 export default function ConstructionPage() {
+  const t = useT()
   const seo = useBlock('construction', 'seo', {
     title: "Construction & Renovation in Kigali — Fixed-Price Building Packages",
     body: "Evaramu Construction builds and renovates in Kigali on fixed-price contracts with a 15% contingency stated up front. Standard, Premium and Luxury finishing packages, weekly cost reporting and remote supervision for diaspora clients.",
@@ -54,10 +56,10 @@ export default function ConstructionPage() {
   })
   const buildProcess = useBlockItems<{ step: string; title: string; description: string; icon: string }>('construction', 'build_process')
   const renovations = useBlockItems<{ id: string; title: string; description: string; icon: string; from: number }>('construction', 'renovation_services')
-  const { data: faqData } = useQuery<ApiFaq[]>('/public/faqs?page=construction')
+  const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=construction')
   const faqs = faqData ?? []
 
-  const { data: packageData } = useQuery<ApiPackage[]>('/public/construction-packages')
+  const { data: packageData } = useLocalizedQuery<ApiPackage>('/public/construction-packages')
   const packages = useMemo(() => packageData ?? [], [packageData])
 
   const [selected, setSelected] = useState<string | null>(null)
@@ -134,7 +136,7 @@ export default function ConstructionPage() {
         title={heroBlock.title}
         accent={heroBlock.accent}
         description="The Rwandan market is full of unbranded contractors, verbal contracts and quotes that move once you are committed. We do the opposite: a priced bill of quantities, a contingency stated openly, and a cost sheet you can open at any time."
-        crumbs={[{ label: 'Construction' }]}
+        crumbs={[{ label: t('nav.construction') }]}
         image="https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=2000&q=80"
         stats={[
           { value: '15%', label: 'Contingency stated at signature' },

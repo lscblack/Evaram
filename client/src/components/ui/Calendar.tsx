@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn, toDateKey } from '@/lib/utils'
 import { EASE } from '@/lib/motion'
+import { useT } from '@/lib/i18n'
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MONTHS = [
@@ -37,6 +38,7 @@ export interface CalendarProps {
  * Deliberately dependency-free so the booking flow stays light.
  */
 export function Calendar({ value, onChange, getDayState, monthsAhead = 3 }: CalendarProps) {
+  const t = useT()
   const today = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -79,7 +81,7 @@ export function Calendar({ value, onChange, getDayState, monthsAhead = 3 }: Cale
           type="button"
           onClick={() => shiftMonth(-1)}
           disabled={!canGoBack}
-          aria-label="Previous month"
+          aria-label={t('ui.previousMonth')}
           className="grid size-10 place-items-center rounded-full border border-line text-ink-soft transition-colors hover:border-ink-muted disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronLeft className="size-[1.15rem]" strokeWidth={2.4} />
@@ -105,7 +107,7 @@ export function Calendar({ value, onChange, getDayState, monthsAhead = 3 }: Cale
           type="button"
           onClick={() => shiftMonth(1)}
           disabled={!canGoForward}
-          aria-label="Next month"
+          aria-label={t('ui.nextMonth')}
           className="grid size-10 place-items-center rounded-full border border-line text-ink-soft transition-colors hover:border-ink-muted disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronRight className="size-[1.15rem]" strokeWidth={2.4} />

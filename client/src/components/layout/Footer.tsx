@@ -6,41 +6,45 @@ import { SocialIcon } from '@/components/ui/SocialIcon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 import { useSite, useSocials } from '@/lib/siteConfig'
+import { useT } from '@/lib/i18n'
+import type { TranslationKey } from '@/data/translations'
 import { useState } from 'react'
 
-const COLUMNS = [
+/** Held as keys, not text — the labels are resolved per render in the active locale. */
+const COLUMNS: { title: TranslationKey; links: { label: TranslationKey; to: string }[] }[] = [
   {
-    title: 'Properties',
+    title: 'nav.properties',
     links: [
-      { label: 'All listings', to: '/properties' },
-      { label: 'Land & plots', to: '/properties?category=residential' },
-      { label: 'Houses & apartments', to: '/properties?category=commercial' },
-      { label: 'Commercial & industrial', to: '/properties?category=industrial' },
-      { label: 'Sell your property', to: '/sell' },
+      { label: 'footer.allListings', to: '/properties' },
+      { label: 'footer.landPlots', to: '/properties?category=residential' },
+      { label: 'footer.housesApartments', to: '/properties?category=commercial' },
+      { label: 'footer.commercialIndustrial', to: '/properties?category=industrial' },
+      { label: 'footer.sellYours', to: '/sell' },
     ],
   },
   {
-    title: 'Services',
+    title: 'nav.services',
     links: [
-      { label: 'The Wealth Cycle', to: '/wealth-cycle' },
-      { label: 'Construction & renovation', to: '/construction' },
-      { label: 'Property management', to: '/services#management' },
-      { label: 'Diaspora services', to: '/services#diaspora' },
-      { label: 'Book a consultation', to: '/consultation' },
+      { label: 'nav.wealthCycle', to: '/wealth-cycle' },
+      { label: 'footer.constructionRenovation', to: '/construction' },
+      { label: 'footer.propertyManagement', to: '/services#management' },
+      { label: 'footer.diasporaServices', to: '/services#diaspora' },
+      { label: 'cta.bookConsultation', to: '/consultation' },
     ],
   },
   {
-    title: 'Company',
+    title: 'footer.company',
     links: [
-      { label: 'About Evaramu', to: '/about' },
-      { label: 'Join our agency', to: '/join' },
-      { label: 'Insights & market reports', to: '/insights' },
-      { label: 'Contact us', to: '/contact' },
+      { label: 'footer.aboutEvaramu', to: '/about' },
+      { label: 'footer.joinAgency', to: '/join' },
+      { label: 'footer.insightsReports', to: '/insights' },
+      { label: 'footer.contactUs', to: '/contact' },
     ],
   },
 ]
 
 export function Footer() {
+  const t = useT()
   const site = useSite()
   const socials = useSocials()
   const [email, setEmail] = useState('')
@@ -69,15 +73,14 @@ export function Footer() {
           className="container-page flex flex-col items-start gap-10 py-16 lg:flex-row lg:items-center lg:justify-between lg:py-20"
         >
           <motion.div variants={fadeUp} className="max-w-2xl">
-            <Eyebrow tone="light">Start the cycle</Eyebrow>
+            <Eyebrow tone="light">{t('footer.startCycle')}</Eyebrow>
             <h2 className="mt-5 font-display text-[1.875rem] leading-[1.12] font-semibold text-white sm:text-[2.375rem]">
-              One property is a purchase.
+              {t('footer.ctaTitleA')}
               <br />
-              <span className="text-gradient-gold">Five is a portfolio.</span>
+              <span className="text-gradient-gold">{t('footer.ctaTitleB')}</span>
             </h2>
             <p className="mt-5 max-w-xl text-[0.9375rem] leading-relaxed text-white/60">
-              Book a free 30-minute consultation. Tell us your budget and your goal — we will
-              tell you honestly what is achievable and how long it will take.
+              {t('footer.ctaBody')}
             </p>
           </motion.div>
 
@@ -86,7 +89,7 @@ export function Footer() {
               to="/consultation"
               className="group inline-flex h-14 items-center justify-center gap-3 rounded-full bg-gold-500 px-8 font-semibold text-white shadow-gold transition-all duration-300 hover:-translate-y-0.5 hover:bg-gold-600"
             >
-              Book a free consultation
+              {t('cta.bookFree')}
               <ArrowUpRight
                 className="size-5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                 strokeWidth={2.2}
@@ -98,7 +101,7 @@ export function Footer() {
               rel="noopener noreferrer"
               className="inline-flex h-14 items-center justify-center gap-3 rounded-full border border-white/25 px-8 font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/5"
             >
-              Chat on WhatsApp
+              {t('cta.whatsapp')}
             </a>
           </motion.div>
         </motion.div>
@@ -152,7 +155,7 @@ export function Footer() {
             {COLUMNS.map((col) => (
               <div key={col.title}>
                 <h3 className="font-sans text-[0.6875rem] font-bold tracking-[0.22em] text-gold-400 uppercase">
-                  {col.title}
+                  {t(col.title)}
                 </h3>
                 <ul className="mt-5 space-y-3">
                   {col.links.map((link) => (
@@ -162,7 +165,7 @@ export function Footer() {
                         className="group inline-flex items-center gap-1.5 text-[0.9375rem] text-white/60 transition-colors hover:text-white"
                       >
                         <span className="h-px w-0 bg-gold-400 transition-all duration-300 group-hover:w-3" />
-                        {link.label}
+                        {t(link.label)}
                       </Link>
                     </li>
                   ))}
@@ -174,16 +177,15 @@ export function Footer() {
           {/* newsletter */}
           <div className="lg:col-span-3">
             <h3 className="font-sans text-[0.6875rem] font-bold tracking-[0.22em] text-gold-400 uppercase">
-              Kigali Market Report
+              {t('footer.newsletter')}
             </h3>
             <p className="mt-5 text-[0.9375rem] leading-relaxed text-white/60">
-              One email a month: land price movements, new development zones and what we are
-              seeing on the ground. No listings spam.
+              {t('footer.newsletterBody')}
             </p>
 
             <form onSubmit={onSubscribe} className="mt-6">
               <label htmlFor="footer-email" className="sr-only">
-                Email address
+                {t('footer.emailLabel')}
               </label>
               <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 p-1.5 transition-colors focus-within:border-gold-500/60">
                 <input
@@ -192,12 +194,12 @@ export function Footer() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={t('footer.emailPlaceholder')}
                   className="min-w-0 flex-1 bg-transparent px-4 py-2 text-[0.9375rem] text-white placeholder:text-white/35 focus:outline-none"
                 />
                 <button
                   type="submit"
-                  aria-label="Subscribe"
+                  aria-label={t('footer.subscribe')}
                   className="grid size-10 shrink-0 place-items-center rounded-full bg-gold-500 text-white transition-colors hover:bg-gold-600"
                 >
                   <Send className="size-4" strokeWidth={2.2} />
@@ -209,7 +211,7 @@ export function Footer() {
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-3 text-[0.8125rem] text-gold-300"
                 >
-                  You're on the list — the next report lands at the start of the month.
+                  {t('footer.subscribed')}
                 </motion.p>
               )}
             </form>
@@ -236,15 +238,15 @@ export function Footer() {
       <div className="relative border-t border-white/10">
         <div className="container-page flex flex-col items-center justify-between gap-4 py-6 text-[0.8125rem] text-white/45 sm:flex-row">
           <p>
-            © {new Date().getFullYear()} {site.name}. All rights reserved.
+            © {new Date().getFullYear()} {site.name}. {t('footer.rights')}
           </p>
           <p className="font-display text-[0.9375rem] text-white/70 italic">"{site.tagline}"</p>
           <div className="flex items-center gap-6">
             <Link to="/privacy" className="transition-colors hover:text-white">
-              Privacy
+              {t('footer.privacy')}
             </Link>
             <Link to="/terms" className="transition-colors hover:text-white">
-              Terms
+              {t('footer.terms')}
             </Link>
           </div>
         </div>
