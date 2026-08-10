@@ -241,13 +241,26 @@ export function Footer() {
             © {new Date().getFullYear()} {site.name}. {t('footer.rights')}
           </p>
           <p className="font-display text-[0.9375rem] text-white/70 italic">"{site.tagline}"</p>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             <Link to="/privacy" className="transition-colors hover:text-white">
               {t('footer.privacy')}
             </Link>
             <Link to="/terms" className="transition-colors hover:text-white">
               {t('footer.terms')}
             </Link>
+            {/* Build credit. Quiet by design — it belongs beside the legal
+                links, not competing with Evaramu's own name above. */}
+            <span className="text-white/30">
+              {t('footer.poweredBy')}{' '}
+              <a
+                href="https://nexventures.net"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-white/50 transition-colors hover:text-gold-300"
+              >
+                NexVentures Ltd
+              </a>
+            </span>
           </div>
         </div>
       </div>

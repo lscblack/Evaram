@@ -20,20 +20,17 @@
       ;(function () {
         try {
           var stored = localStorage.getItem('evaramu-theme')
+          // Light is the default: only go dark when the visitor has actually
+          // asked for it, or has chosen to follow the OS. An unset preference
+          // is not a preference.
           var dark =
             stored === 'dark' ||
-            ((!stored || stored === 'system') &&
-              matchMedia('(prefers-color-scheme: dark)').matches)
+            (stored === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
           if (dark) document.documentElement.classList.add('dark')
         } catch (e) {}
       })()
     </script>
 
-    <!--
-      Fallback metadata shown only until React mounts. Each page renders its own
-      <title>/<meta> via the <Seo> component; main.tsx strips these on boot so
-      crawlers never see two of either.
-    -->
     <title data-boot-fallback>Evaramu Group Ltd — We don't just sell property. We build wealth.</title>
     <meta
       data-boot-fallback

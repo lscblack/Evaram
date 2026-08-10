@@ -215,6 +215,7 @@ export const TRANSLATIONS = {
   'footer.company': { en: 'Company', rw: 'Isosiyete', fr: 'Entreprise' },
   'footer.emailPlaceholder': { en: 'you@example.com', rw: 'wowe@urugero.com', fr: 'vous@exemple.com' },
   'footer.subscribe': { en: 'Subscribe', rw: 'Iyandikishe', fr: 'S’abonner' },
+  'footer.poweredBy': { en: 'Powered by', rw: 'Byubatswe na', fr: 'Propulsé par' },
   'footer.startCycle': { en: 'Start the cycle', rw: 'Tangira uruziga', fr: 'Commencer le cycle' },
   'footer.ctaBody': {
     en: 'Book a free 30-minute consultation. Tell us your budget and your goal — we will tell you honestly what is achievable and how long it will take.',

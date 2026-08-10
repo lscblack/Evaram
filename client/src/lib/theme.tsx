@@ -23,10 +23,18 @@ const systemTheme = (): ResolvedTheme =>
     ? 'dark'
     : 'light'
 
+/**
+ * Light unless the visitor says otherwise.
+ *
+ * "system" remains a choice they can make, but it is no longer the default —
+ * an unset preference is not a preference, and the site is designed light
+ * first. Must stay in step with the pre-paint script in index.html, or the
+ * first frame flashes the wrong theme.
+ */
 const readStored = (): ThemeChoice => {
-  if (typeof window === 'undefined') return 'system'
+  if (typeof window === 'undefined') return 'light'
   const stored = window.localStorage.getItem(STORAGE_KEY)
-  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+  return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'light'
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
