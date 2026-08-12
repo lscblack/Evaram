@@ -1,4 +1,5 @@
 import logging
+import socket
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -50,6 +51,44 @@ SessionLocal = async_sessionmaker(
 )
 
 
+def _unreachable_message(exc: Exception | None, name: str) -> str:
+    """Say which of the several 'cannot connect' failures this actually is.
+
+    They look identical in a stack trace and have completely different fixes, so
+    the message names the setting to go and look at.
+    """
+    where = f"{settings.DB_HOST}:{settings.DB_PORT}"
+    head = f"Cannot reach Postgres at {where}, so the {name!r} database cannot be created."
+
+    if isinstance(exc, socket.gaierror):
+        return (
+            f"{head} The hostname {settings.DB_HOST!r} does not resolve — this is DNS, not "
+            "Postgres. Set DB_HOST in .env to a name this machine can resolve; use "
+            "'localhost' when Postgres runs on the same host as the app."
+        )
+    if isinstance(exc, ConnectionRefusedError):
+        return (
+            f"{head} The host resolved but nothing is listening on port {settings.DB_PORT}. "
+            "Check that Postgres is running and that DB_PORT matches the port it is bound to."
+        )
+    if isinstance(exc, asyncpg.InvalidPasswordError):
+        return f"{head} The password for {settings.DB_USER!r} was rejected. Check DB_PASSWORD in .env."
+    if isinstance(exc, asyncpg.InvalidAuthorizationSpecificationError):
+        return (
+            f"{head} The server refused the connection for role {settings.DB_USER!r} — usually "
+            "pg_hba.conf not permitting this host, or the role not existing."
+        )
+    if isinstance(exc, TimeoutError):
+        return (
+            f"{head} The connection timed out, which usually means a firewall is dropping "
+            f"traffic to port {settings.DB_PORT} rather than refusing it."
+        )
+    return (
+        f"{head} ({type(exc).__name__}: {exc}) Check that the server is running and that the "
+        "DB_ settings in .env are correct."
+    )
+
+
 async def ensure_database_exists() -> bool:
     """Create `DB_NAME` on the configured server when it is not there yet.
 
@@ -78,11 +117,7 @@ async def ensure_database_exists() -> bool:
             break
 
     if conn is None:
-        raise RuntimeError(
-            f"Cannot reach the Postgres server at {settings.DB_HOST}:{settings.DB_PORT} "
-            f"as {settings.DB_USER!r}, so the {name!r} database cannot be created. "
-            "Check that the server is running and the credentials in .env are correct."
-        ) from unreachable
+        raise RuntimeError(_unreachable_message(unreachable, name)) from unreachable
 
     try:
         if await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name):
