@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from slugify import slugify
 from sqlalchemy import func, select, text
 
+from app.core.bootstrap import stamp_head
 from app.core.database import Base, SessionLocal, engine, ensure_database_exists
 from app.core.security import hash_password
 from app.models.content import (
@@ -65,6 +66,7 @@ async def reset_schema() -> None:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+    await stamp_head()
     log.info("schema rebuilt")
 
 
@@ -73,6 +75,10 @@ async def ensure_schema() -> None:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.create_all)
+    # create_all builds the tables but leaves no migration marker. Stamping
+    # head means a later `alembic upgrade` correctly does nothing instead of
+    # trying to create this same schema again.
+    await stamp_head()
     log.info("schema ready")
 
 

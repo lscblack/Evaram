@@ -47,6 +47,17 @@ async def _migrate() -> None:
     await asyncio.to_thread(command.upgrade, _alembic_config(), "head")
 
 
+async def stamp_head() -> None:
+    """Record the database as being at the latest revision, without running it.
+
+    For schemas built by `Base.metadata.create_all` rather than by migrations —
+    the seeder's path. Without this the table exists but `alembic_version` does
+    not, so the next `alembic upgrade head` tries to create everything a second
+    time and fails on the first CREATE TABLE.
+    """
+    await asyncio.to_thread(command.stamp, _alembic_config(), "head")
+
+
 async def bootstrap_database() -> None:
     if await ensure_database_exists():
         logger.info("database %r did not exist and was created", settings.DB_NAME)
