@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, computed_field
+from sqlalchemy import URL
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 #: `server/`, derived from this file rather than the working directory.
@@ -99,22 +100,46 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
+    def _url(self, driver: str) -> str:
+        """Assemble the DSN with every component escaped.
+
+        Built through `URL.create` rather than an f-string on purpose: a
+        password containing `@`, `:`, `/`, `?`, `#` or `%` silently corrupts an
+        interpolated URL. `Very@Strong@Pass@127.0.0.1` parses as the host
+        `Strong@Pass@127.0.0.1`, which then fails as a DNS error and sends you
+        looking at the wrong thing entirely.
+        """
+        return URL.create(
+            driver,
+            username=self.DB_USER,
+            password=self.DB_PASSWORD,
+            host=self.DB_HOST,
+            port=self.DB_PORT,
+            database=self.DB_NAME,
+        ).render_as_string(hide_password=False)
+
     @computed_field
     @property
     def database_url(self) -> str:
-        return (
-            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-        )
+        return self._url("postgresql+asyncpg")
 
     @computed_field
     @property
     def sync_database_url(self) -> str:
         """Alembic runs synchronously."""
-        return (
-            f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-        )
+        return self._url("postgresql+psycopg2")
+
+    @computed_field
+    @property
+    def alembic_url(self) -> str:
+        """`sync_database_url`, safe to hand to `config.set_main_option`.
+
+        Alembic stores that value in a ConfigParser, which treats `%` as the
+        start of an interpolation. Percent-encoding the password (`@` → `%40`)
+        therefore produces a config file Alembic cannot read, so the sign has to
+        be doubled on the way in.
+        """
+        return self.sync_database_url.replace("%", "%%")
 
     @computed_field
     @property

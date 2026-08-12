@@ -33,7 +33,7 @@ _LOCK_KEY = 8_246_113_907_551_004
 def _alembic_config() -> Config:
     config = Config(str(_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(_ROOT / "alembic"))
-    config.set_main_option("sqlalchemy.url", settings.sync_database_url)
+    config.set_main_option("sqlalchemy.url", settings.alembic_url)
     config.attributes["configure_logger"] = False
     return config
 
