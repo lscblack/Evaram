@@ -1,15 +1,30 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#: `server/`, derived from this file rather than the working directory.
+#:
+#: A bare `env_file=".env"` is resolved against the process CWD, so the app
+#: silently fell back to the compiled defaults whenever it was not launched
+#: from `server/` — which is the normal case under systemd, where the unit's
+#: WorkingDirectory decides it. Booting against the wrong database because of
+#: the directory you happened to be in is not a failure worth keeping.
+SERVER_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
     """Runtime configuration, read from the environment / `.env`."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False
+        # Real environment variables still win over the file, so a container or
+        # a systemd `Environment=` line can override any of this.
+        env_file=SERVER_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
     )
 
     # ---------------- app ----------------
