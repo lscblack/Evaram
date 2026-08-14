@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BadgeCheck, Banknote, Search, ShieldX, Star } from 'lucide-react'
+import { BadgeCheck, Banknote, Search, ShieldX, Star, Trash2 } from 'lucide-react'
 import {
   Badge,
   Empty,
@@ -16,8 +16,10 @@ import {
 } from '@/components/admin/ui'
 import { Button } from '@/components/ui/Button'
 import { api, qs } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { FilterBuilder, toQuery, type FilterRule } from '@/components/admin/FilterBuilder'
 import { invalidate, useQuery } from '@/lib/queries'
-import { formatCompactCurrency } from '@/lib/utils'
+import { cn, formatCompactCurrency } from '@/lib/utils'
 import type { ApiAdminPropertyCard, Page } from '@/types/api'
 
 const STATUSES = [
@@ -37,8 +39,14 @@ export default function PropertiesAdminPage() {
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const { can } = useAuth()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [rules, setRules] = useState<FilterRule[]>([])
+  const [match, setMatch] = useState<'all' | 'any'>('all')
+  /** Ids ticked on the current page. Cleared whenever the result set changes. */
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
 
   // Typing shouldn't hit the API on every keystroke.
   useEffect(() => {
@@ -49,6 +57,12 @@ export default function PropertiesAdminPage() {
     return () => window.clearTimeout(id)
   }, [search])
 
+  // Clear ticks whenever the result set changes: a selection the user can no
+  // longer see is a selection they cannot reason about before hitting Delete.
+  useEffect(() => {
+    setSelected(new Set())
+  }, [query, status, page, rules, match])
+
   const path = useMemo(
     () =>
       `/admin/properties${qs({
@@ -56,8 +70,11 @@ export default function PropertiesAdminPage() {
         status: status === 'all' ? undefined : status,
         page,
         per_page: 20,
+        // `qs` repeats an array as `filter=a&filter=b`, which is what the API expects.
+        filter: toQuery(rules),
+        match: rules.length > 1 ? match : undefined,
       })}`,
-    [query, status, page],
+    [query, status, page, rules, match],
   )
 
   const { data, loading, refetch } = useQuery<Page<ApiAdminPropertyCard>>(path, { ttl: 0 })
@@ -105,7 +122,82 @@ export default function PropertiesAdminPage() {
   const setStatusOf = (id: string, next: string) =>
     act(id, () => api.post(`/admin/properties/${id}/status`, { status: next, reason: null }))
 
+  /**
+   * Permanent removal. Typing the reference is deliberate friction: a listing
+   * carries media, offers and enquiries, and none of it comes back. Recording a
+   * sale or setting the status to withdrawn is the reversible route.
+   */
+  const remove = (id: string, reference: string) => {
+    const typed = window.prompt(
+      `Delete ${reference} permanently?\n\nIts media, offers and enquiries go with it and cannot ` +
+        `be recovered. To confirm, type the reference:`,
+    )
+    if (typed === null) return
+    if (typed.trim().toUpperCase() !== reference.toUpperCase()) {
+      setError(`That did not match ${reference}. Nothing was deleted.`)
+      return
+    }
+    return act(id, () => api.delete(`/admin/properties/${id}`))
+  }
+
+  /* ------------------------------------------------------------ selection */
+
   const rows = data?.items ?? []
+  const ids = rows.map((r) => r.id)
+  const allOnPageSelected = ids.length > 0 && ids.every((id) => selected.has(id))
+
+  const toggleOne = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  const toggleAllOnPage = () =>
+    setSelected((current) => {
+      const next = new Set(current)
+      if (allOnPageSelected) ids.forEach((id) => next.delete(id))
+      else ids.forEach((id) => next.add(id))
+      return next
+    })
+
+  const runBulk = async (run: () => Promise<unknown>) => {
+    setBulkBusy(true)
+    setError(null)
+    try {
+      await run()
+      invalidate('/admin/')
+      setSelected(new Set())
+      await refetch()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That bulk action did not go through.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  const bulkStatus = (next: string) =>
+    runBulk(() =>
+      api.post('/admin/properties/bulk/status', { ids: [...selected], status: next }),
+    )
+
+  const bulkFeature = (isFeatured: boolean) =>
+    runBulk(() =>
+      api.post('/admin/properties/bulk/feature', { ids: [...selected], is_featured: isFeatured }),
+    )
+
+  const bulkDelete = () => {
+    const count = selected.size
+    if (
+      !window.confirm(
+        `Delete ${count} listing(s) permanently?\n\nTheir media, offers and enquiries go too, and ` +
+          `none of it can be recovered. Setting the status to withdrawn is reversible.`,
+      )
+    )
+      return
+    return runBulk(() => api.post('/admin/properties/bulk/delete', { ids: [...selected] }))
+  }
 
   return (
     <>
@@ -122,6 +214,81 @@ export default function PropertiesAdminPage() {
       {error && (
         <div className="mb-4">
           <ErrorNote message={error} />
+        </div>
+      )}
+
+      <div className="mb-4">
+        <FilterBuilder
+          endpoint="/admin/properties/filterable"
+          rules={rules}
+          onChange={setRules}
+          match={match}
+          onMatchChange={setMatch}
+        />
+      </div>
+
+      {selected.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-ink bg-ink px-4 py-3 text-canvas">
+          <span className="text-[0.875rem] font-semibold">
+            {selected.size} selected
+          </span>
+
+          <label htmlFor="bulk-status" className="sr-only">
+            Set status for the selected listings
+          </label>
+          <select
+            id="bulk-status"
+            defaultValue=""
+            disabled={bulkBusy}
+            onChange={(e) => {
+              if (e.target.value) void bulkStatus(e.target.value)
+              e.target.value = ''
+            }}
+            className="h-9 rounded-lg border border-canvas/30 bg-transparent px-2 text-[0.8125rem] disabled:opacity-50 [&>option]:text-ink"
+          >
+            <option value="">Set status…</option>
+            {STATUSES.filter((st) => st !== 'all' && st !== 'pending_review').map((st) => (
+              <option key={st} value={st}>
+                {st.replace('_', ' ')}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={() => void bulkFeature(true)}
+            className="h-9 rounded-lg border border-canvas/30 px-3 text-[0.8125rem] font-semibold disabled:opacity-50"
+          >
+            Feature
+          </button>
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={() => void bulkFeature(false)}
+            className="h-9 rounded-lg border border-canvas/30 px-3 text-[0.8125rem] font-semibold disabled:opacity-50"
+          >
+            Unfeature
+          </button>
+
+          {can('super_admin') && (
+            <button
+              type="button"
+              disabled={bulkBusy}
+              onClick={() => void bulkDelete()}
+              className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg bg-red-600 px-3 text-[0.8125rem] font-semibold text-white disabled:opacity-50"
+            >
+              <Trash2 className="size-3.5" strokeWidth={2.4} />
+              Delete
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="h-9 rounded-lg px-3 text-[0.8125rem] font-semibold underline-offset-2 hover:underline"
+          >
+            Clear
+          </button>
         </div>
       )}
 
@@ -176,6 +343,15 @@ export default function PropertiesAdminPage() {
           <Table>
             <thead>
               <tr>
+                <Th className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select every listing on this page"
+                    checked={allOnPageSelected}
+                    onChange={toggleAllOnPage}
+                    className="size-4 accent-gold-500"
+                  />
+                </Th>
                 <Th>Listing</Th>
                 <Th>Reference</Th>
                 <Th>Status</Th>
@@ -185,7 +361,22 @@ export default function PropertiesAdminPage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="transition-colors hover:bg-canvas-alt">
+                <tr
+                  key={row.id}
+                  className={cn(
+                    'transition-colors hover:bg-canvas-alt',
+                    selected.has(row.id) && 'bg-gold-50/60',
+                  )}
+                >
+                  <Td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${row.reference_number}`}
+                      checked={selected.has(row.id)}
+                      onChange={() => toggleOne(row.id)}
+                      className="size-4 accent-gold-500"
+                    />
+                  </Td>
                   <Td>
                     <div className="flex items-center gap-3">
                       {row.cover_url ? (
@@ -287,6 +478,22 @@ export default function PropertiesAdminPage() {
                             )}
                           </select>
                         </>
+                      )}
+
+                      {/* Super admin only: the listing and its media go for
+                          good. Archiving via the status select is the reversible
+                          option and covers almost every case. */}
+                      {can('super_admin') && (
+                        <button
+                          type="button"
+                          disabled={busyId === row.id}
+                          onClick={() => remove(row.id, row.reference_number)}
+                          title="Delete this listing permanently"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[0.75rem] font-semibold text-ink-faint transition-colors hover:border-red-300 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="size-3.5" strokeWidth={2.4} />
+                          Delete
+                        </button>
                       )}
                     </div>
                   </Td>

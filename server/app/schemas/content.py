@@ -589,3 +589,59 @@ class InboxStatusChange(BaseModel):
 
     status: Literal["new", "reading", "handled", "closed", "shortlisted", "rejected"]
     note: str | None = Field(default=None, max_length=2000)
+
+
+# ------------------------------------------------------------ service line CRUD
+class ServiceLineCreate(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=160)
+    tagline: str | None = Field(default=None, max_length=240)
+    description: str | None = None
+    division: str = Field(default="Group", max_length=40)
+    icon: str | None = Field(default=None, max_length=64)
+    bullets: list[str] | None = None
+    href: str | None = Field(default=None, max_length=320)
+    translations: dict | None = None
+    display_order: int = 0
+    is_active: bool = True
+
+
+class ServiceLineUpdate(BaseModel):
+    """Every field optional — a PATCH only touches what it names."""
+
+    slug: str | None = Field(default=None, min_length=1, max_length=64)
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    tagline: str | None = Field(default=None, max_length=240)
+    description: str | None = None
+    division: str | None = Field(default=None, max_length=40)
+    icon: str | None = Field(default=None, max_length=64)
+    bullets: list[str] | None = None
+    href: str | None = Field(default=None, max_length=320)
+    translations: dict | None = None
+    display_order: int | None = None
+    is_active: bool | None = None
+
+
+# ------------------------------------------------------------ market stat CRUD
+class MarketStatCreate(BaseModel):
+    key: str = Field(min_length=1, max_length=64)
+    value: str = Field(min_length=1, max_length=64)
+    label: str = Field(min_length=1, max_length=160)
+    detail: str | None = Field(default=None, max_length=240)
+    icon: str | None = Field(default=None, max_length=64)
+    source: str | None = Field(default=None, max_length=240)
+    translations: dict | None = None
+    display_order: int = 0
+    is_active: bool = True
+
+
+class MarketStatUpdate(BaseModel):
+    key: str | None = Field(default=None, min_length=1, max_length=64)
+    value: str | None = Field(default=None, min_length=1, max_length=64)
+    label: str | None = Field(default=None, min_length=1, max_length=160)
+    detail: str | None = Field(default=None, max_length=240)
+    icon: str | None = Field(default=None, max_length=64)
+    source: str | None = Field(default=None, max_length=240)
+    translations: dict | None = None
+    display_order: int | None = None
+    is_active: bool | None = None

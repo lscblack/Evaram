@@ -42,6 +42,7 @@ const DEFAULTS: Record<string, string> = {
   'brand.logo_mark_light': '/brand/logo-mark-light.png',
   'contact.email': FALLBACK_SITE.email,
   'contact.phone': FALLBACK_SITE.phone,
+  'contact.momo_code': '70702',
   'contact.whatsapp': '250788000000',
   'contact.address': FALLBACK_SITE.address,
   'contact.hours': FALLBACK_SITE.hours,
@@ -250,6 +251,9 @@ export function useSite() {
       phoneHref: `tel:${phone.replace(/[^\d+]/g, '')}`,
       whatsapp,
       whatsappHref: `https://wa.me/${whatsapp.replace(/\D/g, '')}`,
+      // Empty string means "not configured" — callers hide the row rather than
+      // printing a MoMo code that does not exist.
+      momoCode: setting('contact.momo_code', ''),
       address: setting('contact.address', FALLBACK_SITE.address),
       hours: setting('contact.hours', FALLBACK_SITE.hours),
       saturdayHours: setting('contact.hours_saturday', FALLBACK_SITE.saturdayHours),

@@ -491,3 +491,17 @@ class SaleRecordDetail(SaleRecordOut):
     """Includes the full snapshot used to prefill a re-listing."""
 
     snapshot: dict | None = None
+
+
+class BulkIds(BaseModel):
+    """Ids for a bulk action. Capped so one request cannot lock the whole table."""
+
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class BulkStatusChange(BulkIds):
+    status: PropertyStatus
+
+
+class BulkFeatureChange(BulkIds):
+    is_featured: bool

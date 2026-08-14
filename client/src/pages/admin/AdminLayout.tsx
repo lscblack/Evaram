@@ -2,6 +2,7 @@ import { Suspense, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Briefcase,
   Building2,
   FileText,
   Gavel,
@@ -53,6 +54,7 @@ const NAV: { group: string; items: NavEntry[] }[] = [
     group: 'Content',
     items: [
       { to: '/admin/content', label: 'Page copy', icon: FileText, minimum: 'admin' },
+      { to: '/admin/services', label: 'Services', icon: Briefcase, minimum: 'admin' },
       { to: '/admin/insights', label: 'Insights', icon: Newspaper, minimum: 'admin' },
       {
         to: '/admin/testimonials',

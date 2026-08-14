@@ -14,6 +14,7 @@ from app.core.deps import require_admin, require_agent, require_super_admin
 from app.core.email import send_welcome_email
 from app.core.security import generate_token, hash_password, validate_password_strength
 from app.models.content import (
+    ServiceLine,
     PropertyRequest,
     AuditLog,
     BlockedDate,
@@ -37,6 +38,12 @@ from app.models.user import User, UserRole, UserStatus
 from app.schemas.auth import UserCreate, UserPublic, UserUpdate
 from app.schemas.common import Message, Page
 from app.schemas.content import (
+    MarketStatCreate,
+    MarketStatOut,
+    MarketStatUpdate,
+    ServiceLineCreate,
+    ServiceLineOut,
+    ServiceLineUpdate,
     InboxStatusChange,
     PropertyRequestOut,
     PropertyRequestReview,
@@ -1062,3 +1069,207 @@ async def change_application_status(
     )
     await db.commit()
     return Message(detail=f"Application marked {payload.status}")
+
+
+# ================================================================ service lines
+@router.get("/services", response_model=list[ServiceLineOut], summary="Every service line")
+async def list_services(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[ServiceLineOut]:
+    """Includes inactive rows — the console has to be able to switch one back on."""
+    rows = (
+        await db.scalars(select(ServiceLine).order_by(ServiceLine.display_order, ServiceLine.title))
+    ).all()
+    return [ServiceLineOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/services",
+    response_model=ServiceLineOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a service",
+)
+async def create_service(
+    request: Request,
+    payload: ServiceLineCreate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> ServiceLineOut:
+    if await db.scalar(select(ServiceLine.id).where(ServiceLine.slug == payload.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, f"A service with slug {payload.slug!r} exists")
+
+    row = ServiceLine(**payload.model_dump())
+    db.add(row)
+    await db.flush()
+    await record(
+        db, actor=actor, action="service.create", entity_type="service_line",
+        entity_id=row.id, summary=f"Added service {row.title!r}", request=request,
+    )
+    await db.commit()
+    await db.refresh(row)
+    await cache.invalidate("public:")
+    return ServiceLineOut.model_validate(row)
+
+
+@router.patch("/services/{service_id}", response_model=ServiceLineOut, summary="Edit a service")
+async def update_service(
+    request: Request,
+    service_id: uuid.UUID,
+    payload: ServiceLineUpdate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> ServiceLineOut:
+    row = await db.scalar(select(ServiceLine).where(ServiceLine.id == service_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Service not found")
+
+    changes = payload.model_dump(exclude_unset=True)
+    if "slug" in changes and changes["slug"] != row.slug:
+        clash = await db.scalar(
+            select(ServiceLine.id).where(
+                ServiceLine.slug == changes["slug"], ServiceLine.id != row.id
+            )
+        )
+        if clash:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Another service already uses that slug")
+
+    before = {k: getattr(row, k) for k in changes}
+    for key, value in changes.items():
+        setattr(row, key, value)
+
+    await record(
+        db, actor=actor, action="service.update", entity_type="service_line",
+        entity_id=row.id, summary=f"Edited service {row.title!r}",
+        changes=diff(before, changes), request=request,
+    )
+    await db.commit()
+    await db.refresh(row)
+    await cache.invalidate("public:")
+    return ServiceLineOut.model_validate(row)
+
+
+@router.delete("/services/{service_id}", response_model=Message, summary="Delete a service")
+async def delete_service(
+    request: Request,
+    service_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_super_admin),
+) -> Message:
+    """Super admin only.
+
+    Deactivating is almost always the right move — it takes the service off the
+    site while keeping the row, so nothing that references it breaks. Deletion
+    is here for rows created by mistake.
+    """
+    row = await db.scalar(select(ServiceLine).where(ServiceLine.id == service_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Service not found")
+
+    title = row.title
+    await record(
+        db, actor=actor, action="service.delete", entity_type="service_line",
+        entity_id=row.id, summary=f"Deleted service {title!r}", request=request,
+    )
+    await db.delete(row)
+    await db.commit()
+    await cache.invalidate("public:")
+    return Message(detail=f"{title} deleted")
+
+
+# ================================================================= market stats
+@router.get("/market-stats", response_model=list[MarketStatOut], summary="Every market stat")
+async def list_market_stats(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[MarketStatOut]:
+    """Inactive rows included, so a hidden stat can be switched back on."""
+    rows = (
+        await db.scalars(select(MarketStat).order_by(MarketStat.display_order, MarketStat.label))
+    ).all()
+    return [MarketStatOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/market-stats",
+    response_model=MarketStatOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a market stat",
+)
+async def create_market_stat(
+    request: Request,
+    payload: MarketStatCreate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> MarketStatOut:
+    if await db.scalar(select(MarketStat.id).where(MarketStat.key == payload.key)):
+        raise HTTPException(status.HTTP_409_CONFLICT, f"A stat keyed {payload.key!r} exists")
+
+    row = MarketStat(**payload.model_dump())
+    db.add(row)
+    await db.flush()
+    await record(
+        db, actor=actor, action="market_stat.create", entity_type="market_stat",
+        entity_id=row.id, summary=f"Added stat {row.label!r}", request=request,
+    )
+    await db.commit()
+    await db.refresh(row)
+    await cache.invalidate("public:")
+    return MarketStatOut.model_validate(row)
+
+
+@router.patch("/market-stats/{stat_id}", response_model=MarketStatOut, summary="Edit a stat")
+async def update_market_stat(
+    request: Request,
+    stat_id: uuid.UUID,
+    payload: MarketStatUpdate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> MarketStatOut:
+    row = await db.scalar(select(MarketStat).where(MarketStat.id == stat_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Stat not found")
+
+    changes = payload.model_dump(exclude_unset=True)
+    if "key" in changes and changes["key"] != row.key:
+        clash = await db.scalar(
+            select(MarketStat.id).where(MarketStat.key == changes["key"], MarketStat.id != row.id)
+        )
+        if clash:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Another stat already uses that key")
+
+    before = {k: getattr(row, k) for k in changes}
+    for field, value in changes.items():
+        setattr(row, field, value)
+
+    await record(
+        db, actor=actor, action="market_stat.update", entity_type="market_stat",
+        entity_id=row.id, summary=f"Edited stat {row.label!r}",
+        changes=diff(before, changes), request=request,
+    )
+    await db.commit()
+    await db.refresh(row)
+    await cache.invalidate("public:")
+    return MarketStatOut.model_validate(row)
+
+
+@router.delete("/market-stats/{stat_id}", response_model=Message, summary="Delete a stat")
+async def delete_market_stat(
+    request: Request,
+    stat_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_super_admin),
+) -> Message:
+    row = await db.scalar(select(MarketStat).where(MarketStat.id == stat_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Stat not found")
+
+    label = row.label
+    await record(
+        db, actor=actor, action="market_stat.delete", entity_type="market_stat",
+        entity_id=row.id, summary=f"Deleted stat {label!r}", request=request,
+    )
+    await db.delete(row)
+    await db.commit()
+    await cache.invalidate("public:")
+    return Message(detail=f"{label} deleted")

@@ -278,10 +278,18 @@ export const api = {
 }
 
 /** Builds a query string, dropping empty values. */
-export function qs(params: Record<string, string | number | boolean | undefined | null>): string {
+export function qs(
+  params: Record<string, string | number | boolean | undefined | null | string[]>,
+): string {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '' || value === false) continue
+    // An array becomes a repeated parameter (`filter=a&filter=b`), which is how
+    // FastAPI reads a `list[str]` query. Joining them would send one bad value.
+    if (Array.isArray(value)) {
+      for (const item of value) if (item !== '') search.append(key, String(item))
+      continue
+    }
     search.set(key, String(value))
   }
   const out = search.toString()

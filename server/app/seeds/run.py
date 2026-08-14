@@ -286,10 +286,52 @@ async def seed_taxonomy(db) -> dict[str, PropertySubCategory]:
     return subs
 
 
+#: Settings that shipped with a placeholder and now have a real value.
+#:
+#: Keyed by setting, mapping the *exact* placeholder to what replaces it. The
+#: old value is part of the key on purpose: a row is only corrected while it
+#: still holds the shipped placeholder, so anything an admin has typed in the
+#: console is never overwritten.
+PLACEHOLDER_CORRECTIONS: dict[str, tuple[str, str]] = {
+    "contact.phone": ("+250 788 000 000", "+250 792 879 777"),
+    "contact.whatsapp": ("250788000000", "250792879777"),
+    "social.instagram": (
+        "https://instagram.com/evaramugroup",
+        "https://instagram.com/evaramu_group",
+    ),
+    "social.facebook": (
+        "https://facebook.com/evaramugroup",
+        "https://facebook.com/evaramu_group",
+    ),
+    "social.linkedin": (
+        "https://linkedin.com/company/evaramugroup",
+        "https://linkedin.com/company/evaramu_group",
+    ),
+    "social.youtube": ("https://youtube.com/@evaramugroup", "https://youtube.com/@evaramu_group"),
+    "social.handle": ("@evaramugroup", "@evaramu_group"),
+}
+
+
+async def correct_placeholder_settings(db) -> None:
+    """Replace shipped placeholders that were never real values."""
+    corrected = 0
+    for key, (placeholder, real) in PLACEHOLDER_CORRECTIONS.items():
+        row = await db.scalar(select(SiteSetting).where(SiteSetting.key == key))
+        if row is not None and row.value == placeholder:
+            row.value = real
+            corrected += 1
+
+    if corrected:
+        await db.flush()
+        log.info("settings: %d placeholder(s) replaced with the real values", corrected)
+
+
 async def seed_settings(db) -> None:
     for spec in site_content.SETTINGS:
         if not await db.scalar(select(SiteSetting.id).where(SiteSetting.key == spec["key"])):
             db.add(SiteSetting(**spec))
+
+    await correct_placeholder_settings(db)
 
     for spec in site_content.DISTRICTS:
         if not await db.scalar(select(District.id).where(District.name == spec["name"])):

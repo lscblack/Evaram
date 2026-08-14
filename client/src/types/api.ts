@@ -348,6 +348,8 @@ export interface ApiServiceLine {
   display_order: number
   /** Per-locale field overrides; see lib/localize.ts. */
   translations?: Record<string, Record<string, unknown>> | null
+  /** Hidden rows still come back from the admin list. */
+  is_active: boolean
 }
 
 export interface ApiPackage {
@@ -394,6 +396,8 @@ export interface ApiMarketStat {
   display_order: number
   /** Per-locale field overrides; see lib/localize.ts. */
   translations?: Record<string, Record<string, unknown>> | null
+  /** Hidden rows still come back from the admin list. */
+  is_active: boolean
 }
 
 export interface ApiFaq {

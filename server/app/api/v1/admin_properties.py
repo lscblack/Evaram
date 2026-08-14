@@ -1,6 +1,7 @@
 """Property lifecycle: agents draft, admins verify and publish."""
 
 import uuid
+from typing import Literal
 
 from fastapi import (
     APIRouter,
@@ -19,7 +20,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core import cache
 from app.core.database import get_db
-from app.core.deps import require_admin, require_agent
+from app.core.deps import require_admin, require_agent, require_super_admin
 from app.core.security import utcnow
 from app.models.property import (
     ListingIntent,
@@ -35,6 +36,9 @@ from app.models.taxonomy import PropertyCategory, PropertySubCategory
 from app.models.user import User, UserRole
 from app.schemas.common import Message, Page
 from app.schemas.property import (
+    BulkFeatureChange,
+    BulkIds,
+    BulkStatusChange,
     PropertyCardAdmin,
     PropertyDetailAdmin,
     BidAdminOut,
@@ -54,6 +58,7 @@ from app.schemas.property import (
     PropertyVerify,
 )
 from app.services import bidding_service, property_service, storage_service
+from app.services.filtering import PROPERTY_FILTERS, apply_filters, describe
 from app.services.audit import diff, record
 
 router = APIRouter(prefix="/admin/properties", tags=["admin:properties"])
@@ -90,6 +95,16 @@ async def list_all(
     q: str | None = None,
     status_filter: PropertyStatus | None = Query(None, alias="status"),
     mine: bool = False,
+    filter: list[str] | None = Query(
+        None,
+        description=(
+            "Repeatable `column:operator:value`, e.g. district:eq:Gasabo, "
+            "price:gte:20000000, is_verified:eq:false, created_at:gte:2026-01-01. "
+            "GET /admin/properties/filterable lists every column and operator."
+        ),
+    ),
+    match: Literal["all", "any"] = Query("all", description="Combine filters with AND or OR"),
+    sort: str | None = Query(None, description="Column to order by; prefix with '-' for descending"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -115,16 +130,135 @@ async def list_all(
             Property.search_text.ilike(needle) | Property.reference_number.ilike(needle)
         )
 
+    stmt = apply_filters(stmt, Property, PROPERTY_FILTERS, filter, match)
+
+    # Sorting is restricted to the same allow-list, so an unknown or unsortable
+    # column is a clear 422 rather than a 500 from the database.
+    order = Property.updated_at.desc()
+    if sort:
+        descending = sort.startswith("-")
+        name = sort.lstrip("-").strip()
+        if name not in PROPERTY_FILTERS:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"Cannot sort by {name!r}. Allowed: {', '.join(sorted(PROPERTY_FILTERS))}",
+            )
+        column = getattr(Property, name)
+        order = column.desc() if descending else column.asc()
+
     total = await property_service.count_for(db, stmt)
     rows = (
         await db.execute(
-            stmt.order_by(Property.updated_at.desc())
-            .offset((page - 1) * per_page)
-            .limit(per_page)
+            stmt.order_by(order).offset((page - 1) * per_page).limit(per_page)
         )
     ).unique().all()
 
     return Page.build([property_service.to_admin_card(r) for r in rows], total, page, per_page)
+
+
+@router.get("/filterable", summary="Columns the console may filter and sort on")
+async def filterable_columns(_: User = Depends(require_agent)) -> dict:
+    """Drives the filter builder, so the UI never has to hardcode the list."""
+    return {"columns": describe(PROPERTY_FILTERS)}
+
+
+# ==================================================================== bulk work
+@router.post("/bulk/status", response_model=Message, summary="Change status on many listings")
+async def bulk_status(
+    request: Request,
+    payload: BulkStatusChange,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_agent),
+) -> Message:
+    rows = await _selected(db, payload.ids, actor)
+
+    for row in rows:
+        row.status = payload.status
+        # Mirrors the single-listing endpoint: a sold or withdrawn listing must
+        # leave the public site, and returning it to available brings it back.
+        if payload.status in (PropertyStatus.SOLD, PropertyStatus.RENTED, PropertyStatus.WITHDRAWN):
+            row.show_on_public = False
+        elif payload.status is PropertyStatus.AVAILABLE:
+            row.show_on_public = True
+
+    await record(
+        db, actor=actor, action="property.bulk_status", entity_type="property",
+        summary=f"{len(rows)} listing(s) set to {payload.status.value}",
+        changes={"ids": [str(r.id) for r in rows], "status": payload.status.value},
+        request=request,
+    )
+    await db.commit()
+    await cache.invalidate("public:")
+    return Message(detail=f"{len(rows)} listing(s) set to {payload.status.value}")
+
+
+@router.post("/bulk/feature", response_model=Message, summary="Feature or unfeature many listings")
+async def bulk_feature(
+    request: Request,
+    payload: BulkFeatureChange,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_agent),
+) -> Message:
+    rows = await _selected(db, payload.ids, actor)
+    for row in rows:
+        row.is_featured = payload.is_featured
+
+    await record(
+        db, actor=actor, action="property.bulk_feature", entity_type="property",
+        summary=f"{len(rows)} listing(s) {'featured' if payload.is_featured else 'unfeatured'}",
+        changes={"ids": [str(r.id) for r in rows], "is_featured": payload.is_featured},
+        request=request,
+    )
+    await db.commit()
+    await cache.invalidate("public:")
+    return Message(detail=f"{len(rows)} listing(s) updated")
+
+
+@router.post("/bulk/delete", response_model=Message, summary="Delete many listings")
+async def bulk_delete(
+    request: Request,
+    payload: BulkIds,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_super_admin),
+) -> Message:
+    """Super admin only, and irreversible.
+
+    A POST rather than DELETE because the ids travel in a body, and DELETE with
+    a body is not reliably supported end to end.
+    """
+    rows = await _selected(db, payload.ids, actor)
+    references = [r.reference_number for r in rows]
+
+    await record(
+        db, actor=actor, action="property.bulk_delete", entity_type="property",
+        summary=f"Deleted {len(rows)} listing(s): {', '.join(references[:10])}",
+        changes={"references": references}, request=request,
+    )
+    for row in rows:
+        await db.delete(row)
+
+    await db.commit()
+    await cache.invalidate("public:")
+    return Message(detail=f"{len(rows)} listing(s) deleted")
+
+
+async def _selected(db: AsyncSession, ids: list[uuid.UUID], actor: User) -> list[Property]:
+    """Load the chosen listings, enforcing the same scope the list endpoint uses.
+
+    An agent may only ever act on their own listings, so a crafted id list
+    cannot reach somebody else's — the ownership filter is applied here rather
+    than trusted from the client.
+    """
+    stmt = select(Property).where(Property.id.in_(ids))
+    if actor.role is UserRole.AGENT:
+        stmt = stmt.where(
+            (Property.uploaded_by_id == actor.id) | (Property.agent_id == actor.id)
+        )
+
+    rows = (await db.scalars(stmt)).unique().all()
+    if not rows:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "None of those listings are yours to change")
+    return list(rows)
 
 
 @router.get("/stats", summary="Dashboard counters")

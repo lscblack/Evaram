@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowUpRight, Clock, Mail, MapPin, Phone, Send, ShieldCheck } from 'lucide-react'
+import { ArrowUpRight, Clock, Mail, MapPin, Phone, Send, ShieldCheck, Wallet } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
 import { SocialIcon } from '@/components/ui/SocialIcon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
@@ -133,6 +133,15 @@ export function Footer() {
                   {site.phone}
                 </a>
               </li>
+              {site.momoCode && (
+                <li className="flex items-start gap-3">
+                  <Wallet className="mt-0.5 size-[1.05rem] shrink-0 text-gold-400" strokeWidth={2} />
+                  <span className="text-white/60">
+                    {t('contact.momo')}{' '}
+                    <span className="font-semibold text-white/85">{site.momoCode}</span>
+                  </span>
+                </li>
+              )}
               <li className="flex items-start gap-3">
                 <Mail className="mt-0.5 size-[1.05rem] shrink-0 text-gold-400" strokeWidth={2} />
                 <a href={`mailto:${site.email}`} className="transition-colors hover:text-gold-300">
