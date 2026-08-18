@@ -194,6 +194,27 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
     # ---------------- ownership & workflow ----------------
     owner_name: Mapped[str | None] = mapped_column(String(160))
     owner_contact: Mapped[str | None] = mapped_column(String(120))
+    #: The seller as a record rather than free text. `owner_name` stays for
+    #: listings entered before clients existed, and as the display fallback.
+    seller_client_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("clients.id", ondelete="SET NULL"), index=True
+    )
+
+    # ---- commission ----------------------------------------------------
+    #: What the seller wants to walk away with. `price` is what the public
+    #: sees, and is this plus the commission — so the two never disagree.
+    owner_price: Mapped[float | None] = mapped_column(Numeric(16, 2))
+    commission_basis: Mapped[str | None] = mapped_column(String(16))
+    #: Percentage of `owner_price`, when the basis is percent.
+    commission_rate: Mapped[float | None] = mapped_column(Numeric(6, 3))
+    #: The resolved figure, whichever basis produced it. Stored rather than
+    #: recomputed so a historic listing keeps the number it was sold on.
+    commission_amount: Mapped[float | None] = mapped_column(Numeric(16, 2))
+    #: Off, the public price is whatever an admin typed and the commission is
+    #: absorbed rather than added on top.
+    commission_in_price: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
     uploaded_by_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
@@ -226,7 +247,9 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
     #: Whether the exact pin and parcel outline are published. Off still lets
     #: the listing name its district and sector — some sellers do not want the
     #: precise location public until a buyer is qualified.
-    show_on_map: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    show_on_map: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
 
     # ---------------- bidding ----------------
     allow_bidding: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -380,6 +403,22 @@ class PropertySaleRecord(Base, UUIDPrimaryKey, TimestampMixin):
     owner_contact: Mapped[str | None] = mapped_column(String(120))
     buyer_name: Mapped[str | None] = mapped_column(String(160))
     buyer_contact: Mapped[str | None] = mapped_column(String(120))
+    #: Both sides as client records, so a person's full history is queryable.
+    seller_client_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("clients.id", ondelete="SET NULL"), index=True
+    )
+    buyer_client_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("clients.id", ondelete="SET NULL"), index=True
+    )
+    #: True for deals typed in from before the system existed. Keeps historic
+    #: entries out of "what did we close this month" without deleting them.
+    is_historic: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+    #: Who keyed it in — a past sale has no listing history to fall back on.
+    recorded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
 
     agent_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")

@@ -160,6 +160,12 @@ def to_admin_card(row: Any) -> PropertyCardAdmin:
         show_owner_info=prop.show_owner_info,
         allow_bidding=prop.allow_bidding,
         is_archived=prop.is_archived,
+        seller_client_id=prop.seller_client_id,
+        owner_price=float(prop.owner_price) if prop.owner_price is not None else None,
+        commission_basis=prop.commission_basis,
+        commission_rate=float(prop.commission_rate) if prop.commission_rate is not None else None,
+        commission_amount=float(prop.commission_amount) if prop.commission_amount is not None else None,
+        commission_in_price=prop.commission_in_price,
     )
 
 
@@ -182,3 +188,38 @@ async def bump_view_count(db: AsyncSession, property_id: uuid.UUID) -> None:
         .values(view_count=Property.view_count + 1)
     )
     await db.commit()
+
+
+def apply_commission(prop) -> None:
+    """Resolve the commission and, when configured, fold it into `price`.
+
+    The seller quotes what they want to walk away with (`owner_price`); the
+    public price is that plus our fee. Deriving it here rather than asking an
+    admin to add up two numbers is the whole point — a mistyped total is a
+    listing whose paperwork and advert disagree.
+
+    `commission_in_price = False` covers the other arrangement, where the fee
+    comes out of the agreed price rather than being added to it. Then `price`
+    stays whatever was entered and only the commission figure is computed.
+    """
+    if prop.owner_price is None and prop.commission_amount is None:
+        return
+
+    base = float(prop.owner_price) if prop.owner_price is not None else (
+        float(prop.price) if prop.price is not None else None
+    )
+
+    if prop.commission_basis == "percent":
+        if prop.commission_rate is None or base is None:
+            return
+        prop.commission_amount = round(base * float(prop.commission_rate) / 100, 2)
+    elif prop.commission_basis == "fixed":
+        if prop.commission_amount is None:
+            return
+        prop.commission_amount = round(float(prop.commission_amount), 2)
+    else:
+        # No basis chosen: nothing to derive, and `price` is left alone.
+        return
+
+    if prop.commission_in_price and prop.owner_price is not None:
+        prop.price = round(float(prop.owner_price) + float(prop.commission_amount), 2)

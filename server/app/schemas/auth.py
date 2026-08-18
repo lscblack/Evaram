@@ -78,6 +78,26 @@ class UserPublic(ORMModel):
     created_at: datetime
 
 
+class UserAdminOut(UserPublic):
+    """Everything the console needs to edit a staff profile.
+
+    `UserPublic` deliberately stays lean — it is what the app hands to the
+    signed-in user about themselves. The console additionally needs the fields
+    that drive the public team page, or it cannot populate an edit form.
+    """
+
+    bio: str | None = None
+    languages: list[str] | None = None
+    specialties: list[str] | None = None
+    covers: list[str] | None = None
+    linkedin_url: str | None = None
+    joined_year: str | None = None
+    rating: float | None = None
+    deals_closed: int = 0
+    is_public: bool = False
+    display_order: int = 0
+
+
 class TeamMemberPublic(ORMModel):
     """The subset of a staff profile that appears on the public team page."""
 

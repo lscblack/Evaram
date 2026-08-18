@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -168,6 +168,14 @@ class PropertyCardAdmin(PropertyCard):
     allow_bidding: bool = False
     is_archived: bool = False
 
+    # ---- commercial, console only ----------------------------------------
+    seller_client_id: uuid.UUID | None = None
+    owner_price: float | None = None
+    commission_basis: str | None = None
+    commission_rate: float | None = None
+    commission_amount: float | None = None
+    commission_in_price: bool = True
+
 
 class PropertyDetailAdmin(PropertyDetail):
     """Console detail — the UPI and the owner's contact are always present."""
@@ -176,6 +184,14 @@ class PropertyDetailAdmin(PropertyDetail):
     show_on_public: bool = True
     is_archived: bool = False
     rejection_reason: str | None = None
+
+    # ---- commercial, console only ----------------------------------------
+    seller_client_id: uuid.UUID | None = None
+    owner_price: float | None = None
+    commission_basis: str | None = None
+    commission_rate: float | None = None
+    commission_amount: float | None = None
+    commission_in_price: bool = True
 
 
 # ---------------------------------------------------------------- write
@@ -256,6 +272,15 @@ class PropertyBase(BaseModel):
     def _normalise_reference(cls, v: str) -> str:
         # Entered by hand, so tolerate spacing and case but store it canonically.
         return v.strip().upper()
+    # ---- commission -------------------------------------------------------
+    #: Set the seller's net figure and a commission, and `price` is derived so
+    #: the public number and the paperwork can never disagree.
+    seller_client_id: uuid.UUID | None = None
+    owner_price: float | None = Field(default=None, ge=0)
+    commission_basis: Literal["percent", "fixed"] | None = None
+    commission_rate: float | None = Field(default=None, ge=0, le=100)
+    commission_amount: float | None = Field(default=None, ge=0)
+    commission_in_price: bool = True
 
 
 class PropertyCreate(PropertyBase):
@@ -264,6 +289,13 @@ class PropertyCreate(PropertyBase):
 
 class PropertyUpdate(BaseModel):
     """Every field optional — PATCH semantics."""
+
+    seller_client_id: uuid.UUID | None = None
+    owner_price: float | None = Field(default=None, ge=0)
+    commission_basis: Literal["percent", "fixed"] | None = None
+    commission_rate: float | None = Field(default=None, ge=0, le=100)
+    commission_amount: float | None = Field(default=None, ge=0)
+    commission_in_price: bool | None = None
 
     model_config = {"extra": "forbid"}
 
@@ -487,10 +519,29 @@ class SaleRecordOut(ORMModel):
     created_at: datetime
 
 
+class SaleCommission(BaseModel):
+    """What the agency earned on the sale, and who closed it."""
+
+    id: uuid.UUID
+    agent_id: uuid.UUID | None = None
+    agent_name: str | None = None
+    basis: str
+    rate: float | None = None
+    base_amount: float | None = None
+    amount: float
+    currency: str
+    status: str
+    earned_on: date
+    received_on: date | None = None
+
+
 class SaleRecordDetail(SaleRecordOut):
     """Includes the full snapshot used to prefill a re-listing."""
 
     snapshot: dict | None = None
+    #: Every commission booked against this sale — usually one, but a split
+    #: deal produces one row per agent.
+    commissions: list[SaleCommission] = []
 
 
 class BulkIds(BaseModel):

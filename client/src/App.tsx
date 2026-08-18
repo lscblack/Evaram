@@ -35,6 +35,7 @@ const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage'))
 const PropertiesAdminPage = lazy(() => import('@/pages/admin/PropertiesAdminPage'))
 const PropertyUploadPage = lazy(() => import('@/pages/admin/PropertyUploadPage'))
 const OffersAdminPage = lazy(() => import('@/pages/admin/OffersAdminPage'))
+const DealsAdminPage = lazy(() => import('@/pages/admin/DealsAdminPage'))
 const TaxonomyAdminPage = lazy(() => import('@/pages/admin/TaxonomyAdminPage'))
 const ContentAdminPage = lazy(() => import('@/pages/admin/ContentAdminPage'))
 const ServicesAdminPage = lazy(() => import('@/pages/admin/ServicesAdminPage'))
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="properties" element={<PropertiesAdminPage />} />
             <Route path="properties/new" element={<PropertyUploadPage />} />
             <Route path="offers" element={<OffersAdminPage />} />
+            <Route path="deals" element={<DealsAdminPage />} />
             <Route path="taxonomy" element={<TaxonomyAdminPage />} />
             <Route path="content" element={<ContentAdminPage />} />
             <Route path="services" element={<ServicesAdminPage />} />

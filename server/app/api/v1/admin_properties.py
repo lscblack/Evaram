@@ -32,6 +32,7 @@ from app.models.property import (
     PropertySaleRecord,
     PropertyStatus,
 )
+from app.models.crm import Commission
 from app.models.taxonomy import PropertyCategory, PropertySubCategory
 from app.models.user import User, UserRole
 from app.schemas.common import Message, Page
@@ -45,6 +46,7 @@ from app.schemas.property import (
     BidDecision,
     BidOut,
     SaleRecordCreate,
+    SaleCommission,
     SaleRecordDetail,
     SaleRecordOut,
     EnquiryOut,
@@ -306,8 +308,8 @@ async def get_one(
     if not _can_touch(actor, prop):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This listing belongs to another agent")
 
-    card = property_service.to_card(row)
-    return PropertyDetail(
+    card = property_service.to_admin_card(row)
+    return PropertyDetailAdmin(
         **card.model_dump(),
         description=prop.description, title_rw=prop.title_rw, title_fr=prop.title_fr,
         summary_rw=prop.summary_rw, summary_fr=prop.summary_fr, province=prop.province,
@@ -369,6 +371,7 @@ async def create_property(
         if actor.role is UserRole.AGENT
         else PropertyStatus.DRAFT,
     )
+    property_service.apply_commission(prop)
     property_service.refresh_derived(prop)
     db.add(prop)
     await db.flush()
@@ -440,6 +443,7 @@ async def update_property(
         prop.status = PropertyStatus.PENDING_REVIEW
         prop.is_verified = False
 
+    property_service.apply_commission(prop)
     property_service.refresh_derived(prop)
     await record(
         db, actor=actor, action="property.update", entity_type="property",
@@ -904,7 +908,35 @@ async def sale_record(
     )
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such sale")
-    return SaleRecordDetail.model_validate(row)
+
+    # What was actually earned on this sale, and by whom.
+    earned = (
+        await db.execute(
+            select(Commission, User.full_name)
+            .outerjoin(User, Commission.agent_id == User.id)
+            .where(Commission.sale_record_id == record_id)
+            .order_by(Commission.earned_on)
+        )
+    ).all()
+
+    detail = SaleRecordDetail.model_validate(row)
+    detail.commissions = [
+        SaleCommission(
+            id=c.id,
+            agent_id=c.agent_id,
+            agent_name=name,
+            basis=c.basis.value,
+            rate=float(c.rate) if c.rate is not None else None,
+            base_amount=float(c.base_amount) if c.base_amount is not None else None,
+            amount=float(c.amount),
+            currency=c.currency,
+            status=c.status.value,
+            earned_on=c.earned_on,
+            received_on=c.received_on,
+        )
+        for c, name in earned
+    ]
+    return detail
 
 
 @router.get(

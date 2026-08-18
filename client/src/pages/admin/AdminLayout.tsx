@@ -3,6 +3,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Briefcase,
+  HandCoins,
   Building2,
   FileText,
   Gavel,
@@ -47,6 +48,7 @@ const NAV: { group: string; items: NavEntry[] }[] = [
     items: [
       { to: '/admin/properties', label: 'Properties', icon: Building2 },
       { to: '/admin/offers', label: 'Offers & sales', icon: Gavel },
+      { to: '/admin/deals', label: 'Clients & deals', icon: HandCoins, minimum: 'admin' },
       { to: '/admin/taxonomy', label: 'Categories & forms', icon: Shapes, minimum: 'admin' },
     ],
   },

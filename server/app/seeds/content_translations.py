@@ -1356,6 +1356,499 @@ CONTENT_BLOCKS = {
 
 
 CONTENT_BLOCKS.update({
+    # ---------------- about ----------------
+    "about/hero": {
+        "rw": {
+            "eyebrow": "Abo turi bo",
+            "title": "Ntabwo turi abahuza b’ubucuruzi.",
+            "accent": "Turi urwego rwubaka ubukungu.",
+            "body": (
+                "Evaramu Group Ltd ishakisha umutungo ukwiye, igafasha abakiriya kuwugura, "
+                "ikawubaka cyangwa ikawuvugurura, ikawucunga, kandi igihe kigeze ikabafasha "
+                "kuwugurisha no gushora bundi bushya. Umukiriya utangiye ku mutungo umwe "
+                "ashobora kugera kuri ine cyangwa itanu mu myaka itatu."
+            ),
+        },
+        "fr": {
+            "eyebrow": "À propos",
+            "title": "Nous ne sommes pas un courtier.",
+            "accent": "Nous sommes une machine à bâtir du patrimoine.",
+            "body": (
+                "Evaramu Group Ltd trouve le bon bien, aide les clients à l’acheter, le "
+                "construit ou le rénove, le gère, et le moment venu les aide à vendre et à "
+                "réinvestir. Un client qui commence avec un bien peut raisonnablement en "
+                "posséder quatre ou cinq en trois ans."
+            ),
+        },
+    },
+    "about/story": {
+        "rw": {
+            "eyebrow": "Abo turi bo",
+            "title": "Abanyarwanda basanzwe bagomba gushobora",
+            "accent": "kubaka ubukungu nyabwo binyuze ku mitungo.",
+            "body": (
+                "U Rwanda rukeneye amazu arenga 30,000 mashya buri mwaka, mu 2024 rwubatse "
+                "13.8% by’ayo. Icyuho cy’igihugu kiri hejuru y’amazu 400,000 kandi kiriyongera "
+                "buri mwaka. Ingo z’i Kigali ziteganyijwe kwikuba kabiri bigeze 2032."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Qui nous sommes",
+            "title": "Les Rwandais ordinaires devraient pouvoir",
+            "accent": "bâtir un vrai patrimoine par l’immobilier.",
+            "body": (
+                "Le Rwanda a besoin de plus de 30 000 logements neufs par an et en a livré "
+                "13,8% en 2024. Le déficit national dépasse 400 000 unités et se creuse chaque "
+                "année. Le nombre de ménages de Kigali devrait doubler d’ici 2032."
+            ),
+        },
+    },
+    "about/group_structure": {
+        "rw": {
+            "eyebrow": "Imiterere y’ikigo",
+            "title": "Ikigo gikuru gifite",
+            "accent": "amashami abiri akora.",
+            "body": (
+                "Evaramu Group Ltd yanditswe nk’isosiyete yigenga mu Rwanda mu Kigo cy’Igihugu "
+                "gishinzwe Iterambere (RDB). Andi mashami azongerwaho nk’ibigo bito bishamikiye "
+                "ku kigo gikuru."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Structure du groupe",
+            "title": "Une société mère avec",
+            "accent": "deux divisions actives.",
+            "body": (
+                "Evaramu Group Ltd est enregistrée comme société à responsabilité limitée au "
+                "Rwanda auprès du Rwanda Development Board. De futures divisions seront ajoutées "
+                "comme entités rattachées au groupe."
+            ),
+        },
+    },
+    "about/phased_execution": {
+        "rw": {
+            "eyebrow": "Gushyira mu bikorwa mu byiciro",
+            "title": "Tangira uto. Ubake ukomeye.",
+            "accent": "Buri cyiciro gitera inkunga igikurikira.",
+            "body": (
+                "Ntitwaguka kurusha uko kwizerwa kwacu bishobora kubyitwaramo. Dore aho turi "
+                "n’aho tugana."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Exécution par phases",
+            "title": "Commencer petit. Bâtir solide.",
+            "accent": "Chaque phase finance la suivante.",
+            "body": (
+                "Nous ne grandissons jamais plus vite que la confiance qui nous porte. Voici où "
+                "nous en sommes et où nous allons."
+            ),
+        },
+    },
+    "about/team_intro": {
+        "rw": {
+            "eyebrow": "Ikipe",
+            "title": "Bashyizwe ku byo bazi,",
+            "accent": "atari ku byoroshye.",
+            "body": (
+                "Buri muntu hano ari ku mwanya we kubera icyo azi neza. Umuntu utari ku mwanya "
+                "we yangiza amasezerano, izina n’umuco — ni yo mpamvu duhaka buhoro."
+            ),
+        },
+        "fr": {
+            "eyebrow": "L’équipe",
+            "title": "Placés sur leurs forces,",
+            "accent": "pas par commodité.",
+            "body": (
+                "Chaque personne ici occupe son poste pour ce qu’elle sait naturellement faire. "
+                "La mauvaise personne au mauvais poste détruit des affaires, une réputation et "
+                "une culture — alors nous recrutons lentement."
+            ),
+        },
+    },
+    "about/how_we_operate": {
+        "rw": {
+            "eyebrow": "Uko dukora",
+            "title": "Ibyo twiyemeje bine",
+            "accent": "tutajya duhindura.",
+        },
+        "fr": {
+            "eyebrow": "Notre façon de travailler",
+            "title": "Quatre engagements sur lesquels",
+            "accent": "nous ne transigeons pas.",
+        },
+    },
+    "about/seo": {
+        "rw": {
+            "title": "Ibyerekeye Evaramu Group Ltd — Imitungo n’Ubwubatsi i Kigali",
+            "body": (
+                "Evaramu Group Ltd ni isosiyete y’u Rwanda yanditswe ikora mu mitungo, "
+                "ubwubatsi n’ubukungu bushingiye ku mitungo, ifite icyicaro i Kigali. Amashami "
+                "abiri akora, inama y’ubuyobozi y’imbere, n’umuco ushingiye ku nyandiko n’umuvuduko."
+            ),
+        },
+        "fr": {
+            "title": "À propos d’Evaramu Group Ltd — Immobilier et construction à Kigali",
+            "body": (
+                "Evaramu Group Ltd est une société rwandaise enregistrée, active dans "
+                "l’immobilier, la construction et le patrimoine immobilier, basée à Kigali. Deux "
+                "divisions actives, un conseil interne, et une culture fondée sur la "
+                "documentation et la réactivité."
+            ),
+        },
+    },
+
+    # ---------------- construction ----------------
+    "construction/hero": {
+        "rw": {
+            "eyebrow": "Evaramu Construction",
+            "title": "Igiciro gihamye, cyanditse",
+            "accent": "mbere y’uko itafari rya mbere rishyirwaho.",
+            "body": (
+                "Isoko ry’u Rwanda ryuzuyemo abubatsi batazwi, amasezerano yo mu kanwa "
+                "n’ibiciro bihinduka umaze kwiyemeza. Twe dukora ibinyuranye: urutonde "
+                "rw’ibikoresho rufite igiciro, ingoboka ivuzwe ku mugaragaro, n’urutonde "
+                "rw’ikiguzi ushobora gufungura igihe icyo ari cyo cyose."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Evaramu Construction",
+            "title": "Un prix fixe, écrit",
+            "accent": "avant la pose du premier bloc.",
+            "body": (
+                "Le marché rwandais est plein d’entrepreneurs sans enseigne, de contrats verbaux "
+                "et de devis qui bougent une fois que vous êtes engagé. Nous faisons l’inverse : "
+                "un métré chiffré, une marge d’imprévus annoncée ouvertement, et un tableau de "
+                "coûts consultable à tout moment."
+            ),
+        },
+    },
+    "construction/packages": {
+        "rw": {
+            "eyebrow": "Pake zo kurangiza",
+            "title": "Ibyiciro bitatu.",
+            "accent": "Nta cya kane gihishe.",
+            "body": (
+                "Hitamo urwego ruhuye n’icyo umutungo ugomba gukora. Ubwubatsi bwinshi "
+                "bw’Uruziga rw’Ubukungu bugera kuri Premium, kuko ari yo miterere ikodeshwa "
+                "neza kandi ikagurishwa neza."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Formules de finition",
+            "title": "Trois niveaux.",
+            "accent": "Pas de quatrième caché.",
+            "body": (
+                "Choisissez le standard correspondant à ce que le bien doit faire. La plupart "
+                "des chantiers du Cycle de Richesse s’arrêtent sur Premium, parce que c’est la "
+                "spécification qui se loue bien et se vend bien."
+            ),
+        },
+    },
+    "construction/estimator": {
+        "rw": {
+            "eyebrow": "Igereranyo ry’ikiguzi",
+            "title": "Ubwubatsi bwawe",
+            "accent": "bwatwara angahe koko?",
+            "body": (
+                "Umubare wa mbere ushingiye kuri pake wahisemo hejuru. Igiciro nyacyo kizava ku "
+                "gusura ikibanza no gupima ibikoresho — ariko ibi bikwereka niba uri mu rwego rukwiye."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Estimation indicative",
+            "title": "Combien coûterait",
+            "accent": "réellement votre chantier ?",
+            "body": (
+                "Un premier chiffre basé sur la formule choisie ci-dessus. Le vrai devis vient "
+                "après une visite du site et un métré — mais ceci vous dit si vous êtes dans la "
+                "bonne fourchette."
+            ),
+        },
+    },
+    "construction/build_process": {
+        "rw": {
+            "eyebrow": "Uko bigenda",
+            "title": "Intambwe esheshatu,",
+            "accent": "nta gutungurwa.",
+            "body": "Buri bwubatsi bukurikiza urutonde rumwe, kandi ubona urutonde rw’ikiguzi kuri buri ntambwe.",
+        },
+        "fr": {
+            "eyebrow": "Comment ça marche",
+            "title": "Six étapes,",
+            "accent": "aucune surprise.",
+            "body": "Chaque chantier suit la même séquence, et vous voyez le tableau de coûts à chacune.",
+        },
+    },
+    "construction/process_intro": {
+        "rw": {
+            "eyebrow": "Uko umushinga ugenda",
+            "title": "Intambwe esheshatu, kandi uzi",
+            "accent": "aho ugeze muri zose.",
+        },
+        "fr": {
+            "eyebrow": "Le déroulé d’un projet",
+            "title": "Six étapes, et vous savez",
+            "accent": "où vous en êtes à chacune.",
+        },
+    },
+    "construction/renovation_services": {
+        "rw": {
+            "eyebrow": "Kuvugurura",
+            "title": "Si buri mushinga",
+            "accent": "utangirira ku butaka bwuzuye.",
+            "body": "Inzu zitarangiye, amazu akodeshwa yashaje n’ubwubatsi bugeze hagati — bigezwa ku rwego ku giciro gihamye.",
+        },
+        "fr": {
+            "eyebrow": "Rénovation",
+            "title": "Tout projet ne part pas",
+            "accent": "d’un terrain nu.",
+            "body": "Gros œuvre, locations fatiguées et chantiers à moitié finis — remis à niveau à prix fixe.",
+        },
+    },
+    "construction/renovation_intro": {
+        "rw": {
+            "eyebrow": "Kuvugurura n’imirimo mito",
+            "title": "Si buri mushinga ari",
+            "accent": "ubwubatsi bushya.",
+            "body": (
+                "Ibyinshi dukora ni ukurangiza icyo undi yatangiye, cyangwa kuzamura umutungo "
+                "uriho ukagera ku rwego rutuma ukodeshwa. Ibiciro biri hasi ni intangiriro "
+                "isanzwe, si igiciro ntakuka."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Rénovation et petits travaux",
+            "title": "Tout projet n’est pas",
+            "accent": "une construction neuve.",
+            "body": (
+                "L’essentiel de notre travail consiste à finir ce que quelqu’un d’autre a "
+                "commencé, ou à porter un bien existant au niveau qui permet de le louer. Les "
+                "prix ci-dessous sont des points de départ typiques, pas des devis."
+            ),
+        },
+    },
+    "construction/seo": {
+        "rw": {
+            "title": "Ubwubatsi no Kuvugurura i Kigali — Pake z’igiciro gihamye",
+            "body": (
+                "Evaramu Construction yubaka kandi ivugurura i Kigali ku masezerano y’igiciro "
+                "gihamye n’ingoboka ya 15% ivuzwe mbere. Pake za Standard, Premium na Luxury, "
+                "raporo y’ikiguzi buri cyumweru n’ubugenzuzi bwa kure ku bakiriya bo mu mahanga."
+            ),
+        },
+        "fr": {
+            "title": "Construction et rénovation à Kigali — Formules à prix fixe",
+            "body": (
+                "Evaramu Construction bâtit et rénove à Kigali sur contrats à prix fixe avec 15% "
+                "d’imprévus annoncés d’emblée. Formules Standard, Premium et Luxury, reporting "
+                "hebdomadaire des coûts et supervision à distance pour la diaspora."
+            ),
+        },
+    },
+
+    # ---------------- sell ----------------
+    "sell/hero": {
+        "rw": {
+            "eyebrow": "Gurisha na Evaramu",
+            "title": "Umutungo wawe ukwiye kuruta",
+            "accent": "ifoto itagaragara neza mu itsinda rya WhatsApp.",
+            "body": (
+                "Tubwire ibiwerekeyeho hano hasi maze mu masaha abiri y’akazi tuzagusubiza "
+                "duhaye gahunda yo gusuzuma agaciro. Nta mafaranga yo gutangaza, nta masezerano "
+                "agufunga, kandi komisiyo yumvikanwaho mu nyandiko mbere y’uko ikintu cyose gitangira."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Vendre avec Evaramu",
+            "title": "Votre bien mérite mieux qu’une",
+            "accent": "photo floue dans un groupe WhatsApp.",
+            "body": (
+                "Parlez-nous-en ci-dessous et nous revenons vers vous sous deux heures ouvrées "
+                "avec un rendez-vous d’évaluation. Aucun frais de publication, aucun piège "
+                "d’exclusivité, et une commission convenue par écrit avant tout début."
+            ),
+        },
+    },
+    "sell/why_list": {
+        "rw": {
+            "eyebrow": "Impamvu wadutangariza",
+            "title": "Ubunyamwuga ni bwo",
+            "accent": "butandukanya byose.",
+            "body": (
+                "Mu Rwanda hari abahuza batemewe barenga 200. Icyo hafi ya bose badatanga ni "
+                "inyandiko, kwamamaza bikora, n’umuguzi wagenzuwe koko."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Pourquoi passer par nous",
+            "title": "Le professionnalisme est",
+            "accent": "toute la différence.",
+            "body": (
+                "Il y a plus de 200 courtiers informels au Rwanda. Ce que presque aucun n’offre : "
+                "de la documentation, un marketing qui fonctionne et un acheteur réellement qualifié."
+            ),
+        },
+    },
+    "sell/list_form": {
+        "rw": {
+            "eyebrow": "Tangaza umutungo wawe",
+            "title": "Tubwire ibiwurebana.",
+            "accent": "Ibisigaye tubikora.",
+            "body": (
+                "Ifishi ihinduka hakurikijwe icyo utangaza — ikibanza cy’amashyamba kibaza ku "
+                "bihingwa, inyubako y’apartema ikabaza ku mazu n’ubukode. Ubona gusa ibibazo bikureba."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Publier votre bien",
+            "title": "Parlez-nous-en.",
+            "accent": "Nous faisons le reste.",
+            "body": (
+                "Le formulaire s’adapte à ce que vous publiez — une parcelle boisée pose des "
+                "questions sur le couvert, un immeuble sur les logements et les loyers. Vous ne "
+                "voyez que les questions qui vous concernent."
+            ),
+        },
+    },
+    "sell/after_submit": {
+        "rw": {
+            "eyebrow": "Nyuma yo kohereza",
+            "title": "Icyo kibaho koko",
+            "accent": "nyuma.",
+        },
+        "fr": {
+            "eyebrow": "Après l’envoi",
+            "title": "Ce qui se passe",
+            "accent": "ensuite.",
+        },
+    },
+    "sell/seo": {
+        "rw": {
+            "title": "Gurisha cyangwa Utangaze Umutungo wawe mu Rwanda",
+            "body": (
+                "Tangaza ubutaka, inzu cyangwa inyubako y’ubucuruzi kuri Evaramu. Isuzuma "
+                "ry’agaciro ku buntu, amashusho ya drone n’amafoto y’umwuga birimo, abaguzi "
+                "bagenzurwa mbere yo gusura, na komisiyo yumvikanwaho mu nyandiko mbere yo gutangira."
+            ),
+        },
+        "fr": {
+            "title": "Vendre ou publier votre bien au Rwanda",
+            "body": (
+                "Publiez votre terrain, maison ou local commercial avec Evaramu. Évaluation "
+                "gratuite, vidéo par drone et photographie professionnelle incluses, acheteurs "
+                "qualifiés avant visite, commission convenue par écrit avant de commencer."
+            ),
+        },
+    },
+
+    # ---------------- join ----------------
+    "join/hero": {
+        "rw": {
+            "eyebrow": "Injira mu kigo",
+            "title": "Zana abo uzi mu kigo",
+            "accent": "gifite uburyo bukomeye inyuma.",
+            "body": (
+                "Mu Rwanda hari abahuza batemewe barenga 200 bafite ubumenyi nyabwo bw’aho "
+                "batuye ariko nta kintu kibashyigikiye — nta kirango, nta nyandiko, nta "
+                "kwamamaza, nta buryo bwo gukurikirana. Niba ari wowe, iri ni ryo sezerano."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Rejoindre l’agence",
+            "title": "Apportez votre réseau à une société",
+            "accent": "avec de vrais systèmes derrière.",
+            "body": (
+                "Il y a plus de 200 courtiers informels au Rwanda, avec une vraie connaissance "
+                "du terrain et rien derrière eux — pas de marque, pas de documentation, pas de "
+                "marketing, pas de système de relance. Si c’est vous, voici l’offre."
+            ),
+        },
+    },
+    "join/roles": {
+        "rw": {
+            "eyebrow": "Uburyo bune bwo kwinjira",
+            "title": "Hitamo ubwo",
+            "accent": "bugusobanura.",
+            "body": (
+                "Duhaka kandi dufatanya hashingiwe ku byo umuntu azi, atari ku byoroshye. "
+                "Umuntu utari ku mwanya we yangiza amasezerano, izina n’umuco — ni yo mpamvu "
+                "tugaragaza neza icyo buri bumwe busaba."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Quatre façons d’entrer",
+            "title": "Choisissez celle qui",
+            "accent": "vous décrit.",
+            "body": (
+                "Nous recrutons et nous associons sur les forces, pas par commodité. La mauvaise "
+                "personne au mauvais poste détruit des affaires, une réputation et une culture — "
+                "alors nous sommes précis sur ce que chacune implique."
+            ),
+        },
+    },
+    "join/calculator": {
+        "rw": {
+            "eyebrow": "Kubara komisiyo",
+            "title": "Umwaka mwiza",
+            "accent": "wakwinjiza angahe?",
+            "body": (
+                "Nyereza utubariro ugereranyije n’ukuri kwawe. Ibi bishingira kuri komisiyo "
+                "y’ikigo igera kuri 3% by’agaciro k’igurisha, muri yo ugafata umugabane wawe "
+                "wumvikanyweho."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Calculateur de commission",
+            "title": "Que pourrait rapporter",
+            "accent": "une bonne année ?",
+            "body": (
+                "Déplacez les curseurs selon votre réalité. Le modèle part d’une commission "
+                "d’agence d’environ 3% de la valeur de la transaction, dont vous prenez la part "
+                "convenue."
+            ),
+        },
+    },
+    "join/colleagues": {
+        "rw": {
+            "eyebrow": "Bagenzi bawe",
+            "title": "Ikipe nto.",
+            "accent": "Buri wese afite icyo ashinzwe.",
+            "body": (
+                "Ntiwabura mu nzego. Buri wese muri aba ayobora umurimo kuva ku ntangiriro "
+                "kugeza ku iherezo kandi akawutangaho raporo mu nama y’ukwezi."
+            ),
+        },
+        "fr": {
+            "eyebrow": "Vos collègues",
+            "title": "Petite équipe.",
+            "accent": "Chacun est responsable de quelque chose.",
+            "body": (
+                "Vous ne seriez pas perdu dans une hiérarchie. Chacune de ces personnes pilote "
+                "une fonction de bout en bout et en rend compte au conseil mensuel."
+            ),
+        },
+    },
+    "join/seo": {
+        "rw": {
+            "title": "Injira muri Evaramu — Akazi, Abacuruzi n’Abubatsi mu Rwanda",
+            "body": (
+                "Injira muri Evaramu Group Ltd nk’umucuruzi uhembwa komisiyo, umufatanyabikorwa "
+                "wigenga, umwubatsi wagenzuwe cyangwa umukozi wa buri munsi. Komisiyo ya 5–10%, "
+                "kwamamaza nyakuri inyuma yawe, n’ubwishyu bukurikije gahunda yanditse."
+            ),
+        },
+        "fr": {
+            "title": "Rejoindre Evaramu — Carrières, agents, courtiers et artisans au Rwanda",
+            "body": (
+                "Rejoignez Evaramu Group Ltd comme agent commissionné, courtier partenaire "
+                "indépendant, sous-traitant vérifié ou membre de l’équipe à plein temps. 5 à 10% "
+                "de commission, un vrai marketing derrière vous, et un paiement selon un "
+                "calendrier documenté."
+            ),
+        },
+    },
+
     # ---------------- services ----------------
     "services/hero": {
         "rw": {
@@ -1951,3 +2444,171 @@ FAQS = {
         },
     },
 }
+
+
+# `sell/intro` and `sell/hero` are the same copy in two places on the page.
+CONTENT_BLOCKS["sell/intro"] = CONTENT_BLOCKS["sell/hero"]
+
+# ---- items-only blocks: the repeating card lists -------------------------------
+CONTENT_BLOCKS.update({
+    "about/divisions": {
+        "rw": {"items": [
+            {"name": "Evaramu Realty", "status": "Ishami rya 1 · Rirakora", "icon": "Home",
+             "focus": "Guhuza abaguzi n’abagurisha, kugurisha, gukodesha, serivisi z’abo mu mahanga n’Uruziga rw’Ubukungu.", "active": True},
+            {"name": "Evaramu Construction", "status": "Ishami rya 2 · Rirakora", "icon": "HardHat",
+             "focus": "Kuvugurura, kurangiza, ubwubatsi bugenzurwa no gucunga ibibanza.", "active": True},
+            {"name": "Evaramu Technologies", "status": "Ishami rya 3 · Icyiciro cya 3", "icon": "LayoutGrid",
+             "focus": "Urubuga rwa PropTech, amatangazo, dashboards z’abakiriya n’ibikoresho bya AI.", "active": False},
+            {"name": "Evaramu Capital", "status": "Ishami rya 4 · Icyiciro cya 4", "icon": "Wallet",
+             "focus": "Ikigega cy’ishoramari mu mitungo, ubufatanye no gucunga imitungo.", "active": False},
+        ]},
+        "fr": {"items": [
+            {"name": "Evaramu Realty", "status": "Division 1 · Active", "icon": "Home",
+             "focus": "Courtage, ventes, locations, services diaspora et Cycle de Richesse.", "active": True},
+            {"name": "Evaramu Construction", "status": "Division 2 · Active", "icon": "HardHat",
+             "focus": "Rénovation, finition, chantiers supervisés et gestion de site.", "active": True},
+            {"name": "Evaramu Technologies", "status": "Division 3 · Phase 3", "icon": "LayoutGrid",
+             "focus": "Plateforme PropTech, annonces, tableaux de bord clients et outils IA.", "active": False},
+            {"name": "Evaramu Capital", "status": "Division 4 · Phase 4", "icon": "Wallet",
+             "focus": "Fonds d’investissement immobilier, syndications et gestion de portefeuille.", "active": False},
+        ]},
+    },
+    "about/governance": {
+        "rw": {"items": [
+            {"role": "Perezida / Umwe mu bashinze", "responsibility": "Ashyiraho icyerekezo, afite gahunda, afata ibyemezo bikomeye."},
+            {"role": "Umuyobozi Mukuru", "responsibility": "Imirimo ya buri munsi, gucunga ikipe, gusoza amasezerano, kubazwa inyungu."},
+            {"role": "Umuyobozi w’Imitungo", "responsibility": "Ayobora Evaramu Realty — amatangazo, amasezerano, abakiriya bo mu mahanga."},
+            {"role": "Umuyobozi w’Ubwubatsi", "responsibility": "Ayobora Evaramu Construction — imishinga, abubatsi, ubuziranenge ku kibanza."},
+            {"role": "Umuyobozi w’Imari", "responsibility": "Amafaranga ainjira, fagitire, ingengo y’imari, komisiyo na raporo z’imari."},
+            {"role": "Umujyanama utari mu buyobozi", "responsibility": "Ijwi rivuye hanze, kumenyekanisha no kugira inama ku byemezo bikomeye."},
+        ]},
+        "fr": {"items": [
+            {"role": "Président / Cofondateur", "responsibility": "Définit la vision, porte la stratégie, autorité finale sur les décisions majeures."},
+            {"role": "Directeur général", "responsibility": "Opérations quotidiennes, gestion d’équipe, exécution des transactions, compte de résultat."},
+            {"role": "Directeur de l’immobilier", "responsibility": "Dirige Evaramu Realty — annonces, transactions, clients diaspora, cycle immobilier."},
+            {"role": "Directeur de la construction", "responsibility": "Dirige Evaramu Construction — projets, entrepreneurs, qualité de chantier."},
+            {"role": "Directeur financier", "responsibility": "Trésorerie, facturation, budgets, commissions et reporting financier."},
+            {"role": "Conseiller non exécutif", "responsibility": "Regard extérieur, mises en relation et conseil sur les décisions majeures."},
+        ]},
+    },
+    "about/timeline": {
+        "rw": {"items": [
+            {"period": "Amezi 1–3", "title": "Kwiyandikisha, kubaka, gushaka ikipe",
+             "outcome": "Isosiyete yanditswe muri RDB. Ikirango cyatangiye. Imitungo mirongo itanu yanditswe.", "done": True},
+            {"period": "Amezi 4–9", "title": "Amasezerano ya mbere n’ubwubatsi bwa mbere",
+             "outcome": "Amasezerano 10+ yasojwe. Imishinga 3–5 yo kuvugurura yarangiye. Abakiriya ba mbere b’Uruziga.", "done": True},
+            {"period": "Amezi 10–24", "title": "Ikirango n’urubuga rw’ikoranabuhanga",
+             "outcome": "Urubuga rw’amatangazo rurakora. Dashboards ku bo mu mahanga. Amazu 15+ acungwa.", "done": False},
+            {"period": "Umwaka wa 3", "title": "Uyoboye isoko ryo hagati i Kigali",
+             "outcome": "Umushinga wa mbere w’amazu menshi uri kubakwa. Kwaguka mu Ntara y’Iburasirazuba.", "done": False},
+        ]},
+        "fr": {"items": [
+            {"period": "Mois 1–3", "title": "Enregistrer, bâtir, constituer l’équipe",
+             "outcome": "Société enregistrée au RDB. Marque en ligne. Cinquante biens catalogués.", "done": True},
+            {"period": "Mois 4–9", "title": "Premières transactions et premiers chantiers",
+             "outcome": "Plus de 10 transactions conclues. 3–5 rénovations livrées. Premiers clients du Cycle.", "done": True},
+            {"period": "Mois 10–24", "title": "Marque et plateforme technologique",
+             "outcome": "Plateforme d’annonces en ligne. Tableaux de bord diaspora. Plus de 15 logements gérés.", "done": False},
+            {"period": "Année 3", "title": "Leader du milieu de marché à Kigali",
+             "outcome": "Premier développement multi-logements en construction. Expansion dans la Province de l’Est.", "done": False},
+        ]},
+    },
+    "join/culture_rules": {
+        "rw": {"items": [
+            {"title": "Buri masezerano yandikwa", "body": "Nta masezerano yo mu kanwa gusa, imbere cyangwa hanze y’isosiyete. Icyo kutanditse ntabwo cyabaye."},
+            {"title": "Umuvuduko ni wo dutandukaniraho", "body": "Buri mukiriya asubizwa mu masaha abiri. Abandi bamara iminsi — icyo cyuho ni cyo mbaraga zacu kandi turakirinda."},
+            {"title": "Nta wuhisha ikibazo", "body": "Amakuru mabi asangizwa ako kanya kugira ngo akemuke. Guhisha ikibazo ni cyo kintu kimwe kidashobora kubabarirwa hano."},
+            {"title": "Kwizerwa n’umukiriya ni cyo tugurisha", "body": "Buri wese arakirinda cyangwa akagenda. Isezerano rimwe ribi ryangiza izina ryatwaye imyaka kubakwa."},
+            {"title": "Ibyagezweho biruta uburambe", "body": "Igitekerezo cyiza gitsinda uwo ari we wese wagitanze."},
+        ]},
+        "fr": {"items": [
+            {"title": "Chaque affaire est documentée", "body": "Aucun accord purement verbal, en interne comme à l’extérieur. Si ce n’est pas écrit, cela n’a pas eu lieu."},
+            {"title": "La réactivité est notre différence", "body": "Chaque prospect reçoit une réponse sous deux heures. Les concurrents mettent des jours — cet écart est notre avantage et nous le protégeons."},
+            {"title": "Personne ne cache un problème", "body": "Une mauvaise nouvelle se partage immédiatement pour être corrigée. Cacher un problème est la seule chose vraiment impardonnable ici."},
+            {"title": "La confiance du client est le produit", "body": "Chaque membre de l’équipe la protège, ou s’en va. Une seule mauvaise affaire abîme une marque bâtie en des années."},
+            {"title": "Les résultats avant l’ancienneté", "body": "La meilleure idée l’emporte, quel que soit celui qui l’a proposée."},
+        ]},
+    },
+    "not-found/suggestions": {
+        "rw": {"items": [
+            {"to": "/properties", "icon": "Search", "title": "Reba imitungo",
+             "description": "Ubutaka, amazu n’inyubako z’ubucuruzi byagenzuwe mu Rwanda hose"},
+            {"to": "/wealth-cycle", "icon": "RefreshCw", "title": "Uruziga rw’Ubukungu",
+             "description": "Uko umutungo umwe uba ine cyangwa itanu mu myaka itatu"},
+            {"to": "/construction", "icon": "HardHat", "title": "Pake z’ubwubatsi",
+             "description": "Standard, Premium na Luxury ku biciro bihamye"},
+            {"to": "/consultation", "icon": "Compass", "title": "Fata igihe cyo kuganira",
+             "description": "Ikiganiro cy’iminota 30 ku buntu cyo kureba icyashoboka"},
+        ]},
+        "fr": {"items": [
+            {"to": "/properties", "icon": "Search", "title": "Parcourir les biens",
+             "description": "Terrains, maisons et locaux commerciaux vérifiés dans tout le Rwanda"},
+            {"to": "/wealth-cycle", "icon": "RefreshCw", "title": "Le Cycle de Richesse",
+             "description": "Comment un bien en devient quatre ou cinq en trois ans"},
+            {"to": "/construction", "icon": "HardHat", "title": "Formules de construction",
+             "description": "Finitions Standard, Premium et Luxury à prix fixe"},
+            {"to": "/consultation", "icon": "Compass", "title": "Réserver une consultation",
+             "description": "Un appel gratuit de 30 minutes pour cerner ce qui est réalisable"},
+        ]},
+    },
+    "sell/steps": {
+        "rw": {"items": [
+            {"id": "type", "title": "Ubwoko bw’umutungo", "description": "Utangaza iki?"},
+            {"id": "parcel", "title": "Amakuru y’ikibanza", "description": "UPI n’aho giherereye"},
+            {"id": "spec", "title": "Ibiranga", "description": "Ibisobanuro by’uyu mutungo"},
+            {"id": "price", "title": "Igiciro n’amashusho", "description": "Icyo uwushakaho"},
+            {"id": "contact", "title": "Amakuru yawe", "description": "Uko twakugeraho"},
+        ]},
+        "fr": {"items": [
+            {"id": "type", "title": "Type de bien", "description": "Que publiez-vous ?"},
+            {"id": "parcel", "title": "Détails de la parcelle", "description": "UPI et localisation"},
+            {"id": "spec", "title": "Caractéristiques", "description": "Les spécificités de ce bien"},
+            {"id": "price", "title": "Prix et médias", "description": "Ce que vous en attendez"},
+            {"id": "contact", "title": "Vos coordonnées", "description": "Comment vous joindre"},
+        ]},
+    },
+    "sell/why_list_items": {
+        "rw": {"items": [
+            {"icon": "Camera", "title": "Kwamamazwa uko bikwiye",
+             "body": "Amashusho ya drone, amafoto y’umwuga n’itangazo rifite ikarita — aho kuba amafoto ya telefoni mu itsinda rya WhatsApp."},
+            {"icon": "ShieldCheck", "title": "Abaguzi bagenzurwa mbere",
+             "body": "Turareba ko umuguzi ashobora kwishyura mbere yo kugera ku mutungo wawe. Isura nke, ariko nziza."},
+            {"icon": "FileCheck2", "title": "Byanditse kuva ku ntangiriro",
+             "body": "Amasezerano ya digitale, inyemezabwishyu kuri buri bwishyu, n’inyandiko ya buri cyifuzo. Nta masezerano yo mu kanwa, nta mpaka."},
+            {"icon": "Handshake", "title": "Komisiyo mu nyandiko",
+             "body": "Yumvikanwaho mbere y’uko akazi gatangira kandi ihabwa gusa iyo igurisha ryarangiye."},
+        ]},
+        "fr": {"items": [
+            {"icon": "Camera", "title": "Commercialisé correctement",
+             "body": "Vidéo par drone, photographie professionnelle et annonce cartographiée — au lieu de clichés de téléphone dans un groupe WhatsApp."},
+            {"icon": "ShieldCheck", "title": "Acheteurs qualifiés d’abord",
+             "body": "Nous vérifions qu’un acheteur peut réellement financer l’achat avant qu’il ne mette un pied chez vous. Moins de visites, de meilleure qualité."},
+            {"icon": "FileCheck2", "title": "Documenté de bout en bout",
+             "body": "Contrats numériques, reçus pour chaque paiement et trace écrite de chaque offre. Pas d’accords verbaux, pas de litiges."},
+            {"icon": "Handshake", "title": "Commission par écrit",
+             "body": "Convenue avant tout travail et due uniquement à la conclusion de la vente."},
+        ]},
+    },
+    "services/management_includes": {
+        "rw": {"items": [
+            {"title": "Gushaka no gusuzuma abakodesha",
+             "body": "Twamamaza inzu, tugasuzuma abasaba kandi tukareba ko bashobora kuyishyura. Abakiriya b’ibigo na ONG barashakishwa ku bushake — basinya igihe kirekire kandi bakishyura ku gihe."},
+            {"title": "Gukusanya ubukode n’imyenda",
+             "body": "Bukusanywa ku gihe bukoherezwa. Iyo umukodesha atinze, turabikurikirana — ni cyo amafaranga yacu akora."},
+            {"title": "Guhuza isanwa",
+             "body": "Ishami ryacu ry’ubwubatsi rikora isanwa ku kiguzi nyacyo, ku buryo igisenge kivamo amazi kidahinduka ibiganiro by’ibyumweru bitatu n’umuntu utazwi."},
+            {"title": "Ibigenzurwa na raporo z’imiterere",
+             "body": "Ibigenzurwa bifite amafoto hagati y’abakodesha, ku buryo ingwate ziganirwaho hashingiwe ku bimenyetso."},
+        ]},
+        "fr": {"items": [
+            {"title": "Recherche et sélection des locataires",
+             "body": "Nous commercialisons le logement, examinons les candidats et vérifions qu’ils peuvent réellement payer. Les entreprises et ONG sont ciblées délibérément — elles signent plus longtemps et paient à temps."},
+            {"title": "Encaissement des loyers et impayés",
+             "body": "Encaissés dans les délais et reversés. Si un locataire prend du retard, nous le relançons — c’est à cela que servent nos honoraires."},
+            {"title": "Coordination de l’entretien",
+             "body": "Notre division construction réalise les réparations à prix coûtant, pour qu’une toiture qui fuit ne devienne pas trois semaines de négociation avec un inconnu."},
+            {"title": "Inspections et états des lieux",
+             "body": "Inspections photographiées entre deux locations, pour que les cautions se discutent sur preuves."},
+        ]},
+    },
+})

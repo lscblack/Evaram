@@ -12,6 +12,7 @@ import {
 } from '@/components/admin/ui'
 import { api } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
+import { LocaleHint, LocaleTabs, useLocaleDraft } from '@/components/admin/LocaleTabs'
 import { cn } from '@/lib/utils'
 import type { ApiFaq, ApiTestimonial } from '@/types/api'
 
@@ -217,7 +218,11 @@ function FaqRow({
   onChange: (work: () => Promise<unknown>) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState({ question: faq.question, answer: faq.answer })
+  const { locale, setLocale, draft, current, set, pack, hasContent } = useLocaleDraft(
+    { question: faq.question, answer: faq.answer },
+    faq.translations,
+    ['question', 'answer'],
+  )
 
   return (
     <div className="border-t border-line/70">
@@ -231,19 +236,23 @@ function FaqRow({
 
       {open && (
         <div className="space-y-3.5 bg-canvas-alt px-5 py-4">
+          <div className="flex justify-end">
+            <LocaleTabs locale={locale} onChange={setLocale} hasContent={hasContent} />
+          </div>
+          <LocaleHint locale={locale} />
           <Field label="Question">
             <input
               className={FIELD}
-              value={draft.question}
-              onChange={(e) => setDraft((d) => ({ ...d, question: e.target.value }))}
+              value={current.question}
+              onChange={(e) => set('question', e.target.value)}
             />
           </Field>
           <Field label="Answer">
             <textarea
               rows={4}
               className={cn(FIELD, 'h-auto py-2.5')}
-              value={draft.answer}
-              onChange={(e) => setDraft((d) => ({ ...d, answer: e.target.value }))}
+              value={current.answer}
+              onChange={(e) => set('answer', e.target.value)}
             />
           </Field>
           <div className="flex justify-end gap-2">
@@ -262,7 +271,15 @@ function FaqRow({
             <button
               type="button"
               disabled={busy}
-              onClick={() => onChange(() => api.patch(`/admin/faqs/${faq.id}`, draft))}
+              onClick={() =>
+                onChange(() =>
+                  api.patch(`/admin/faqs/${faq.id}`, {
+                    question: draft.en.question,
+                    answer: draft.en.answer,
+                    translations: pack(),
+                  }),
+                )
+              }
               className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-[0.8125rem] font-semibold text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <Save className="size-3.5" strokeWidth={2.2} />

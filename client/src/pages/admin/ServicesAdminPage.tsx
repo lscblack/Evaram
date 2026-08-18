@@ -14,6 +14,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { invalidate, useQuery } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+import { LocaleTabs, type Locale } from '@/components/admin/LocaleTabs'
 import { MarketStatsPanel } from '@/components/admin/MarketStatsPanel'
 import type { ApiServiceLine } from '@/types/api'
 
@@ -55,6 +56,9 @@ export default function ServicesAdminPage() {
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [editing, setEditing] = useState<string | null>(null)
   const [edit, setEdit] = useState(EMPTY_DRAFT)
+  /** rw/fr overrides for the row being edited, keyed by locale then field. */
+  const [editLocale, setEditLocale] = useState<Locale>('en')
+  const [editTranslations, setEditTranslations] = useState<LocaleDraft>(EMPTY_LOCALES)
 
   const { data, loading, refetch } = useQuery<ApiServiceLine[]>('/admin/services', { ttl: 0 })
   const services = data ?? []
@@ -103,6 +107,8 @@ export default function ServicesAdminPage() {
 
   const startEdit = (row: ApiServiceLine) => {
     setEditing(row.id)
+    setEditLocale('en')
+    setEditTranslations(readLocales(row.translations))
     setEdit({
       slug: row.slug,
       title: row.title,
@@ -117,7 +123,12 @@ export default function ServicesAdminPage() {
   }
 
   const saveEdit = async (id: string) => {
-    const ok = await run(id, () => api.patch(`/admin/services/${id}`, bodyFrom(edit)))
+    const ok = await run(id, () =>
+      api.patch(`/admin/services/${id}`, {
+        ...bodyFrom(edit),
+        translations: packLocales(editTranslations),
+      }),
+    )
     if (ok) setEditing(null)
   }
 
@@ -210,7 +221,35 @@ export default function ServicesAdminPage() {
               <li key={row.id} className="p-5">
                 {editing === row.id ? (
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <ServiceFields draft={edit} setDraft={setEdit} />
+                    <div className="sm:col-span-2 flex items-center justify-between gap-3">
+                      <LocaleTabs
+                        locale={editLocale}
+                        onChange={setEditLocale}
+                        hasContent={(l) =>
+                          l === 'en' ||
+                          Object.values(editTranslations[l] ?? {}).some((v) => v.trim())
+                        }
+                      />
+                      {editLocale !== 'en' && (
+                        <span className="text-[0.75rem] text-ink-muted">
+                          Blank falls back to English
+                        </span>
+                      )}
+                    </div>
+
+                    {editLocale === 'en' ? (
+                      <ServiceFields draft={edit} setDraft={setEdit} />
+                    ) : (
+                      <TranslatedServiceFields
+                        values={editTranslations[editLocale]}
+                        onChange={(field, value) =>
+                          setEditTranslations((t) => ({
+                            ...t,
+                            [editLocale]: { ...t[editLocale], [field]: value },
+                          }))
+                        }
+                      />
+                    )}
                     <div className="sm:col-span-2 flex gap-3">
                       <button
                         type="button"
@@ -382,6 +421,86 @@ function ServiceFields({
           onChange={(e) => set('display_order')(e.target.value)}
         />
       </Field>
+    </>
+  )
+}
+
+
+/* ------------------------------------------------- translated service fields */
+
+type LocaleFields = { title: string; tagline: string; description: string; bullets: string }
+type LocaleDraft = Record<'rw' | 'fr', LocaleFields>
+
+const EMPTY_LOCALE_FIELDS: LocaleFields = { title: '', tagline: '', description: '', bullets: '' }
+const EMPTY_LOCALES: LocaleDraft = { rw: { ...EMPTY_LOCALE_FIELDS }, fr: { ...EMPTY_LOCALE_FIELDS } }
+
+/** Read rw/fr out of the stored blob into editable strings. */
+function readLocales(translations: ApiServiceLine['translations']): LocaleDraft {
+  const one = (locale: string): LocaleFields => {
+    const found = (translations?.[locale] ?? {}) as Record<string, unknown>
+    const text = (k: string) => (typeof found[k] === 'string' ? (found[k] as string) : '')
+    return {
+      title: text('title'),
+      tagline: text('tagline'),
+      description: text('description'),
+      // Bullets are an array on the wire and one-per-line in the form.
+      bullets: Array.isArray(found.bullets) ? (found.bullets as string[]).join('\n') : '',
+    }
+  }
+  return { rw: one('rw'), fr: one('fr') }
+}
+
+/** Back to the wire shape, dropping anything blank so English shows through. */
+function packLocales(draft: LocaleDraft): Record<string, Record<string, unknown>> | null {
+  const out: Record<string, Record<string, unknown>> = {}
+  for (const locale of ['rw', 'fr'] as const) {
+    const fields = draft[locale]
+    const entry: Record<string, unknown> = {}
+    if (fields.title.trim()) entry.title = fields.title.trim()
+    if (fields.tagline.trim()) entry.tagline = fields.tagline.trim()
+    if (fields.description.trim()) entry.description = fields.description.trim()
+    const bullets = fields.bullets.split('\n').map((b) => b.trim()).filter(Boolean)
+    if (bullets.length) entry.bullets = bullets
+    if (Object.keys(entry).length) out[locale] = entry
+  }
+  return Object.keys(out).length ? out : null
+}
+
+function TranslatedServiceFields({
+  values,
+  onChange,
+}: {
+  values: LocaleFields
+  onChange: (field: keyof LocaleFields, value: string) => void
+}) {
+  return (
+    <>
+      <Field label="Title">
+        <input className={FIELD} value={values.title} onChange={(e) => onChange('title', e.target.value)} />
+      </Field>
+      <Field label="Tagline">
+        <input className={FIELD} value={values.tagline} onChange={(e) => onChange('tagline', e.target.value)} />
+      </Field>
+      <div className="sm:col-span-2">
+        <Field label="Description">
+          <textarea
+            rows={2}
+            className={cn(FIELD, 'h-auto py-2.5')}
+            value={values.description}
+            onChange={(e) => onChange('description', e.target.value)}
+          />
+        </Field>
+      </div>
+      <div className="sm:col-span-2">
+        <Field label="Bullets" hint="One per line.">
+          <textarea
+            rows={4}
+            className={cn(FIELD, 'h-auto py-2.5')}
+            value={values.bullets}
+            onChange={(e) => onChange('bullets', e.target.value)}
+          />
+        </Field>
+      </div>
     </>
   )
 }

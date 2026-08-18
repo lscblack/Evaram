@@ -16,7 +16,8 @@ import {
 import { api } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
 import { useAuth } from '@/lib/auth'
-import type { AuthUser, Page, UserRole } from '@/types/api'
+import { TeamProfileDrawer } from '@/components/admin/TeamProfileDrawer'
+import type { AdminUser, Page, UserRole } from '@/types/api'
 
 const ROLES: UserRole[] = ['user', 'agent', 'admin', 'super_admin']
 const STATUSES = ['active', 'pending', 'suspended']
@@ -30,12 +31,13 @@ const ROLE_TONE: Record<string, 'good' | 'warn' | 'info' | 'neutral'> = {
 
 export default function UsersAdminPage() {
   const { user: me, can } = useAuth()
-  const { data, loading, refetch } = useQuery<Page<AuthUser>>('/admin/users?per_page=48', {
+  const { data, loading, refetch } = useQuery<Page<AdminUser>>('/admin/users?per_page=48', {
     ttl: 0,
   })
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<AdminUser | null>(null)
   const [draft, setDraft] = useState({
     email: '',
     full_name: '',
@@ -170,6 +172,7 @@ export default function UsersAdminPage() {
                 <Th>Person</Th>
                 <Th>Role</Th>
                 <Th>Status</Th>
+                <Th>Team page</Th>
                 <Th className="text-right">Actions</Th>
               </tr>
             </thead>
@@ -191,8 +194,35 @@ export default function UsersAdminPage() {
                     <Td>
                       <Badge tone={row.status === 'active' ? 'good' : 'warn'}>{row.status}</Badge>
                     </Td>
+                    <Td>
+                      {row.is_public ? (
+                        <div className="flex items-center gap-2">
+                          {row.photo_url ? (
+                            <img
+                              src={row.photo_url}
+                              alt=""
+                              className="size-7 rounded-full border border-line object-cover"
+                            />
+                          ) : (
+                            <span className="grid size-7 place-items-center rounded-full bg-canvas-alt text-[0.625rem] font-bold text-ink-muted">
+                              {row.full_name.slice(0, 1).toUpperCase()}
+                            </span>
+                          )}
+                          <Badge tone="good">shown</Badge>
+                        </div>
+                      ) : (
+                        <Badge tone="neutral">hidden</Badge>
+                      )}
+                    </Td>
                     <Td className="text-right">
                       <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(row)}
+                          className="h-8 rounded-lg border border-line px-2.5 text-[0.75rem] font-semibold text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+                        >
+                          Profile
+                        </button>
                         <label htmlFor={`role-${row.id}`} className="sr-only">
                           Change role
                         </label>
@@ -243,6 +273,16 @@ export default function UsersAdminPage() {
           </Table>
         )}
       </Panel>
+
+      <TeamProfileDrawer
+        member={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          invalidate('/admin/users')
+          invalidate('/public/team')
+          void refetch()
+        }}
+      />
     </>
   )
 }

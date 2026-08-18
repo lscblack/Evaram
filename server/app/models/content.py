@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -220,7 +221,9 @@ class ConstructionPackage(Base, UUIDPrimaryKey, TimestampMixin):
     #: decision — a per-sqm figure quoted before a site visit is a number people
     #: hold you to, and every plot differs.
     price_per_sqm: Mapped[float] = mapped_column(Float, nullable=False)
-    show_price: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    show_price: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
     #: What the public sees instead of a figure.
     price_note: Mapped[str | None] = mapped_column(String(240))
     #: Who the package is for — the thing buyers actually choose on.

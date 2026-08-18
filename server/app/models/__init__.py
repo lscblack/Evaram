@@ -61,3 +61,4 @@ __all__ = [
     "SettingType", "SiteSetting", "Testimonial", "UiString", "UploaderType",
     "User", "UserRole", "UserStatus", "WealthCycleStep",
 ]
+from app.models import crm  # noqa: F401 — registers Client, Commission, Investment

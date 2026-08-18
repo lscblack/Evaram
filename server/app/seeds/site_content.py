@@ -261,47 +261,62 @@ SERVICE_LINES: list[dict] = [
                  "Proceeds redirected into 2–3 new assets",
                  "Ongoing management as the portfolio grows"]},
 
-    # ---- land services: the paperwork that has to exist before a build ----
+    # ---- land & permit services ----
+    # Sourced from the City of Kigali / One Stop Centre construction permit
+    # procedure and the National Land Authority. Where a step depends on the
+    # building category or the district, the copy says so rather than implying
+    # one universal process.
     {"slug": "survey", "title": "Plot survey & boundary beacons", "division": "Construction",
-     "icon": "MapPinned", "tagline": "Gutera bornes — your corners, marked and recorded",
+     "icon": "MapPinned", "tagline": "Gutera bornes \u2014 your corners marked and recorded",
      "href": "/services#land", "display_order": 7,
-     "description": ("A licensed surveyor measures the parcel and plants the boundary beacons, "
-                     "so the corners on the ground match the corners on the title."),
-     "bullets": ["Licensed land surveyor on site",
-                 "Boundary beacons (bornes) planted at every corner",
-                 "Measurements reconciled against the cadastre",
-                 "Neighbour boundary disputes flagged before you build"]},
+     "description": ("A land surveyor measures the parcel and sets the boundary beacons, so the "
+                     "corners on the ground match the parcel registered under your UPI."),
+     "bullets": ["Cadastral survey by a registered land surveyor",
+                 "Boundary beacons (bornes) set at every corner",
+                 "Measurements reconciled against the registered parcel",
+                 "Neighbour boundary disagreements identified before you build",
+                 "Note: national surveying demand is heavy \u2014 we tell you the realistic "
+                 "timeline up front, not the best case"]},
 
     {"slug": "gps-check", "title": "GPS & parcel verification", "division": "Construction",
-     "icon": "Compass", "tagline": "Confirm the plot you were shown is the plot on the title",
+     "icon": "Compass", "tagline": "Confirm the plot you were shown is the plot on the certificate",
      "href": "/services#land", "display_order": 8,
      "description": ("We take GPS readings on the ground and check them against the parcel "
-                     "registered under that UPI at the National Land Authority."),
+                     "registered under that UPI. The UPI itself encodes the province, district, "
+                     "sector and cell \u2014 so a mismatch shows up immediately."),
      "bullets": ["GPS coordinates captured on site",
-                 "Checked against the registered parcel geometry",
-                 "Size and shape confirmed against the title",
-                 "Written report you can act on"]},
+                 "Checked against the registered parcel boundary",
+                 "Size and shape compared with the certificate of land registration",
+                 "Written report you can act on before any deposit"]},
 
-    {"slug": "cadastral-plan", "title": "Cadastral plan (fiche cadastrale)", "division": "Construction",
-     "icon": "FileText", "tagline": "The parcel plan your architect will ask for",
+    {"slug": "cadastral-plan", "title": "Cadastral plan & land documents", "division": "Construction",
+     "icon": "FileText", "tagline": "The parcel documents your architect and the district will ask for",
      "href": "/services#land", "display_order": 9,
-     "description": ("We request the fiche cadastrale for your parcel from the National Land "
-                     "Authority and hand it over with the title search."),
-     "bullets": ["Fiche cadastrale requested on your behalf",
-                 "Land title search run at the same time",
-                 "Certified copies for your architect and the district",
-                 "Diaspora clients handled entirely remotely"]},
+     "description": ("We assemble the land file behind your build: the cadastral plan, which is "
+                     "approved at district level, together with your certificate of land "
+                     "registration or emphyteutic lease."),
+     "bullets": ["Cadastral plan prepared and taken through district approval",
+                 "Certificate of land registration or emphyteutic lease retrieved",
+                 "Current-year property tax receipt collected \u2014 the permit file requires it",
+                 "Copies formatted for submission (A4, with the site plan at A0)",
+                 "Diaspora clients handled remotely under a written mandate"]},
 
     {"slug": "building-permit", "title": "Building permit support", "division": "Construction",
-     "icon": "FileSignature", "tagline": "Uruhushya rwo kubaka — legally cleared to build",
+     "icon": "FileSignature", "tagline": "Uruhushya rwo kubaka \u2014 the file, assembled and followed",
      "href": "/services#land", "display_order": 10,
-     "description": ("Drawings, structural certification and the district submission — we "
-                     "assemble the file and follow it through the One Stop Centre until the "
-                     "permit is issued."),
-     "bullets": ["Architectural and structural drawings prepared",
-                 "Zoning and land-use compliance checked first",
-                 "Submitted through the District One Stop Centre",
-                 "Followed up until the permit is in your hand"]},
+     "description": ("Building permits in Rwanda are granted by the District One Stop Centre or "
+                     "the City of Kigali, and what your file must contain depends on the "
+                     "category your building falls into. We work out the category first, then "
+                     "assemble the file and follow it through."),
+     "bullets": ["Building category confirmed first \u2014 small structures need only an "
+                 "authorisation, not a full permit",
+                 "Pre-application consultation with the One Stop Centre where it helps",
+                 "Zoning and Master Plan conformity checked before drawings begin",
+                 "Architectural, structural and services drawings, plus the bill of quantities",
+                 "Certified by registered professionals, as the procedure requires",
+                 "Environmental clearance or a full EIA arranged where the category calls for it",
+                 "Submitted through the district and tracked to issue",
+                 "Occupancy permit applied for once the building is complete"]},
 ]
 
 

@@ -15,7 +15,15 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 
-from app.api.v1 import admin_content, admin_properties, admin_taxonomy, auth, public, secure
+from app.api.v1 import (
+    admin_content,
+    admin_crm,
+    admin_properties,
+    admin_taxonomy,
+    auth,
+    public,
+    secure,
+)
 from app.core.config import settings
 from app.core.bootstrap import bootstrap_database
 from app.core.database import SessionLocal, dispose_engine, engine
@@ -128,7 +136,7 @@ app.include_router(secure.router, prefix=API)
 # Everything else runs through SecureRoute, which unseals request bodies and
 # seals responses whenever the caller presents a negotiated session.
 for router in (auth.router, public.router, admin_taxonomy.router,
-               admin_properties.router, admin_content.router):
+               admin_properties.router, admin_content.router, admin_crm.router):
     router.route_class = SecureRoute
     for route in router.routes:
         route.__class__ = SecureRoute

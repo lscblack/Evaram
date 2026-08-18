@@ -15,6 +15,7 @@ from app.models.property import (
     PropertyStatus,
 )
 from app.models.user import User
+from app.models.crm import Commission, CommissionBasis, CommissionStatus
 from app.schemas.property import BidSummary, SaleRecordCreate
 
 #: Statuses that still count towards the public "highest offer".
@@ -264,6 +265,10 @@ async def record_sale(
         notes=payload.notes,
     )
     db.add(record)
+    # The primary key is a Python-side default, which SQLAlchemy only applies on
+    # flush — without this the commission below is written with a null
+    # sale_record_id and orphaned from the sale it belongs to.
+    await db.flush()
 
     # Keep the agent's deal counter honest. The sale records are the source of
     # truth — this column is a cache so the team page does not have to aggregate
@@ -272,6 +277,11 @@ async def record_sale(
         agent = await db.scalar(select(User).where(User.id == prop.agent_id))
         if agent:
             agent.deals_closed = (agent.deals_closed or 0) + 1
+
+    # The listing carried a commission *intention*; closing the sale is what
+    # turns it into a ledger entry, against the real sale price rather than the
+    # asking price. Without this the agent's earnings vanish with the listing.
+    _record_commission(db, prop, record, sold_price, actor_id)
 
     prop.status = PropertyStatus.SOLD
     prop.is_archived = True
@@ -293,3 +303,52 @@ async def record_sale(
 
     await db.flush()
     return record
+
+
+def _record_commission(
+    db: AsyncSession,
+    prop: Property,
+    record: PropertySaleRecord,
+    sold_price: float | None,
+    actor_id: uuid.UUID,
+) -> Commission | None:
+    """Turn the listing's configured commission into an earned ledger entry.
+
+    Computed against what the property *actually sold for*, not the asking
+    price — a deal that closes 10% under should pay 10% less commission.
+    """
+    basis = prop.commission_basis
+    if not basis:
+        return None
+
+    base = float(sold_price) if sold_price is not None else None
+    if basis == "percent":
+        if prop.commission_rate is None or base is None:
+            return None
+        amount = round(base * float(prop.commission_rate) / 100, 2)
+    elif basis == "fixed":
+        if prop.commission_amount is None:
+            return None
+        amount = round(float(prop.commission_amount), 2)
+    else:
+        return None
+
+    if amount <= 0:
+        return None
+
+    commission = Commission(
+        property_id=prop.id,
+        sale_record_id=record.id,
+        agent_id=prop.agent_id,
+        basis=CommissionBasis(basis),
+        rate=prop.commission_rate,
+        base_amount=base,
+        amount=amount,
+        currency=prop.currency,
+        status=CommissionStatus.PENDING,
+        earned_on=record.sold_at.date(),
+        reference=prop.reference_number,
+        recorded_by_id=actor_id,
+    )
+    db.add(commission)
+    return commission

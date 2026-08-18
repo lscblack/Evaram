@@ -200,7 +200,23 @@ export interface ApiSaleRecord {
   created_at: string
 }
 
+export interface ApiSaleCommission {
+  id: string
+  agent_id: string | null
+  agent_name: string | null
+  basis: string
+  rate: number | null
+  base_amount: number | null
+  amount: number
+  currency: string
+  status: string
+  earned_on: string
+  received_on: string | null
+}
+
 export interface ApiSaleRecordDetail extends ApiSaleRecord {
+  /** What we earned on the sale, and which agent closed it. */
+  commissions: ApiSaleCommission[]
   /** The full listing at the moment of sale — used to prefill a re-listing. */
   snapshot: Record<string, unknown> | null
 }
@@ -604,4 +620,125 @@ export interface PropertyRequestReceipt {
   id: string
   reference: string
   detail: string
+}
+
+
+/** A staff profile as the console sees it — every field the team page uses. */
+export interface AdminUser extends AuthUser {
+  bio: string | null
+  languages: string[] | null
+  specialties: string[] | null
+  covers: string[] | null
+  linkedin_url: string | null
+  joined_year: string | null
+  rating: number | null
+  /** Derived from recorded sales; not editable by hand. */
+  deals_closed: number
+  is_public: boolean
+  display_order: number
+}
+
+
+/* ------------------------------------------------------- clients & money */
+
+export type ClientKind = 'individual' | 'company'
+
+export interface ApiClient {
+  id: string
+  kind: ClientKind
+  /** The company's name, or the person's — whichever applies. */
+  display_name: string
+  full_name: string | null
+  national_id: string | null
+  company_name: string | null
+  tin: string | null
+  registration_number: string | null
+  contact_person: string | null
+  email: string | null
+  phone: string | null
+  whatsapp: string | null
+  address: string | null
+  district: string | null
+  country: string | null
+  notes: string | null
+  tags: string[] | null
+  is_active: boolean
+  created_by_id: string | null
+  created_at: string
+}
+
+export interface ClientOption {
+  id: string
+  display_name: string
+  kind: ClientKind
+  phone: string | null
+}
+
+export interface ClientDealSummary {
+  listings_total: number
+  listings_live: number
+  sold_count: number
+  sold_value: number
+  bought_count: number
+  bought_value: number
+  commission_total: number
+  commission_received: number
+  commission_pending: number
+  invested_total: number
+  first_deal_on: string | null
+  last_deal_on: string | null
+}
+
+export interface ApiClientDetail extends ApiClient {
+  summary: ClientDealSummary
+}
+
+export type CommissionStatus = 'pending' | 'invoiced' | 'received' | 'written_off'
+
+export interface ApiCommission {
+  id: string
+  property_id: string | null
+  sale_record_id: string | null
+  client_id: string | null
+  agent_id: string | null
+  basis: 'percent' | 'fixed'
+  rate: number | null
+  base_amount: number | null
+  amount: number
+  currency: string
+  status: CommissionStatus
+  earned_on: string
+  received_on: string | null
+  reference: string | null
+  notes: string | null
+  created_at: string
+  /** Resolved server-side so a list does not need extra requests. */
+  client_name: string | null
+  agent_name: string | null
+  property_reference: string | null
+}
+
+export type InvestmentKind =
+  | 'acquisition'
+  | 'renovation'
+  | 'construction'
+  | 'fees'
+  | 'marketing'
+  | 'other'
+
+export interface ApiInvestment {
+  id: string
+  property_id: string | null
+  client_id: string | null
+  kind: InvestmentKind
+  label: string
+  amount: number
+  currency: string
+  spent_on: string
+  is_recovered: boolean
+  reference: string | null
+  notes: string | null
+  created_at: string
+  client_name: string | null
+  property_reference: string | null
 }

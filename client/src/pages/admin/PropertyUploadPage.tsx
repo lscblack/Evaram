@@ -16,7 +16,7 @@ import { api } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
 import { useSiteConfig } from '@/lib/siteConfig'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
-import type { ApiCategory, ApiFormField, ApiSaleRecord, ApiSaleRecordDetail } from '@/types/api'
+import type { ApiCategory, ApiFormField, ApiSaleRecord, ApiSaleRecordDetail, ClientOption } from '@/types/api'
 
 /**
  * The property upload form — staff only.
@@ -48,6 +48,15 @@ export default function PropertyUploadPage() {
     owner_name: '',
     owner_contact: '',
   })
+  /** Seller as a client record, plus the commission that builds the price. */
+  const [deal, setDeal] = useState({
+    seller_client_id: '',
+    owner_price: '',
+    commission_basis: 'percent',
+    commission_rate: '',
+    commission_amount: '',
+    commission_in_price: true,
+  })
   const [flags, setFlags] = useState({
     show_on_public: true,
     show_owner_info: false,
@@ -55,6 +64,43 @@ export default function PropertyUploadPage() {
     is_featured: false,
     show_on_map: true,
   })
+  const { data: clients } = useQuery<ClientOption[]>('/admin/clients/options')
+
+  /**
+   * The same sum the server performs, shown before saving.
+   *
+   * Mirrors `apply_commission` server-side; the server remains authoritative,
+   * this only removes the surprise.
+   */
+  /**
+   * When the fee is added on top of the seller's figure the public price is
+   * derived, so asking for it again is a second source of truth that the server
+   * would silently overwrite. Shown read-only instead.
+   */
+  const derivedPrice = (() => {
+    const owner = Number(deal.owner_price || 0)
+    if (!deal.commission_in_price || !owner) return null
+    const fee =
+      deal.commission_basis === 'percent'
+        ? (owner * Number(deal.commission_rate || 0)) / 100
+        : Number(deal.commission_amount || 0)
+    return Math.round(owner + fee)
+  })()
+
+  const commissionPreview = (() => {
+    const owner = Number(deal.owner_price || 0)
+    if (!owner) return null
+    const fee =
+      deal.commission_basis === 'percent'
+        ? (owner * Number(deal.commission_rate || 0)) / 100
+        : Number(deal.commission_amount || 0)
+    if (!fee) return null
+    const money = (n: number) => n.toLocaleString('en-RW', { maximumFractionDigits: 0 })
+    return deal.commission_in_price
+      ? `Seller gets ${money(owner)} + ${money(fee)} commission = listed at ${money(owner + fee)} RWF`
+      : `Listed at ${money(owner)} RWF, of which ${money(fee)} is our commission`
+  })()
+
   const [minBid, setMinBid] = useState('')
   const [photos, setPhotos] = useState<StagedFile[]>([])
   const [geo, setGeo] = useState({ latitude: '', longitude: '', boundary: '' })
@@ -160,10 +206,16 @@ export default function PropertyUploadPage() {
         sector: core.sector || null,
         location: core.location || null,
         intent: core.intent,
-        price: core.price ? Number(core.price) : null,
+        price: derivedPrice ?? (core.price ? Number(core.price) : null),
         size: core.size ? Number(core.size) : null,
         owner_name: core.owner_name || null,
         owner_contact: core.owner_contact || null,
+        seller_client_id: deal.seller_client_id || null,
+        owner_price: deal.owner_price ? Number(deal.owner_price) : null,
+        commission_basis: deal.commission_rate || deal.commission_amount ? deal.commission_basis : null,
+        commission_rate: deal.commission_rate ? Number(deal.commission_rate) : null,
+        commission_amount: deal.commission_amount ? Number(deal.commission_amount) : null,
+        commission_in_price: deal.commission_in_price,
         details: values,
         min_bid: flags.allow_bidding && minBid ? Number(minBid) : null,
         latitude: geo.latitude ? Number(geo.latitude) : null,
@@ -538,11 +590,19 @@ export default function PropertyUploadPage() {
                   <option value="both">Either</option>
                 </select>
               </Field>
-              <Field label="Asking price (RWF)">
+              <Field
+                label="Asking price (RWF)"
+                hint={
+                  derivedPrice
+                    ? "Worked out from the seller's price plus commission — edit those below."
+                    : undefined
+                }
+              >
                 <input
                   type="number"
-                  className={FIELD}
-                  value={core.price}
+                  className={cn(FIELD, Boolean(derivedPrice) && 'bg-canvas-alt text-ink-muted')}
+                  value={derivedPrice ? String(derivedPrice) : core.price}
+                  readOnly={Boolean(derivedPrice)}
                   onChange={(e) => setCore((c) => ({ ...c, price: e.target.value }))}
                 />
               </Field>
@@ -557,9 +617,28 @@ export default function PropertyUploadPage() {
             </div>
           </Panel>
 
-          <Panel title="Owner">
+          <Panel title="Seller & commission">
             <div className="space-y-3.5 p-5">
-              <Field label="Owner name">
+              <Field
+                label="Seller"
+                hint="Pick a client so this parcel joins their history. Manage the list under Clients & deals."
+              >
+                <select
+                  className={FIELD}
+                  value={deal.seller_client_id}
+                  onChange={(e) => setDeal((d) => ({ ...d, seller_client_id: e.target.value }))}
+                >
+                  <option value="">Not linked to a client</option>
+                  {(clients ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.display_name}
+                      {c.phone ? ` — ${c.phone}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Owner name" hint="Used when the seller is not a saved client.">
                 <input
                   className={FIELD}
                   value={core.owner_name}
@@ -573,6 +652,63 @@ export default function PropertyUploadPage() {
                   onChange={(e) => setCore((c) => ({ ...c, owner_contact: e.target.value }))}
                 />
               </Field>
+
+              <div className="border-t border-line pt-3.5">
+                <Field label="What the seller wants (RWF)" hint="Their net figure, before our fee.">
+                  <input
+                    className={FIELD}
+                    inputMode="numeric"
+                    value={deal.owner_price}
+                    onChange={(e) => setDeal((d) => ({ ...d, owner_price: e.target.value }))}
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <Field label="Commission basis">
+                  <select
+                    className={FIELD}
+                    value={deal.commission_basis}
+                    onChange={(e) => setDeal((d) => ({ ...d, commission_basis: e.target.value }))}
+                  >
+                    <option value="percent">Percent</option>
+                    <option value="fixed">Fixed amount</option>
+                  </select>
+                </Field>
+                {deal.commission_basis === 'percent' ? (
+                  <Field label="Rate (%)">
+                    <input
+                      className={FIELD}
+                      inputMode="decimal"
+                      value={deal.commission_rate}
+                      onChange={(e) => setDeal((d) => ({ ...d, commission_rate: e.target.value }))}
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Amount (RWF)">
+                    <input
+                      className={FIELD}
+                      inputMode="numeric"
+                      value={deal.commission_amount}
+                      onChange={(e) => setDeal((d) => ({ ...d, commission_amount: e.target.value }))}
+                    />
+                  </Field>
+                )}
+              </div>
+
+              <Toggle
+                label="Add the commission on top of the seller's price"
+                hint="Off means our fee comes out of the agreed price instead."
+                checked={deal.commission_in_price}
+                onChange={(v) => setDeal((d) => ({ ...d, commission_in_price: v }))}
+              />
+
+              {/* Shows the arithmetic before saving, so nobody has to trust it. */}
+              {commissionPreview && (
+                <p className="rounded-xl border border-line bg-canvas-alt px-3.5 py-2.5 text-[0.8125rem] text-ink-soft">
+                  {commissionPreview}
+                </p>
+              )}
             </div>
           </Panel>
 

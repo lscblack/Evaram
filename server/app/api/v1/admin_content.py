@@ -35,7 +35,7 @@ from app.models.content import (
 )
 from app.models.property import Property, PropertyEnquiry, PropertyStatus
 from app.models.user import User, UserRole, UserStatus
-from app.schemas.auth import UserCreate, UserPublic, UserUpdate
+from app.schemas.auth import UserAdminOut, UserCreate, UserUpdate
 from app.schemas.common import Message, Page
 from app.schemas.content import (
     MarketStatCreate,
@@ -472,7 +472,7 @@ async def delete_faq(
 
 
 # ================================================================= users
-@router.get("/users", response_model=Page[UserPublic])
+@router.get("/users", response_model=Page[UserAdminOut])
 async def list_users(
     q: str | None = None,
     role: UserRole | None = None,
@@ -480,7 +480,7 @@ async def list_users(
     per_page: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
-) -> Page[UserPublic]:
+) -> Page[UserAdminOut]:
     stmt = select(User)
     if role:
         stmt = stmt.where(User.role == role)
@@ -496,16 +496,16 @@ async def list_users(
             stmt.order_by(User.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
         )
     ).all()
-    return Page.build([UserPublic.model_validate(r) for r in rows], total, page, per_page)
+    return Page.build([UserAdminOut.model_validate(r) for r in rows], total, page, per_page)
 
 
-@router.post("/users", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/users", response_model=UserAdminOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     request: Request,
     payload: UserCreate,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_admin),
-) -> UserPublic:
+) -> UserAdminOut:
     # Nobody may mint an account more privileged than their own.
     if payload.role.rank >= actor.role.rank and actor.role is not UserRole.SUPER_ADMIN:
         raise HTTPException(
@@ -547,17 +547,17 @@ async def create_user(
             None if payload.password else raw_password,
         )
 
-    return UserPublic.model_validate(user)
+    return UserAdminOut.model_validate(user)
 
 
-@router.patch("/users/{user_id}", response_model=UserPublic)
+@router.patch("/users/{user_id}", response_model=UserAdminOut)
 async def update_user(
     request: Request,
     user_id: uuid.UUID,
     payload: UserUpdate,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_admin),
-) -> UserPublic:
+) -> UserAdminOut:
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
@@ -578,7 +578,7 @@ async def update_user(
         changes=diff(before, user.as_dict()), request=request,
     )
     await db.commit()
-    return UserPublic.model_validate(user)
+    return UserAdminOut.model_validate(user)
 
 
 @router.delete("/users/{user_id}", response_model=Message)
