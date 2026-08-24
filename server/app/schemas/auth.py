@@ -166,3 +166,26 @@ class RegisterRequest(BaseModel):
 
 
 TokenPair.model_rebuild()
+
+
+class UserDeleteRequest(BaseModel):
+    """Ids to delete, capped so one request cannot wipe the table."""
+
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+    #: Delete even when it would take bid history with it. Off by default so a
+    #: destructive cascade is always a deliberate second decision.
+    force: bool = False
+
+
+class UserDeleteOutcome(BaseModel):
+    id: uuid.UUID
+    email: str | None = None
+    deleted: bool
+    reason: str | None = None
+
+
+class UserDeleteResult(BaseModel):
+    deleted: int
+    skipped: int
+    outcomes: list[UserDeleteOutcome]
+    detail: str

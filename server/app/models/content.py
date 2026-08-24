@@ -26,6 +26,8 @@ from app.models.mixins import TimestampMixin, UUIDPrimaryKey
 
 class SettingType(str, enum.Enum):
     STRING = "string"
+    #: Renders as a dropdown; the choices live in `SiteSetting.options`.
+    SELECT = "select"
     TEXT = "text"
     NUMBER = "number"
     BOOLEAN = "boolean"
@@ -55,6 +57,10 @@ class SiteSetting(Base, UUIDPrimaryKey, TimestampMixin):
         default=SettingType.STRING,
         nullable=False,
     )
+    #: Choices for a `select` setting, as `[{"value": "...", "label": "..."}]`.
+    #: Kept on the row rather than hard-coded in the client so a new font or
+    #: locale is a data change, not a deploy.
+    options: Mapped[list | None] = mapped_column(JSONB)
     #: Exposed on the unauthenticated `/public/bootstrap` payload.
     is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     #: Only a super admin may change it (branding, security toggles).

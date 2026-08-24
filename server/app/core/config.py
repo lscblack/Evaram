@@ -100,6 +100,22 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
+    @property
+    def cors_origin_regex(self) -> str | None:
+        """Outside production, accept localhost on any port.
+
+        Vite silently moves to the next free port when the configured one is
+        taken, so a second project on the machine pushes the app to a port that
+        was never in CORS_ORIGINS. The failure is a 400 on the OPTIONS
+        preflight, which surfaces in the browser only as "Failed to fetch" —
+        an hour of debugging for what is really a port number.
+
+        Production keeps the explicit list; this returns None there.
+        """
+        if self.is_production:
+            return None
+        return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
     def _url(self, driver: str) -> str:
         """Assemble the DSN with every component escaped.
 

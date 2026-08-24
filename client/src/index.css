@@ -139,26 +139,39 @@
   --shadow-lift-value: 0 4px 12px -4px rgb(6 43 79 / 0.1), 0 24px 48px -16px rgb(6 43 79 / 0.18);
 }
 
+/* ------------------------------------------------------------------ *
+ *  Dark mode.
+ *
+ *  Elevation is built by mixing the darkest brand step toward the brand's own
+ *  mid tone, never toward white. Mixing with white is what turns a dark UI
+ *  grey and washed out — it drains the hue and lifts everything at once.
+ *  Here the base sits below the darkest ramp step, surfaces rise in small
+ *  perceptual increments, and the hue survives all the way up.
+ * ------------------------------------------------------------------ */
 .dark {
   color-scheme: dark;
 
-  --canvas: var(--brand-navy-950);
-  --canvas-alt: color-mix(in srgb, var(--brand-navy-950) 82%, white);
-  --surface: color-mix(in srgb, var(--brand-navy-950) 74%, white);
-  --surface-alt: color-mix(in srgb, var(--brand-navy-950) 66%, white);
+  /* Deeper than the ramp bottom, so raised surfaces have somewhere to go. */
+  --canvas: color-mix(in oklab, var(--brand-navy-950) 78%, #000);
+  --canvas-alt: color-mix(in oklab, var(--brand-navy-950) 92%, #000);
+  --surface: color-mix(in oklab, var(--brand-navy-950) 94%, var(--brand-navy-500));
+  --surface-alt: color-mix(in oklab, var(--brand-navy-950) 89%, var(--brand-navy-500));
 
-  --ink: var(--brand-navy-50);
-  --ink-soft: var(--brand-navy-100);
-  --ink-muted: var(--brand-navy-300);
-  --ink-faint: var(--brand-navy-400);
+  /* Not pure white: full-strength white on near-black glares and smears. */
+  --ink: color-mix(in oklab, var(--brand-navy-50) 92%, var(--brand-navy-300));
+  --ink-soft: var(--brand-navy-200);
+  --ink-muted: color-mix(in oklab, var(--brand-navy-300) 78%, var(--brand-navy-500));
+  --ink-faint: var(--brand-navy-500);
 
-  --line: color-mix(in srgb, var(--brand-navy-950) 55%, white);
-  --line-strong: var(--brand-navy-800);
+  /* Borders read as a change in surface, not as a drawn grey line. */
+  --line: color-mix(in oklab, var(--brand-navy-950) 86%, var(--brand-navy-400));
+  --line-strong: color-mix(in oklab, var(--brand-navy-950) 74%, var(--brand-navy-400));
 
-  --accent-soft: color-mix(in srgb, var(--brand-navy-950) 62%, white);
+  --accent-soft: color-mix(in oklab, var(--brand-navy-950) 88%, var(--brand-navy-600));
 
-  --shadow-soft-value: 0 2px 8px -2px rgb(0 0 0 / 0.4), 0 12px 32px -12px rgb(0 0 0 / 0.55);
-  --shadow-lift-value: 0 4px 12px -4px rgb(0 0 0 / 0.45), 0 24px 48px -16px rgb(0 0 0 / 0.6);
+  /* Deeper and tighter — on a dark ground a soft wide shadow just reads as fog. */
+  --shadow-soft-value: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px -8px rgb(0 0 0 / 0.7);
+  --shadow-lift-value: 0 2px 4px rgb(0 0 0 / 0.55), 0 20px 44px -12px rgb(0 0 0 / 0.8);
 }
 
 /* Two identical copies sit side by side; each shifts one full width so the

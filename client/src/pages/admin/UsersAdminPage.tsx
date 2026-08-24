@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { UserPlus } from 'lucide-react'
+import { Trash2, UserPlus } from 'lucide-react'
 import {
   Badge,
   Empty,
@@ -16,6 +16,7 @@ import {
 import { api } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
 import { useAuth } from '@/lib/auth'
+import { cn } from '@/lib/utils'
 import { TeamProfileDrawer } from '@/components/admin/TeamProfileDrawer'
 import type { AdminUser, Page, UserRole } from '@/types/api'
 
@@ -47,6 +48,83 @@ export default function UsersAdminPage() {
   })
 
   const rows = data?.items ?? []
+
+  /* ---------------- selection & deletion ---------------- */
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
+
+  /** Super admins and your own account are never deletable, so never selectable. */
+  const canDelete = (row: AdminUser) =>
+    row.role !== 'super_admin' && row.id !== me?.id && (row.role !== 'admin' || can('super_admin'))
+
+  const selectable = rows.filter(canDelete)
+  const allSelected = selectable.length > 0 && selectable.every((r) => selected.has(r.id))
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(selectable.map((r) => r.id)))
+
+  const chosen = rows.filter((r) => selected.has(r.id))
+
+  const remove = async (targets: AdminUser[]) => {
+    if (targets.length === 0) return
+    const names = targets.map((r) => r.full_name).join(', ')
+    if (
+      !window.confirm(
+        `Permanently delete ${targets.length} account${targets.length > 1 ? 's' : ''}?\n\n${names}\n\n` +
+          'Listings, sales and the audit trail are kept — the name is simply removed from them. ' +
+          'This cannot be undone.',
+      )
+    ) {
+      return
+    }
+
+    setDeleting(true)
+    setError(null)
+    try {
+      let result = await api.post<{
+        deleted: number
+        skipped: number
+        detail: string
+        outcomes: { email: string | null; deleted: boolean; reason: string | null }[]
+      }>('/admin/users/bulk-delete', { ids: chosen.map((r) => r.id) })
+
+      // Anything held back for bid history can still go, but only on a second,
+      // explicit yes — the first refusal is the warning.
+      const blocked = result.outcomes.filter((o) => !o.deleted && /offer\(s\) on record/.test(o.reason ?? ''))
+      if (blocked.length > 0) {
+        const detail = blocked.map((o) => `${o.email} — ${o.reason}`).join('\n')
+        if (window.confirm(`${blocked.length} account(s) have offer history:\n\n${detail}\n\nDelete them anyway?`)) {
+          const forced = await api.post<typeof result>('/admin/users/bulk-delete', {
+            ids: targets
+              .filter((r) => blocked.some((b) => b.email === r.email))
+              .map((r) => r.id),
+            force: true,
+          })
+          result = { ...result, deleted: result.deleted + forced.deleted, detail: forced.detail }
+        }
+      }
+
+      const kept = result.outcomes.filter((o) => !o.deleted && !/offer\(s\) on record/.test(o.reason ?? ''))
+      if (kept.length > 0) {
+        setError(kept.map((o) => `${o.email}: ${o.reason}`).join(' · '))
+      }
+
+      setSelected(new Set())
+      invalidate('/admin/users')
+      await refetch()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Those accounts were not deleted.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const run = async (id: string | null, work: () => Promise<unknown>) => {
     setBusyId(id)
@@ -160,6 +238,32 @@ export default function UsersAdminPage() {
         </Panel>
       )}
 
+      {chosen.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold-300 bg-gold-50 px-4 py-3">
+          <p className="text-[0.875rem] font-semibold text-gold-900">
+            {chosen.length} account{chosen.length > 1 ? 's' : ''} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="rounded-lg border border-gold-400 px-3 py-1.5 text-[0.8125rem] font-semibold text-gold-800 transition-colors hover:bg-gold-100"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => void remove(chosen)}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              <Trash2 className="size-3.5" strokeWidth={2.4} />
+              {deleting ? 'Deleting…' : `Delete ${chosen.length}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       <Panel>
         {loading && rows.length === 0 ? (
           <Loading />
@@ -169,6 +273,16 @@ export default function UsersAdminPage() {
           <Table>
             <thead>
               <tr>
+                <Th className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select every deletable account"
+                    className="size-4 accent-gold-500"
+                    checked={allSelected}
+                    disabled={selectable.length === 0}
+                    onChange={toggleAll}
+                  />
+                </Th>
                 <Th>Person</Th>
                 <Th>Role</Th>
                 <Th>Status</Th>
@@ -180,7 +294,32 @@ export default function UsersAdminPage() {
               {rows.map((row) => {
                 const isMe = row.id === me?.id
                 return (
-                  <tr key={row.id} className="transition-colors hover:bg-canvas-alt">
+                  <tr
+                    key={row.id}
+                    className={cn(
+                      'transition-colors hover:bg-canvas-alt',
+                      selected.has(row.id) && 'bg-gold-50',
+                    )}
+                  >
+                    <Td>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${row.full_name}`}
+                        className="size-4 accent-gold-500 disabled:opacity-30"
+                        checked={selected.has(row.id)}
+                        disabled={!canDelete(row)}
+                        title={
+                          canDelete(row)
+                            ? undefined
+                            : row.role === 'super_admin'
+                              ? 'Super admins cannot be deleted'
+                              : isMe
+                                ? 'You cannot delete your own account'
+                                : 'Only a super admin can delete another admin'
+                        }
+                        onChange={() => toggle(row.id)}
+                      />
+                    </Td>
                     <Td>
                       <p className="font-semibold text-ink">
                         {row.full_name}
@@ -264,6 +403,25 @@ export default function UsersAdminPage() {
                             </option>
                           ))}
                         </select>
+
+                        <button
+                          type="button"
+                          disabled={!canDelete(row) || busyId === row.id}
+                          onClick={() => void remove([row])}
+                          aria-label={`Delete ${row.full_name}`}
+                          title={
+                            canDelete(row)
+                              ? `Delete ${row.full_name}`
+                              : row.role === 'super_admin'
+                                ? 'Super admins cannot be deleted'
+                                : isMe
+                                  ? 'You cannot delete your own account'
+                                  : 'Only a super admin can delete another admin'
+                          }
+                          className="grid size-8 place-items-center rounded-lg border border-line text-ink-soft transition-colors hover:border-red-300 hover:text-red-600 disabled:opacity-30 disabled:hover:border-line disabled:hover:text-ink-soft"
+                        >
+                          <Trash2 className="size-3.5" strokeWidth={2.2} />
+                        </button>
                       </div>
                     </Td>
                   </tr>

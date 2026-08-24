@@ -20,6 +20,12 @@ SETTINGS: list[dict] = [
      "display_order": 6},
     {"key": "brand.favicon", "label": "Favicon", "group": "brand", "value": "/favicon.png",
      "value_type": "image", "is_protected": True, "display_order": 7},
+    {"key": "brand.login_image", "label": "Console sign-in image", "group": "brand",
+     "description": ("The photograph behind the staff sign-in page. Anything landscape and "
+                     "dark-friendly works; text sits over a navy wash."),
+     "value": ("https://images.unsplash.com/photo-1503387762-592deb58ef4e"
+               "?auto=format&fit=crop&w=1600&q=80"),
+     "value_type": "image", "is_protected": True, "display_order": 8},
 
     # ---- theme (super admin only) ----
     {"key": "theme.navy", "label": "Primary navy", "group": "theme", "value": "#062b4f",
@@ -33,10 +39,30 @@ SETTINGS: list[dict] = [
      "value": "system", "value_type": "string", "is_protected": True, "display_order": 4,
      "description": "light | dark | system"},
     {"key": "theme.font_display", "label": "Display typeface", "group": "theme",
-     "value": "Fraunces", "value_type": "string", "is_protected": True, "display_order": 5},
+     "description": "Headings on the public site.",
+     "value": "Fraunces", "value_type": "select", "is_protected": True, "display_order": 5,
+     "options": [{"value": "Fraunces", "label": "Fraunces — editorial serif (default)"},
+                 {"value": "Playfair Display", "label": "Playfair Display — high-contrast serif"},
+                 {"value": "Poppins", "label": "Poppins — geometric sans"},
+                 {"value": "Inter", "label": "Inter — neutral sans"},
+                 {"value": "Arial", "label": "Arial — system safe"}]},
     {"key": "theme.font_sans", "label": "Body typeface", "group": "theme",
-     "value": "Plus Jakarta Sans", "value_type": "string", "is_protected": True,
-     "display_order": 6},
+     "description": "Body copy on the public site.",
+     "value": "Plus Jakarta Sans", "value_type": "select", "is_protected": True,
+     "display_order": 6, "options": [{"value": "Plus Jakarta Sans", "label": "Plus Jakarta Sans (default)"},
+                 {"value": "Inter", "label": "Inter"},
+                 {"value": "Poppins", "label": "Poppins"},
+                 {"value": "Roboto", "label": "Roboto"},
+                 {"value": "Arial", "label": "Arial — system safe"}]},
+    {"key": "theme.font_admin", "label": "Console typeface", "group": "theme",
+     "description": ("Used only inside the admin console. A neutral sans reads better than "
+                     "the editorial serif for dense tables and forms."),
+     "value": "Poppins", "value_type": "select", "is_protected": True,
+     "display_order": 7, "options": [{"value": "Poppins", "label": "Poppins (default)"},
+                 {"value": "Arial", "label": "Arial — system safe"},
+                 {"value": "Inter", "label": "Inter"},
+                 {"value": "Roboto", "label": "Roboto"},
+                 {"value": "Plus Jakarta Sans", "label": "Match the public site"}]},
 
     # ---- contact ----
     {"key": "contact.email", "label": "Public email", "group": "contact",

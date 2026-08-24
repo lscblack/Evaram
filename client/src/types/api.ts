@@ -538,6 +538,8 @@ export interface SiteSetting {
   group: string
   value: string | null
   value_type: string
+  /** Choices when `value_type` is `select`. */
+  options: { value: string; label: string }[] | null
   is_public: boolean
   is_protected: boolean
   display_order: number

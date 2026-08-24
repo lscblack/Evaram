@@ -23,6 +23,7 @@ class SettingOut(ORMModel):
     group: str
     value: str | None = None
     value_type: SettingType
+    options: list | None = None
     is_public: bool
     is_protected: bool
     display_order: int

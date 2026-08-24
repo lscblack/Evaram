@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, KeyRound, Lock, Mail, Phone, User } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Lock, Mail, Phone, User } from 'lucide-react'
 import { Seo } from '@/components/Seo'
 import { PageHero } from '@/components/layout/PageHero'
 import { Button } from '@/components/ui/Button'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { OtpInput } from '@/components/ui/OtpInput'
 import { AccountDashboard } from '@/components/account/AccountDashboard'
 import { useAuth } from '@/lib/auth'
 import { useBlock } from '@/lib/queries'
@@ -235,17 +236,13 @@ export default function AccountPage() {
                   </p>
                 </div>
 
-                <IconField
-                  id="acc-otp"
-                  icon={KeyRound}
-                  label="One-time code"
-                  required
-                  autoFocus
-                  autoComplete="one-time-code"
+                <OtpInput
                   value={code}
-                  onChange={(v) => setCode(v.toUpperCase())}
-                  placeholder="A1B2C3"
-                  className="font-mono tracking-[0.35em] uppercase"
+                  onChange={setCode}
+                  autoFocus
+                  disabled={busy}
+                  invalid={Boolean(error)}
+                  label="One-time code"
                 />
 
                 {error && (

@@ -23,6 +23,7 @@ import { Logo } from '@/components/ui/Logo'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { RouteLoader } from '@/components/layout/RouteLoader'
 import { useAuth } from '@/lib/auth'
+import { useSiteConfig } from '@/lib/siteConfig'
 import { EASE, routeTransition } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/api'
@@ -83,6 +84,7 @@ const NAV: { group: string; items: NavEntry[] }[] = [
  */
 export default function AdminLayout() {
   const { user, loading, logout, can } = useAuth()
+  const { setting } = useSiteConfig()
   const location = useLocation()
   const [open, setOpen] = useState(false)
 
@@ -172,8 +174,21 @@ export default function AdminLayout() {
     </div>
   )
 
+  // Scoped to the console: overriding the font tokens here re-typesets
+  // everything inside without touching the public site, which keeps its
+  // editorial serif.
+  const consoleFont = setting('theme.font_admin', 'Poppins')
+  const fontStack = {
+    '--font-sans': `"${consoleFont}", ui-sans-serif, system-ui, sans-serif`,
+    '--font-display': `"${consoleFont}", ui-sans-serif, system-ui, sans-serif`,
+    // `body` already computed its font-family from the old token, and plain
+    // descendants inherit that computed value — so the override only takes
+    // effect if font-family is declared again here.
+    fontFamily: 'var(--font-sans)',
+  } as React.CSSProperties
+
   return (
-    <div className="min-h-dvh bg-canvas-alt">
+    <div className="min-h-dvh bg-canvas-alt" style={fontStack}>
       {/* desktop rail */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-surface lg:block">
         {sidebar}

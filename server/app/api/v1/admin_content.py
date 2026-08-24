@@ -33,9 +33,16 @@ from app.models.content import (
     Testimonial,
     UiString,
 )
-from app.models.property import Property, PropertyEnquiry, PropertyStatus
+from app.models.property import Property, PropertyBid, PropertyEnquiry, PropertyStatus
 from app.models.user import User, UserRole, UserStatus
-from app.schemas.auth import UserAdminOut, UserCreate, UserUpdate
+from app.schemas.auth import (
+    UserAdminOut,
+    UserCreate,
+    UserDeleteOutcome,
+    UserDeleteRequest,
+    UserDeleteResult,
+    UserUpdate,
+)
 from app.schemas.common import Message, Page
 from app.schemas.content import (
     MarketStatCreate,
@@ -581,29 +588,121 @@ async def update_user(
     return UserAdminOut.model_validate(user)
 
 
-@router.delete("/users/{user_id}", response_model=Message)
-async def deactivate_user(
+async def _delete_guard(user: User, actor: User, force: bool, db: AsyncSession) -> str | None:
+    """Why this account may not be deleted, or None when it may.
+
+    Kept separate so the single and bulk paths cannot drift apart — a rule
+    enforced in one and not the other is how a protected account gets removed.
+    """
+    if user.role is UserRole.SUPER_ADMIN:
+        return "Super admin accounts cannot be deleted"
+    if user.id == actor.id:
+        return "You cannot delete your own account"
+    # An admin removing other admins is a privilege change, not routine tidying.
+    if user.role is UserRole.ADMIN and actor.role is not UserRole.SUPER_ADMIN:
+        return "Only a super admin can delete another admin"
+
+    if not force:
+        bids = await db.scalar(
+            select(func.count(PropertyBid.id)).where(PropertyBid.bidder_id == user.id)
+        )
+        if bids:
+            return (
+                f"Has {bids} offer(s) on record, which deletion would remove. "
+                "Disable the account instead, or confirm to delete anyway."
+            )
+    return None
+
+
+@router.delete("/users/{user_id}", response_model=Message, summary="Delete one account")
+async def delete_user(
     request: Request,
     user_id: uuid.UUID,
+    force: bool = Query(False, description="Delete even if it removes bid history"),
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_admin),
 ) -> Message:
-    """Soft-disable: real deletion would orphan listings and the audit trail."""
+    """Permanent. Listings, sales and the audit trail survive — every reference
+    to a user is ON DELETE SET NULL, so history keeps its shape with the name
+    removed. The exceptions are sessions, one-time codes and bids, which are
+    meaningless without the person and are removed with them.
+
+    To keep a name attached to past work, set the account to disabled instead.
+    """
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-    if user.role is UserRole.SUPER_ADMIN:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "The super admin cannot be disabled")
-    if user.id == actor.id:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot disable your own account")
 
-    user.status = UserStatus.DISABLED
+    reason = await _delete_guard(user, actor, force, db)
+    if reason:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, reason)
+
+    email = user.email
     await record(
-        db, actor=actor, action="user.disable", entity_type="user", entity_id=user.email,
-        request=request,
+        db, actor=actor, action="user.delete", entity_type="user", entity_id=email,
+        summary=f"Deleted {email} ({user.role.value})", request=request,
     )
+    await db.delete(user)
     await db.commit()
-    return Message(detail="Account disabled")
+    return Message(detail=f"{email} deleted")
+
+
+@router.post(
+    "/users/bulk-delete",
+    response_model=UserDeleteResult,
+    summary="Delete several accounts, reporting on each",
+)
+async def bulk_delete_users(
+    request: Request,
+    payload: UserDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> UserDeleteResult:
+    """Partial success on purpose: a selection containing one protected account
+    should still remove the rest, and say plainly which it kept and why.
+    """
+    users = (await db.scalars(select(User).where(User.id.in_(payload.ids)))).all()
+    found = {u.id: u for u in users}
+
+    outcomes: list[UserDeleteOutcome] = []
+    removed: list[str] = []
+
+    for user_id in payload.ids:
+        user = found.get(user_id)
+        if user is None:
+            outcomes.append(UserDeleteOutcome(id=user_id, deleted=False, reason="No such account"))
+            continue
+
+        reason = await _delete_guard(user, actor, payload.force, db)
+        if reason:
+            outcomes.append(
+                UserDeleteOutcome(id=user_id, email=user.email, deleted=False, reason=reason)
+            )
+            continue
+
+        outcomes.append(UserDeleteOutcome(id=user_id, email=user.email, deleted=True))
+        removed.append(user.email)
+        await db.delete(user)
+
+    if removed:
+        await record(
+            db, actor=actor, action="user.bulk_delete", entity_type="user",
+            summary=f"Deleted {len(removed)} account(s): {', '.join(removed[:10])}",
+            request=request,
+        )
+    await db.commit()
+
+    deleted = len(removed)
+    skipped = len(outcomes) - deleted
+    return UserDeleteResult(
+        deleted=deleted,
+        skipped=skipped,
+        outcomes=outcomes,
+        detail=(
+            f"{deleted} account(s) deleted"
+            + (f", {skipped} kept" if skipped else "")
+        ),
+    )
 
 
 # ================================================================= inbox

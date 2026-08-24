@@ -188,6 +188,22 @@ function applyTheme(settings: Record<string, string | null>): void {
     })
   }
 
+  // Typefaces are chosen from a dropdown in Settings; like the colours, they
+  // only mean anything if they reach the tokens the design system reads.
+  const fonts: [string, string][] = [
+    ['theme.font_sans', '--font-sans'],
+    ['theme.font_display', '--font-display'],
+  ]
+  for (const [key, cssVar] of fonts) {
+    const family = settings[key]
+    if (!family) continue
+    const fallback =
+      cssVar === '--font-display'
+        ? 'ui-serif, Georgia, serif'
+        : 'ui-sans-serif, system-ui, -apple-system, sans-serif'
+    root.style.setProperty(cssVar, `"${family}", ${fallback}`)
+  }
+
   const favicon = settings['brand.favicon']
   if (favicon) {
     document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute('href', favicon)

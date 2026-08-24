@@ -221,6 +221,37 @@ function SettingInput({
   value: string
   onChange: (next: string) => void
 }) {
+  // A `select` carries its own choices, so a new font or locale is a data
+  // change rather than a client deploy.
+  if (setting.value_type === 'select' && setting.options?.length) {
+    return (
+      <select
+        className={FIELD}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={
+          setting.key.startsWith('theme.font')
+            ? { fontFamily: `"${value}", sans-serif` }
+            : undefined
+        }
+      >
+        {setting.options.map((option) => (
+          <option
+            key={option.value}
+            value={option.value}
+            style={
+              setting.key.startsWith('theme.font')
+                ? { fontFamily: `"${option.value}", sans-serif` }
+                : undefined
+            }
+          >
+            {option.label}
+          </option>
+        ))}
+      </select>
+    )
+  }
+
   if (setting.value_type === 'boolean') {
     return (
       <label className="flex items-center gap-2 text-[0.875rem] text-ink-soft">
