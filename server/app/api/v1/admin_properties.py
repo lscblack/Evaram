@@ -38,6 +38,7 @@ from app.models.user import User, UserRole
 from app.schemas.common import Message, Page
 from app.schemas.property import (
     BulkFeatureChange,
+    PropertyAgent,
     BulkIds,
     BulkStatusChange,
     PropertyCardAdmin,
@@ -320,6 +321,9 @@ async def get_one(
         master_plan_zone=prop.master_plan_zone, master_plan_note=prop.master_plan_note,
         master_plan_doc_url=prop.master_plan_doc_url,
         allow_directions=prop.allow_directions,
+        viewing_allowed=prop.viewing_allowed,
+        visiting_fee=float(prop.visiting_fee) if prop.visiting_fee is not None else None,
+        visiting_fee_negotiable=prop.visiting_fee_negotiable,
         amount_paid=float(prop.amount_paid) if prop.amount_paid is not None else None,
         is_negotiable=prop.is_negotiable, details=prop.details,
         parcel_information=prop.parcel_information, amenities=prop.amenities,
@@ -331,8 +335,49 @@ async def get_one(
         view_count=prop.view_count, seo_title=prop.seo_title,
         seo_description=prop.seo_description,
         media=[MediaOut.model_validate(m) for m in prop.media],
-        agent=None, updated_at=prop.updated_at,
+        # The console needs the assigned consultant to prefill its edit form —
+        # returning None here meant reopening a listing silently blanked them.
+        agent=(
+            PropertyAgent.model_validate(
+                await db.scalar(select(User).where(User.id == prop.agent_id))
+            )
+            if prop.agent_id
+            else None
+        ),
+        updated_at=prop.updated_at,
     )
+
+
+async def _resolve_agent(
+    db: AsyncSession, actor: User, agent_id: uuid.UUID | None
+) -> uuid.UUID | None:
+    """Who may be named as the consultant on a listing.
+
+    Assigning the consultant is an admin's call: the name on a listing is who a
+    buyer will ring, and an agent must not be able to put a colleague's name —
+    or take a colleague's listing — by editing a form field. An agent's own
+    listings are assigned to them automatically when an admin approves them.
+    """
+    if agent_id is None:
+        return None
+
+    if actor.role.rank < UserRole.ADMIN.rank:
+        if agent_id != actor.id:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Only an admin can assign a listing to another consultant",
+            )
+        return agent_id
+
+    agent = await db.scalar(select(User).where(User.id == agent_id))
+    if agent is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That consultant was not found")
+    if agent.role.rank < UserRole.AGENT.rank:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"{agent.full_name} is not an agent and cannot be a listing's consultant",
+        )
+    return agent.id
 
 
 @router.post("", response_model=PropertyDetailAdmin, status_code=status.HTTP_201_CREATED)
@@ -362,6 +407,7 @@ async def create_property(
         raise HTTPException(status.HTTP_409_CONFLICT, "That UPI is already listed")
 
     data = payload.model_dump(exclude={"media", "boundary_geojson"})
+    data["agent_id"] = await _resolve_agent(db, actor, data.get("agent_id"))
     prop = Property(
         **data,
         boundary_geojson=payload.boundary_geojson.model_dump()
@@ -434,6 +480,9 @@ async def update_property(
         if clash:
             raise HTTPException(status.HTTP_409_CONFLICT, "That reference is already in use")
 
+    if "agent_id" in updates:
+        updates["agent_id"] = await _resolve_agent(db, actor, updates["agent_id"])
+
     before = prop.as_dict()
     for key, value in updates.items():
         setattr(prop, key, value)
@@ -489,6 +538,17 @@ async def verify_property(
         prop.status = PropertyStatus.AVAILABLE
         prop.published_at = prop.published_at or utcnow()
         prop.rejection_reason = None
+
+        # An agent who files a listing becomes its consultant when it goes
+        # live — but only if an admin has not already assigned someone. The
+        # assignment is deliberately made at approval rather than at upload:
+        # until a listing is verified there is no public page to be the
+        # consultant on, and a rejected one should not appear in anyone's book.
+        if prop.agent_id is None and prop.uploaded_by_id:
+            uploader = await db.scalar(select(User).where(User.id == prop.uploaded_by_id))
+            if uploader and uploader.role.rank >= UserRole.AGENT.rank:
+                prop.agent_id = uploader.id
+
         detail = "Listing verified and published"
     else:
         prop.is_verified = False

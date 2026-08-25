@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
 import { OtpInput } from '@/components/ui/OtpInput'
 import { AccountDashboard } from '@/components/account/AccountDashboard'
+import { ProfilePanel } from '@/components/account/ProfilePanel'
 import { useAuth } from '@/lib/auth'
 import { useBlock } from '@/lib/queries'
 import { EASE } from '@/lib/motion'
@@ -40,6 +41,7 @@ export default function AccountPage() {
 
   const [mode, setMode] = useState<Mode>(params.get('mode') === 'register' ? 'register' : 'signin')
   const [stage, setStage] = useState<'form' | 'otp'>('form')
+  const [pane, setPane] = useState<'overview' | 'profile'>('overview')
   const [form, setForm] = useState({ email: '', password: '', full_name: '', phone: '' })
   const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
   const [challenge, setChallenge] = useState<LoginChallenge | null>(null)
@@ -127,10 +129,50 @@ export default function AccountPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: EASE }}
-            className="mx-auto max-w-md rounded-3xl border border-line bg-surface p-7 shadow-soft sm:p-9"
+            className={cn(
+              'mx-auto',
+              // A signed-in account has more to show than a sign-in form, and
+              // the card chrome belongs to the form — the dashboard and profile
+              // bring their own panels.
+              user
+                ? 'max-w-3xl'
+                : 'max-w-md rounded-3xl border border-line bg-surface p-7 shadow-soft sm:p-9',
+            )}
           >
             {user ? (
-              <AccountDashboard />
+              <>
+                <div className="mb-6 flex gap-1 rounded-full border border-line bg-surface p-1">
+                  {(
+                    [
+                      { id: 'overview', label: 'Overview' },
+                      { id: 'profile', label: 'Profile & security' },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setPane(t.id)}
+                      aria-pressed={pane === t.id}
+                      className={cn(
+                        'flex-1 rounded-full px-4 py-2.5 text-[0.875rem] font-semibold transition-colors',
+                        pane === t.id
+                          ? 'bg-ink text-canvas'
+                          : 'text-ink-soft hover:bg-canvas-alt hover:text-ink',
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                {pane === 'overview' ? (
+                  <div className="rounded-3xl border border-line bg-surface p-7 shadow-soft sm:p-9">
+                    <AccountDashboard />
+                  </div>
+                ) : (
+                  <ProfilePanel />
+                )}
+              </>
             ) : stage === 'form' ? (
               <>
                 <div className="mb-7 flex gap-2 rounded-full border border-line p-1">

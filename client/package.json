@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run sitemap && tsc -b && vite build",
+    "build": "pnpm run sitemap && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "sitemap": "node ../scripts/generate-sitemap.mjs"
@@ -29,5 +29,6 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
-  }
+  },
+  "packageManager": "pnpm@10.14.0"
 }

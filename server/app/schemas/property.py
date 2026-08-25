@@ -147,6 +147,9 @@ class PropertyDetail(PropertyCard):
     show_owner_info: bool = False
     show_on_map: bool = True
     allow_directions: bool = False
+    viewing_allowed: bool = True
+    visiting_fee: float | None = None
+    visiting_fee_negotiable: bool = False
     allow_bidding: bool = False
     min_bid: float | None = None
     bidding_closes_at: datetime | None = None
@@ -270,6 +273,9 @@ class PropertyBase(BaseModel):
     show_on_map: bool = True
     #: Publishing turn-by-turn directions to vacant land is opt-in.
     allow_directions: bool = False
+    viewing_allowed: bool = True
+    visiting_fee: float | None = Field(default=None, ge=0)
+    visiting_fee_negotiable: bool = False
     allow_bidding: bool = False
     min_bid: float | None = Field(default=None, ge=0)
     bidding_closes_at: datetime | None = None
@@ -314,6 +320,9 @@ class PropertyUpdate(BaseModel):
     show_owner_info: bool | None = None
     show_on_map: bool | None = None
     allow_directions: bool | None = None
+    viewing_allowed: bool | None = None
+    visiting_fee: float | None = Field(default=None, ge=0)
+    visiting_fee_negotiable: bool | None = None
     allow_bidding: bool | None = None
     min_bid: float | None = None
     bidding_closes_at: datetime | None = None

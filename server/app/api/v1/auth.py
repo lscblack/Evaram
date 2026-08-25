@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,14 +19,15 @@ from app.schemas.auth import (
     OtpResendRequest,
     OtpVerifyRequest,
     PasswordChange,
+    ProfileUpdate,
     RefreshRequest,
     RegisterRequest,
     TokenPair,
     UserPublic,
 )
 from app.schemas.common import Message
-from app.services import auth_service, captcha_service
-from app.services.audit import record
+from app.services import auth_service, captcha_service, storage_service
+from app.services.audit import diff, record
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -160,6 +161,93 @@ async def register(
 
 @router.get("/me", response_model=UserPublic, summary="The signed-in account")
 async def me(user: User = Depends(get_current_user)) -> UserPublic:
+    return UserPublic.model_validate(user)
+
+
+@router.patch("/me", response_model=UserPublic, summary="Update your own profile")
+async def update_me(
+    request: Request,
+    payload: ProfileUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserPublic:
+    """Change your own details.
+
+    Email is not here on purpose: it is the account's identity and the address
+    a sign-in code goes to, so changing it is a verification flow rather than a
+    form field.
+    """
+    changes = payload.model_dump(exclude_unset=True)
+    before = {key: getattr(user, key) for key in changes}
+
+    for key, value in changes.items():
+        setattr(user, key, value)
+
+    await record(
+        db,
+        actor=user,
+        action="auth.profile_update",
+        entity_type="user",
+        entity_id=str(user.id),
+        changes=diff(before, {k: getattr(user, k) for k in changes}),
+        request=request,
+    )
+    await db.commit()
+    await db.refresh(user)
+    return UserPublic.model_validate(user)
+
+
+@router.post(
+    "/me/photo",
+    response_model=UserPublic,
+    summary="Upload your profile picture",
+)
+@limiter.limit("12/hour")
+async def upload_my_photo(
+    request: Request,
+    file: UploadFile = File(..., description="A square-ish image works best"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserPublic:
+    """Replace the signed-in user's picture.
+
+    The previous file is deleted rather than orphaned — a profile picture is
+    personal data, and leaving old ones on disk means the person cannot really
+    remove their face from our servers.
+    """
+    stored = await storage_service.save_upload(file, kind="avatar")
+    previous = user.photo_url
+    user.photo_url = stored["url"]
+
+    await record(
+        db, actor=user, action="auth.photo_update", entity_type="user",
+        entity_id=str(user.id), request=request,
+    )
+    await db.commit()
+    await db.refresh(user)
+
+    if previous:
+        storage_service.delete(previous)
+    return UserPublic.model_validate(user)
+
+
+@router.delete("/me/photo", response_model=UserPublic, summary="Remove your picture")
+async def delete_my_photo(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserPublic:
+    previous = user.photo_url
+    user.photo_url = None
+    await record(
+        db, actor=user, action="auth.photo_remove", entity_type="user",
+        entity_id=str(user.id), request=request,
+    )
+    await db.commit()
+    await db.refresh(user)
+
+    if previous:
+        storage_service.delete(previous)
     return UserPublic.model_validate(user)
 
 

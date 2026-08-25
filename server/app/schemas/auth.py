@@ -73,9 +73,30 @@ class UserPublic(ORMModel):
     job_title: str | None = None
     division: str | None = None
     photo_url: str | None = None
+    bio: str | None = None
+    linkedin_url: str | None = None
+    languages: list[str] | None = None
     email_verified: bool
     last_login_at: datetime | None = None
     created_at: datetime
+
+
+class ProfileUpdate(BaseModel):
+    """What a person may change about their own account.
+
+    Deliberately narrow. Role, status and the fields that drive the public team
+    page are the console's to set — someone editing their own profile must not
+    be able to promote themselves onto the team listing, or off it.
+    """
+
+    full_name: str | None = Field(default=None, min_length=2, max_length=160)
+    phone: str | None = Field(default=None, max_length=32)
+    bio: str | None = Field(default=None, max_length=2000)
+    photo_url: str | None = Field(default=None, max_length=512)
+    linkedin_url: str | None = Field(default=None, max_length=512)
+    languages: list[str] | None = None
+
+    model_config = {"extra": "forbid"}
 
 
 class UserAdminOut(UserPublic):
@@ -127,6 +148,9 @@ class UserCreate(BaseModel):
     phone: str | None = None
     job_title: str | None = None
     division: str | None = None
+    #: Optional. The console uploads the file first and passes the URL here, so
+    #: creating an account never depends on having a photo to hand.
+    photo_url: str | None = Field(default=None, max_length=512)
     send_welcome_email: bool = True
 
 

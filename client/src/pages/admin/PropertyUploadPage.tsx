@@ -18,8 +18,11 @@ import { ringArea } from '@/lib/geoMeasure'
 import { api, mediaUrl } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
 import { useCells, useLocalities, useSectors, useVillages } from '@/components/ui/LocationPicker'
+import { useAuth } from '@/lib/auth'
+import { useSiteConfig } from '@/lib/siteConfig'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import type {
+  AgentOption,
   ApiAdminPropertyDetail,
   ApiCategory,
   ApiFormField,
@@ -90,6 +93,9 @@ export default function PropertyUploadPage() {
   )
   const { data: taxonomy, loading } = useQuery<ApiCategory[]>('/public/taxonomy')
   const categories = useMemo(() => taxonomy ?? [], [taxonomy])
+  const { can } = useAuth()
+  const { setting } = useSiteConfig()
+  const { data: agents } = useQuery<AgentOption[]>(can('admin') ? '/admin/agents/options' : null)
   const { districts: allDistricts } = useLocalities()
 
   const [categoryId, setCategoryId] = useState('')
@@ -190,6 +196,14 @@ export default function PropertyUploadPage() {
     master_plan_note: '',
   })
   /** Optional master-plan extract. Staged until the listing has an id. */
+  const [agentId, setAgentId] = useState('')
+  /** Viewing terms. The fee is pre-filled from settings so it is one figure to
+   *  change across the site rather than a number retyped on every listing. */
+  const [visit, setVisit] = useState({
+    viewing_allowed: true,
+    visiting_fee: '',
+    visiting_fee_negotiable: false,
+  })
   const [proof, setProof] = useState<File | null>(null)
   const [proofUrl, setProofUrl] = useState<string | null>(null)
 
@@ -254,6 +268,12 @@ export default function PropertyUploadPage() {
       master_plan_note: p.master_plan_note ?? '',
     })
     setProofUrl(p.master_plan_doc_url)
+    setAgentId(p.agent?.id ?? '')
+    setVisit({
+      viewing_allowed: p.viewing_allowed ?? true,
+      visiting_fee: p.visiting_fee != null ? String(Math.round(p.visiting_fee)) : '',
+      visiting_fee_negotiable: p.visiting_fee_negotiable ?? false,
+    })
     setMinBid(p.min_bid != null ? String(Math.round(p.min_bid)) : '')
     setGeo({
       latitude: p.latitude != null ? String(p.latitude) : '',
@@ -269,6 +289,14 @@ export default function PropertyUploadPage() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing?.id, existing?.updated_at])
+
+  // Pre-fill the fee from the site setting for a new listing only — on an
+  // edit the stored figure is the truth, even where it differs from the default.
+  const feeDefault = setting('marketplace.visiting_fee', '20000')
+  useEffect(() => {
+    if (editingId) return
+    setVisit((s) => (s.visiting_fee ? s : { ...s, visiting_fee: feeDefault }))
+  }, [feeDefault, editingId])
 
   const category = categories.find((c) => c.id === categoryId)
   const subcategory = category?.subcategories.find((s) => s.id === subcategoryId)
@@ -400,6 +428,11 @@ export default function PropertyUploadPage() {
         master_plan_zone: parcel.master_plan_zone || null,
         master_plan_note: parcel.master_plan_note || null,
         master_plan_doc_url: proofUrl,
+        agent_id: agentId || null,
+        viewing_allowed: visit.viewing_allowed,
+        visiting_fee:
+          visit.viewing_allowed && visit.visiting_fee ? Number(visit.visiting_fee) : null,
+        visiting_fee_negotiable: visit.visiting_fee_negotiable,
         ...flags,
       }
 
@@ -1086,6 +1119,75 @@ export default function PropertyUploadPage() {
                 <p className="rounded-xl border border-line bg-canvas-alt px-3.5 py-2.5 text-[0.8125rem] text-ink-soft">
                   {commissionPreview}
                 </p>
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="Consultant">
+            <div className="space-y-3.5 p-5">
+              {can('admin') ? (
+                <Field
+                  label="Who handles this listing"
+                  hint="Their name and photo appear on the public page as the buyer's consultant."
+                >
+                  <select
+                    className={FIELD}
+                    value={agentId}
+                    onChange={(e) => setAgentId(e.target.value)}
+                  >
+                    <option value="">
+                      {editingId ? 'Unassigned' : 'Assign on approval'}
+                    </option>
+                    {(agents ?? []).map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.full_name}
+                        {a.job_title ? ` — ${a.job_title}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : (
+                <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
+                  You will be named as the consultant on this listing once an admin approves it.
+                  Until then it is not public, so there is nobody to name it to.
+                </p>
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="Viewings">
+            <div className="space-y-3.5 p-5">
+              <Toggle
+                label="Buyers can book a viewing"
+                hint="Off means viewings are arranged by hand, for qualified buyers only."
+                checked={visit.viewing_allowed}
+                onChange={(v) => setVisit((s) => ({ ...s, viewing_allowed: v }))}
+              />
+
+              {visit.viewing_allowed && (
+                <>
+                  <Field
+                    label="Viewing fee"
+                    hint="Covers the consultant's time and keeps sightseers away."
+                  >
+                    <MoneyInput
+                      currency="RWF"
+                      className={FIELD}
+                      value={visit.visiting_fee}
+                      onChange={(v) => setVisit((s) => ({ ...s, visiting_fee: v }))}
+                    />
+                  </Field>
+                  <Toggle
+                    label="The fee is negotiable"
+                    hint="Shown to buyers as a starting figure rather than a fixed one."
+                    checked={visit.visiting_fee_negotiable}
+                    onChange={(v) => setVisit((s) => ({ ...s, visiting_fee_negotiable: v }))}
+                  />
+                  <p className="rounded-xl border border-line bg-canvas-alt px-3.5 py-2.5 text-[0.75rem] leading-relaxed text-ink-muted">
+                    Buyers are told the fee comes off the purchase price — so it costs them nothing
+                    if they go ahead, and we keep it only if they do not.
+                  </p>
+                </>
               )}
             </div>
           </Panel>

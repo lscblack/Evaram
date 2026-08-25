@@ -742,15 +742,22 @@ export default function PropertyDetailPage() {
                   </div>
 
                   <div className="mt-6 space-y-3">
-                    <Button
-                      to={`/consultation?type=viewing&property=${property.id}`}
-                      variant="gold"
-                      size="lg"
-                      className="w-full"
-                      leading={<Calendar className="size-[1.05rem]" strokeWidth={2.2} />}
-                    >
-                      Book a viewing
-                    </Button>
+                    {property.viewing_allowed ? (
+                      <Button
+                        to={`/consultation?type=viewing&property=${property.id}`}
+                        variant="gold"
+                        size="lg"
+                        className="w-full"
+                        leading={<Calendar className="size-[1.05rem]" strokeWidth={2.2} />}
+                      >
+                        Book a viewing
+                      </Button>
+                    ) : (
+                      <p className="rounded-2xl border border-line bg-canvas-alt px-4 py-3 text-[0.8125rem] leading-relaxed text-ink-muted">
+                        Viewings on this parcel are arranged individually. Message us and a
+                        consultant will make the arrangements with the owner.
+                      </p>
+                    )}
                     <Button
                       href={`${site.whatsappHref}?text=${encodeURIComponent(
                         `Hello Evaramu, I'm interested in ${property.title} (ref ${property.reference_number}).`,
@@ -763,6 +770,34 @@ export default function PropertyDetailPage() {
                       Ask on WhatsApp
                     </Button>
                   </div>
+
+                  {property.viewing_allowed && property.visiting_fee ? (
+                    <div className="mt-5 rounded-2xl border border-gold-500/30 bg-gold-500/8 px-4 py-3.5">
+                      <p className="flex items-baseline justify-between gap-3">
+                        <span className="text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase">
+                          Viewing fee
+                        </span>
+                        <span className="text-[1rem] font-bold text-ink tabular-nums">
+                          {formatCurrency(property.visiting_fee, property.currency)}
+                          {property.visiting_fee_negotiable && (
+                            <span className="ml-1 text-[0.75rem] font-medium text-ink-muted">
+                              or near
+                            </span>
+                          )}
+                        </span>
+                      </p>
+                      {/* The point of the fee is that a serious buyer never really pays
+                          it — say so plainly, or it reads as an extra charge. */}
+                      <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-soft">
+                        It comes straight off the price if you buy — your purchase effectively
+                        starts at{' '}
+                        <strong className="font-semibold text-ink">
+                          {formatCurrency(property.visiting_fee, property.currency)}
+                        </strong>{' '}
+                        already paid. We keep it only if you decide not to go ahead.
+                      </p>
+                    </div>
+                  ) : null}
 
                   <p className="mt-5 flex items-start gap-2 text-[0.8125rem] leading-snug text-ink-muted">
                     <ShieldCheck

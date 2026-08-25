@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from slugify import slugify
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,6 +78,7 @@ from app.schemas.content import (
     UiStringUpsert,
 )
 from app.seeds import site_content
+from app.services import storage_service
 from app.services.audit import diff, record
 
 router = APIRouter(prefix="/admin", tags=["admin:content"])
@@ -506,6 +507,55 @@ async def list_users(
     return Page.build([UserAdminOut.model_validate(r) for r in rows], total, page, per_page)
 
 
+@router.get("/agents/options", summary="Consultants for a dropdown")
+async def agent_options(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_agent),
+) -> list[dict]:
+    """Everyone who can be named as a listing's consultant.
+
+    Agents and above, active only — a listing must never point a buyer at
+    someone who has left.
+    """
+    rows = (
+        await db.scalars(
+            select(User)
+            .where(
+                User.status == UserStatus.ACTIVE,
+                User.role.in_([UserRole.AGENT, UserRole.ADMIN, UserRole.SUPER_ADMIN]),
+            )
+            .order_by(User.full_name)
+        )
+    ).all()
+    return [
+        {
+            "id": str(u.id),
+            "full_name": u.full_name,
+            "job_title": u.job_title,
+            "photo_url": u.photo_url,
+            "role": u.role.value,
+        }
+        for u in rows
+    ]
+
+
+@router.post("/uploads", summary="Store an image and hand back its URL")
+async def upload_image(
+    file: UploadFile = File(...),
+    kind: str = Form("avatar"),
+    actor: User = Depends(require_admin),
+) -> dict:
+    """A file with no owner yet.
+
+    Needed because a profile picture is chosen while an account is still being
+    filled in — there is no user id to attach it to until the form is saved.
+    Returns the URL for the caller to include in that save.
+    """
+    if kind not in ("avatar", "brand", "content"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown upload kind")
+    return await storage_service.save_upload(file, kind=kind)
+
+
 @router.post("/users", response_model=UserAdminOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     request: Request,
@@ -536,6 +586,7 @@ async def create_user(
         phone=payload.phone,
         job_title=payload.job_title,
         division=payload.division,
+        photo_url=payload.photo_url,
         role=payload.role,
         status=UserStatus.ACTIVE,
         hashed_password=hash_password(raw_password),

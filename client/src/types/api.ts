@@ -250,6 +250,9 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   show_owner_info: boolean
   show_on_map: boolean
   allow_directions: boolean
+  viewing_allowed: boolean
+  visiting_fee: number | null
+  visiting_fee_negotiable: boolean
   owner_contact: string | null
   allow_bidding: boolean
   min_bid: number | null
@@ -281,6 +284,15 @@ export interface ApiAdminPropertyDetail extends ApiPropertyDetail {
   commission_rate: number | null
   commission_amount: number | null
   commission_in_price: boolean
+}
+
+/** A consultant a listing can be assigned to. */
+export interface AgentOption {
+  id: string
+  full_name: string
+  job_title: string | null
+  photo_url: string | null
+  role: UserRole
 }
 
 export interface ApiAgent {
@@ -504,6 +516,9 @@ export interface AuthUser {
   job_title: string | null
   division: string | null
   photo_url: string | null
+  bio: string | null
+  linkedin_url: string | null
+  languages: string[] | null
   email_verified: boolean
   last_login_at: string | null
   created_at: string

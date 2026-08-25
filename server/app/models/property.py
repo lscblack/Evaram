@@ -287,6 +287,21 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
         Boolean, default=False, server_default=text("false"), nullable=False
     )
 
+    # ---------------- viewings ----------------
+    #: Whether a buyer may book a viewing at all. Some sellers only open a
+    #: parcel to qualified buyers, arranged by hand.
+    viewing_allowed: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
+    #: What a viewing costs. Charged to cover the consultant's time and to
+    #: filter out sightseers — and credited in full against the purchase, so a
+    #: serious buyer pays nothing extra. We keep it only if no sale follows.
+    visiting_fee: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    #: Whether that figure is a starting point rather than a fixed price.
+    visiting_fee_negotiable: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+
     # ---------------- bidding ----------------
     allow_bidding: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     #: Offers below this are rejected outright. Falls back to the asking price.

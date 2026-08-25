@@ -10,12 +10,12 @@ drop-in change.
 ## Running it
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
-npm run build      # regenerates the sitemap, typechecks, then builds
-npm run preview    # serve the production build
-npm run lint
-npm run sitemap    # regenerate public/sitemap.xml only
+pnpm install
+pnpm run dev        # http://localhost:5173
+pnpm run build      # regenerates the sitemap, typechecks, then builds
+pnpm run preview    # serve the production build
+pnpm run lint
+pnpm run sitemap    # regenerate public/sitemap.xml only
 ```
 
 ## Stack

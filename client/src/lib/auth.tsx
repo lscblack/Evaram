@@ -21,6 +21,8 @@ interface AuthContextValue {
   }) => Promise<LoginChallenge>
   resendOtp: (preAuthToken: string) => Promise<LoginChallenge>
   logout: () => Promise<void>
+  /** Re-reads the account after the user edits their own profile. */
+  refreshUser: () => Promise<void>
   /** True when the signed-in user is at or above the given role. */
   can: (minimum: UserRole) => boolean
 }
@@ -106,14 +108,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    // The profile endpoints already return the updated record, but re-reading
+    // keeps one source of truth: whatever `/auth/me` says is what the app shows.
+    const me = await api.get<AuthUser>('/auth/me')
+    setUser(me)
+  }, [])
+
   const can = useCallback(
     (minimum: UserRole) => Boolean(user && RANK[user.role] >= RANK[minimum]),
     [user],
   )
 
   const value = useMemo(
-    () => ({ user, loading, login, register, verifyOtp, resendOtp, logout, can }),
-    [user, loading, login, register, verifyOtp, resendOtp, logout, can],
+    () => ({ user, loading, login, register, verifyOtp, resendOtp, logout, can, refreshUser }),
+    [user, loading, login, register, verifyOtp, resendOtp, logout, can, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

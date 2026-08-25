@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, UserPlus } from 'lucide-react'
+import { Camera, Trash2, UserPlus, UserRound } from 'lucide-react'
 import {
   Badge,
   Empty,
@@ -13,7 +13,7 @@ import {
   Td,
   Th,
 } from '@/components/admin/ui'
-import { api } from '@/lib/api'
+import { api, mediaUrl } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
@@ -45,7 +45,9 @@ export default function UsersAdminPage() {
     password: '',
     role: 'agent' as UserRole,
     job_title: '',
+    photo_url: '',
   })
+  const [photoBusy, setPhotoBusy] = useState(false)
 
   const rows = data?.items ?? []
 
@@ -146,10 +148,11 @@ export default function UsersAdminPage() {
       api.post('/admin/users', {
         ...draft,
         job_title: draft.job_title || null,
+        photo_url: draft.photo_url || null,
         send_welcome_email: true,
       }),
     )
-    setDraft({ email: '', full_name: '', password: '', role: 'agent', job_title: '' })
+    setDraft({ email: '', full_name: '', password: '', role: 'agent', job_title: '', photo_url: '' })
     setCreating(false)
   }
 
@@ -179,6 +182,56 @@ export default function UsersAdminPage() {
       {creating && (
         <Panel title="New person" className="mb-5">
           <form onSubmit={create} className="grid gap-3.5 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Optional, and deliberately first: a face makes a consultant card
+                worth showing, but nobody should be blocked from creating an
+                account because they do not have a photo to hand. */}
+            <div className="flex items-center gap-4 sm:col-span-2 lg:col-span-3">
+              <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-canvas-alt">
+                {draft.photo_url ? (
+                  <img src={mediaUrl(draft.photo_url)} alt="" className="size-full object-cover" />
+                ) : (
+                  <UserRound className="size-6 text-ink-faint" strokeWidth={1.6} />
+                )}
+              </span>
+              <div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-semibold text-ink-soft transition-colors hover:border-line-strong hover:text-ink">
+                  <Camera className="size-3.5" strokeWidth={2.2} />
+                  {photoBusy ? 'Uploading…' : draft.photo_url ? 'Change photo' : 'Add a photo'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const picked = e.target.files?.[0]
+                      e.target.value = ''
+                      if (!picked) return
+                      setPhotoBusy(true)
+                      try {
+                        const stored = await api.upload<{ url: string }>(
+                          '/admin/uploads',
+                          [picked],
+                          { kind: 'avatar' },
+                        )
+                        setDraft((d) => ({ ...d, photo_url: stored.url }))
+                      } finally {
+                        setPhotoBusy(false)
+                      }
+                    }}
+                  />
+                </label>
+                {draft.photo_url && (
+                  <button
+                    type="button"
+                    onClick={() => setDraft((d) => ({ ...d, photo_url: '' }))}
+                    className="ml-2 text-[0.75rem] font-semibold text-ink-muted hover:text-red-600"
+                  >
+                    Remove
+                  </button>
+                )}
+                <p className="mt-1 text-[0.6875rem] text-ink-faint">Optional</p>
+              </div>
+            </div>
+
             <Field label="Full name">
               <input
                 required

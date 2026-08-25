@@ -130,6 +130,10 @@ SETTINGS: list[dict] = [
     {"key": "marketplace.price_max", "label": "Price filter ceiling (RWF)",
      "description": "Upper bound of the marketplace price slider. Above it, the filter reads 'Any'.",
      "group": "marketplace", "value": "600000000", "value_type": "number", "display_order": 1},
+    {"key": "marketplace.visiting_fee", "label": "Default viewing fee (RWF)",
+     "description": ("Pre-filled when a listing is created. Credited in full against the "
+                     "purchase price, so a buyer who goes ahead pays nothing extra."),
+     "group": "marketplace", "value": "20000", "value_type": "number", "display_order": 3},
     {"key": "marketplace.per_page", "label": "Listings per page",
      "description": "How many cards load before 'Show more'.",
      "group": "marketplace", "value": "9", "value_type": "number", "display_order": 2},
