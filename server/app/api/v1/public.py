@@ -112,6 +112,7 @@ from app.schemas.taxonomy import CategoryOut, CategorySummary, DistrictOut
 from app.services import (
     bidding_service,
     captcha_service,
+    client_service,
     property_service,
     storage_service,
 )
@@ -993,6 +994,8 @@ async def create_seller_submission(
         upi=payload.upi.strip(),
         district=payload.district,
         sector=payload.sector,
+        cell=payload.cell,
+        village=payload.village,
         location=payload.location,
         property_type=payload.property_type,
         asking_price=payload.asking_price,
@@ -1015,6 +1018,29 @@ async def create_seller_submission(
             )
         )
     db.add(submission)
+    await db.flush()
+
+    # Every registered owner becomes a client. They are one whether or not an
+    # agent has typed them in — and matching first is the whole point, or the
+    # CRM fills with a second copy of everyone who has sold with us before.
+    created = 0
+    for record in submission.owners:
+        client, is_new = await client_service.find_or_create(
+            db,
+            full_name=record.full_name,
+            phone=record.phone,
+            email=record.email,
+            national_id=record.national_id,
+            district=payload.district,
+            # Only the primary contact is linked to the account that filed the
+            # form; a co-owner named on it did not necessarily sign up.
+            user_id=user.id if user and record.is_primary else None,
+            source="seller-submission",
+            note=f"Added automatically from submission {reference}.",
+        )
+        record.client_id = client.id
+        created += int(is_new)
+
     await db.commit()
     await db.refresh(submission)
 

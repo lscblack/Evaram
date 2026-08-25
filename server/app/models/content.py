@@ -522,6 +522,13 @@ class SellerSubmissionOwner(Base, UUIDPrimaryKey, TimestampMixin):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    #: The CRM record this owner is, created on submission if we did not
+    #: already have them. Nullable because a client can be deleted without
+    #: taking the submission's own record of who owned the parcel with it.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("clients.id", ondelete="SET NULL"), index=True
+    )
+
     submission: Mapped["SellerSubmission"] = relationship(back_populates="owners")
 
 
