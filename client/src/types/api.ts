@@ -235,6 +235,9 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   parcel_id: string | null
   land_use: string | null
   right_type: string | null
+  master_plan_zone: string | null
+  master_plan_note: string | null
+  master_plan_doc_url: string | null
   amount_paid: number | null
   is_negotiable: boolean
   details: Record<string, unknown> | null
@@ -246,6 +249,7 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   vr_tour_provider: string | null
   show_owner_info: boolean
   show_on_map: boolean
+  allow_directions: boolean
   owner_contact: string | null
   allow_bidding: boolean
   min_bid: number | null
@@ -263,6 +267,20 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   media: ApiMedia[]
   agent: ApiAgent | null
   updated_at: string
+}
+
+/** Console detail — the UPI, the owner's contact and the commission. */
+export interface ApiAdminPropertyDetail extends ApiPropertyDetail {
+  upi: string | null
+  show_on_public: boolean
+  is_archived: boolean
+  rejection_reason: string | null
+  seller_client_id: string | null
+  owner_price: number | null
+  commission_basis: string | null
+  commission_rate: number | null
+  commission_amount: number | null
+  commission_in_price: boolean
 }
 
 export interface ApiAgent {
@@ -743,4 +761,133 @@ export interface ApiInvestment {
   created_at: string
   client_name: string | null
   property_reference: string | null
+}
+
+/* ------------------------------------------------------------------ the map */
+
+export interface ParcelProperties {
+  id: string
+  slug: string
+  reference_number: string
+  title: string
+  district: string | null
+  sector: string | null
+  status: PropertyStatus
+  intent: ListingIntent
+  currency: string
+  price: number | null
+  rent_amount: number | null
+  size: number | null
+  bedrooms: number | null
+  cover_url: string | null
+  is_featured: boolean
+  is_verified: boolean
+  latitude: number
+  longitude: number
+  has_outline: boolean
+  issue_count: number
+  allow_directions: boolean
+  /** Present on `/map/nearby` results only. */
+  distance_m?: number
+  /** Added client-side for the map's price labels. */
+  price_label?: string
+}
+
+export interface ParcelCollection {
+  type: 'FeatureCollection'
+  features: {
+    type: 'Feature'
+    geometry: { type: 'Polygon' | 'Point'; coordinates: number[][][] | number[] }
+    properties: ParcelProperties
+  }[]
+  truncated?: boolean
+  /** Proximity search only — what was asked for, and what had to be dropped. */
+  matched?: ProximityCriterion[]
+  relaxed?: ProximityCriterion[]
+  exact?: boolean
+}
+
+export interface ProximityCriterion {
+  kind: string
+  direction: 'within' | 'beyond'
+  distance_m: number
+}
+
+export interface FacilityProperties {
+  id: string
+  name: string | null
+  kind: string
+  subkind: string | null
+  is_constraint: boolean
+}
+
+export interface NearbyFacility {
+  id: string
+  name: string | null
+  kind: string
+  subkind: string | null
+  distance_m: number
+  walk_minutes: number | null
+  latitude: number
+  longitude: number
+  is_constraint: boolean
+}
+
+export interface BoundaryIssue {
+  code: string
+  severity: 'error' | 'warning'
+  message: string
+  [extra: string]: unknown
+}
+
+export interface ParcelContext {
+  slug: string
+  location_withheld: boolean
+  latitude?: number | null
+  longitude?: number | null
+  allow_directions?: boolean
+  boundary: {
+    geometry: { type: string; coordinates: number[][][] } | null
+    area_sqm?: number | null
+    declared_size?: number | null
+    issues: BoundaryIssue[]
+  }
+  facilities: NearbyFacility[]
+  summary?: Record<
+    string,
+    { name: string | null; distance_m: number; walk_minutes: number | null; is_constraint: boolean }
+  >
+  overlaps: {
+    id: string
+    reference_number: string
+    title: string
+    slug: string
+    overlap_sqm: number
+  }[]
+}
+
+export interface ComparisonRow {
+  key: string
+  label: string
+  direction: 'lower' | 'higher'
+  weight: number
+  values: Record<string, number | null>
+  winners: string[]
+}
+
+export interface ParcelComparison {
+  parcels: {
+    slug: string
+    reference_number: string
+    title: string
+    district: string | null
+    cover_url: string | null
+    currency: string
+    location_withheld: boolean
+    facts: Record<string, number | null>
+  }[]
+  rows: ComparisonRow[]
+  scores: Record<string, number>
+  winner: string | null
+  tied: boolean
 }

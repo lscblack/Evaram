@@ -21,6 +21,7 @@ from app.api.v1 import (
     admin_properties,
     admin_taxonomy,
     auth,
+    map,
     public,
     secure,
 )
@@ -91,7 +92,12 @@ async def security_and_timing(request: Request, call_next) -> Response:
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
+    # API responses stay same-site. Uploaded media is public by nature and is
+    # loaded by <img> from whatever host serves the front end, which a
+    # same-site policy blocks outright once the two are not on one origin.
+    response.headers["Cross-Origin-Resource-Policy"] = (
+        "cross-origin" if request.url.path.startswith(settings.MEDIA_URL) else "same-site"
+    )
     if settings.is_production:
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
 
@@ -136,7 +142,7 @@ app.include_router(secure.router, prefix=API)
 
 # Everything else runs through SecureRoute, which unseals request bodies and
 # seals responses whenever the caller presents a negotiated session.
-for router in (auth.router, public.router, admin_taxonomy.router,
+for router in (auth.router, public.router, map.router, admin_taxonomy.router,
                admin_properties.router, admin_content.router, admin_crm.router):
     router.route_class = SecureRoute
     for route in router.routes:

@@ -440,6 +440,8 @@ class SellerSubmissionCreate(BaseModel):
     upi: str = Field(min_length=4, max_length=64)
     district: str | None = Field(default=None, max_length=80)
     sector: str | None = Field(default=None, max_length=80)
+    cell: str | None = Field(default=None, max_length=80)
+    village: str | None = Field(default=None, max_length=80)
     location: str | None = Field(default=None, max_length=240)
     property_type: str | None = Field(default=None, max_length=120)
     asking_price: float | None = Field(default=None, ge=0)
@@ -488,6 +490,8 @@ class SellerSubmissionOut(ORMModel):
     upi: str
     district: str | None = None
     sector: str | None = None
+    cell: str | None = None
+    village: str | None = None
     location: str | None = None
     property_type: str | None = None
     asking_price: float | None = None

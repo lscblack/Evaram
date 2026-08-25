@@ -61,4 +61,13 @@ __all__ = [
     "SettingType", "SiteSetting", "Testimonial", "UiString", "UploaderType",
     "User", "UserRole", "UserStatus", "WealthCycleStep",
 ]
+from app.models.locality import (  # noqa: F401
+    Locality,
+    LocalityLevel,
+)
+from app.models.facility import (  # noqa: F401
+    CONSTRAINT_KINDS,
+    Facility,
+    FacilityKind,
+)
 from app.models import crm  # noqa: F401 — registers Client, Commission, Investment

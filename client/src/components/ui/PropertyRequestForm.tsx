@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Check, Send } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useSiteConfig } from '@/lib/siteConfig'
@@ -192,19 +193,21 @@ export function PropertyRequestForm({ className }: { className?: string }) {
         </Field>
 
         <Field label={t('request.budgetMin')} error={fields.budget_min}>
-          <input
-            inputMode="numeric"
+          <MoneyInput
+            currency="RWF"
+            readout={false}
             value={form.budget_min}
-            onChange={(e) => set('budget_min')(e.target.value)}
+            onChange={set('budget_min')}
             className={INPUT}
             placeholder="0"
           />
         </Field>
         <Field label={t('request.budgetMax')} error={fields.budget_max}>
-          <input
-            inputMode="numeric"
+          <MoneyInput
+            currency="RWF"
+            readout={false}
             value={form.budget_max}
-            onChange={(e) => set('budget_max')(e.target.value)}
+            onChange={set('budget_max')}
             className={INPUT}
             placeholder="0"
           />

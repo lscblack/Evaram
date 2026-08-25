@@ -23,11 +23,25 @@ _MAINTENANCE_DATABASES = ("postgres", "template1")
 _BOOTSTRAP_EXTENSIONS = ("postgis", "pg_trgm")
 
 
+#: Column types whose values cannot go into an audit diff.
+_OPAQUE_TYPES = frozenset({"Geometry", "Geography", "Raster"})
+
+
 class Base(DeclarativeBase):
     """Declarative base for every ORM model."""
 
     def as_dict(self) -> dict[str, Any]:
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        """Column values as plain Python, for audit diffs.
+
+        Geometry columns are skipped. They hold binary WKB that is neither JSON
+        serialisable nor readable in an audit trail, and the human-readable
+        version of the same shape is already stored alongside as GeoJSON.
+        """
+        return {
+            c.name: getattr(self, c.name)
+            for c in self.__table__.columns
+            if c.type.__class__.__name__ not in _OPAQUE_TYPES
+        }
 
 
 engine = create_async_engine(

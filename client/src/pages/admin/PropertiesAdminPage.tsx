@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BadgeCheck, Banknote, Search, ShieldX, Star, Trash2 } from 'lucide-react'
+import { BadgeCheck, Banknote, Pencil, Search, ShieldX, Star, Trash2 } from 'lucide-react'
 import {
   Badge,
   Empty,
@@ -15,6 +15,7 @@ import {
   Th,
 } from '@/components/admin/ui'
 import { Button } from '@/components/ui/Button'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { api, qs } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { FilterBuilder, toQuery, type FilterRule } from '@/components/admin/FilterBuilder'
@@ -36,6 +37,7 @@ const STATUSES = [
 
 export default function PropertiesAdminPage() {
   const [status, setStatus] = useState('all')
+  const [selling, setSelling] = useState<ApiAdminPropertyCard | null>(null)
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -105,19 +107,13 @@ export default function PropertiesAdminPage() {
    * Closing a listing out archives it and writes a sale record — which also
    * releases the reference and UPI so the parcel can be listed again later.
    */
-  const sell = (id: string, reference: string) => {
-    const price = window.prompt(
-      `Record the sale of ${reference}.\n\nSale price in RWF (leave blank to use the asking price):`,
-    )
-    if (price === null) return
-    const buyer = window.prompt('Buyer name (optional):') ?? ''
-    return act(id, () =>
+  const sell = (id: string, sold_price: string, buyer_name: string) =>
+    act(id, () =>
       api.post(`/admin/properties/${id}/sell`, {
-        sold_price: price ? Number(price) : null,
-        buyer_name: buyer || null,
+        sold_price: sold_price ? Number(sold_price) : null,
+        buyer_name: buyer_name || null,
       }),
     )
-  }
 
   const setStatusOf = (id: string, next: string) =>
     act(id, () => api.post(`/admin/properties/${id}/status`, { status: next, reason: null }))
@@ -426,6 +422,14 @@ export default function PropertiesAdminPage() {
                   </Td>
                   <Td className="text-right">
                     <div className="flex justify-end gap-1.5">
+                      <Link
+                        to={`/admin/properties/${row.id}/edit`}
+                        title="Edit this listing"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[0.75rem] font-semibold text-ink-soft transition-colors hover:border-gold-500 hover:text-gold-600"
+                      >
+                        <Pencil className="size-3.5" strokeWidth={2.4} />
+                        Edit
+                      </Link>
                       {row.status === 'pending_review' ? (
                         <>
                           <button
@@ -452,7 +456,7 @@ export default function PropertiesAdminPage() {
                           <button
                             type="button"
                             disabled={busyId === row.id}
-                            onClick={() => sell(row.id, row.reference_number)}
+                            onClick={() => setSelling(row)}
                             title="Record the sale and close this listing out"
                             className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[0.75rem] font-semibold text-ink-soft transition-colors hover:border-gold-500 hover:text-gold-600 disabled:opacity-50"
                           >
@@ -529,6 +533,123 @@ export default function PropertiesAdminPage() {
           </div>
         )}
       </Panel>
+
+      {selling && (
+        <RecordSaleDialog
+          row={selling}
+          busy={busyId === selling.id}
+          onClose={() => setSelling(null)}
+          onConfirm={async (price, buyer) => {
+            await sell(selling.id, price, buyer)
+            setSelling(null)
+          }}
+        />
+      )}
     </>
+  )
+}
+
+/**
+ * Capture what a plot actually sold for.
+ *
+ * This figure is what the commission is calculated against, so it gets a real
+ * field rather than a browser prompt — grouped as it is typed, with the asking
+ * price alongside it to check against.
+ */
+function RecordSaleDialog({
+  row,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  row: ApiAdminPropertyCard
+  busy: boolean
+  onClose: () => void
+  onConfirm: (price: string, buyer: string) => void
+}) {
+  const [price, setPrice] = useState(row.price ? String(Math.round(row.price)) : '')
+  const [buyer, setBuyer] = useState('')
+
+  return (
+    <div
+      className="fixed inset-0 z-60 grid place-items-center bg-navy-950/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sell-heading"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault()
+          onConfirm(price, buyer)
+        }}
+        className="w-full max-w-md rounded-3xl border border-line bg-surface p-6 shadow-lift"
+      >
+        <h2 id="sell-heading" className="font-display text-[1.25rem] font-semibold text-ink">
+          Record the sale
+        </h2>
+        <p className="mt-1 text-[0.875rem] text-ink-muted">
+          {row.reference_number} — {row.title}
+        </p>
+
+        <div className="mt-5 space-y-4">
+          <div>
+            <label
+              htmlFor="sell-price"
+              className="mb-2 block text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase"
+            >
+              Sale price
+            </label>
+            <MoneyInput
+              id="sell-price"
+              autoFocus
+              currency={row.currency}
+              className={FIELD}
+              value={price}
+              onChange={setPrice}
+            />
+            {row.price != null && (
+              <p className="mt-1.5 text-[0.75rem] text-ink-faint">
+                Asking {formatCompactCurrency(row.price)} — leave as is if it sold at asking.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="sell-buyer"
+              className="mb-2 block text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase"
+            >
+              Buyer name <span className="font-medium normal-case">(optional)</span>
+            </label>
+            <input
+              id="sell-buyer"
+              className={FIELD}
+              value={buyer}
+              onChange={(e) => setBuyer(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <p className="mt-4 text-[0.75rem] leading-relaxed text-ink-muted">
+          This archives the listing and books the agent's commission against the figure above. The
+          reference and UPI are released, so the parcel can be listed again later.
+        </p>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-line px-4 py-2 text-[0.8125rem] font-semibold text-ink-soft transition-colors hover:border-line-strong"
+          >
+            Cancel
+          </button>
+          <Button type="submit" size="sm" disabled={busy}>
+            {busy ? 'Recording…' : 'Record sale'}
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }

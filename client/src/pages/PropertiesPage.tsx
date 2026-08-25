@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { LayoutGrid, Rows3, SlidersHorizontal, X } from 'lucide-react'
+import { LayoutGrid, Map as MapIcon, Rows3, SlidersHorizontal, X } from 'lucide-react'
 import { Seo, breadcrumbJsonLd } from '@/components/Seo'
 import { PropertyCard } from '@/components/ui/PropertyCard'
 import { PropertyRow } from '@/components/ui/PropertyRow'
 import { Button } from '@/components/ui/Button'
 import { PropertyRequestForm } from '@/components/ui/PropertyRequestForm'
 
+
 import type { ApiCategory, ApiPropertyCard, CategorySummary, ListingIntent, Page as ApiPage } from '@/types/api'
 import { EASE, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { useBlock, useQuery } from '@/lib/queries'
 import { useSite, useSiteConfig } from '@/lib/siteConfig'
+import { useCells, useLocalities, useSectors, useVillages } from '@/components/ui/LocationPicker'
 import { qs } from '@/lib/api'
 import { cn, formatCompactCurrency } from '@/lib/utils'
 
@@ -25,6 +27,18 @@ const SORTS: { id: SortKey; tKey: string }[] = [
   { id: 'size-desc', tKey: 'market.sortSize' },
   { id: 'yield-desc', tKey: 'market.sortYield' },
 ]
+
+// MapLibre and its workers are the better part of a megabyte. Loading it with
+// the page would make the list view — which most visitors never leave — pay for
+// a map they did not open.
+const MarketMap = lazy(() =>
+  import('@/components/map/MarketMap').then((m) => ({ default: m.MarketMap })),
+)
+
+/** Shared select styling for the filter rail. */
+const SELECT =
+  'h-11 w-full rounded-xl border border-line bg-canvas px-3 text-[0.875rem] text-ink ' +
+  'transition-colors focus:border-gold-500 focus:outline-none'
 
 const PER_PAGE = 9
 
@@ -39,9 +53,19 @@ export default function PropertiesPage() {
   // The slider ceiling is an admin setting, so it can track the real market.
   const priceMax = Number(setting('marketplace.price_max', '600000000'))
   const t = useT()
-  const { districts } = useSiteConfig()
+  const { districts: allDistricts } = useLocalities()
+
+  /** Districts grouped by province — thirty in one flat list is unreadable. */
+  const districtGroups = useMemo(() => {
+    const grouped = new Map<string, string[]>()
+    for (const d of allDistricts) {
+      const key = d.province ?? 'Other'
+      grouped.set(key, [...(grouped.get(key) ?? []), d.name])
+    }
+    return [...grouped.entries()]
+  }, [allDistricts])
   const [params, setParams] = useSearchParams()
-  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [view, setView] = useState<'grid' | 'list' | 'map'>('grid')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [perPage, setPerPage] = useState(PER_PAGE)
   const [wantForm, setWantForm] = useState(false)
@@ -52,6 +76,12 @@ export default function PropertiesPage() {
   const category = params.get('category') ?? ''
   const subcategory = params.get('subcategory') ?? ''
   const district = params.get('district') ?? ''
+  const sector = params.get('sector') ?? ''
+  const cell = params.get('cell') ?? ''
+  const village = params.get('village') ?? ''
+  const sectorOptions = useSectors(district)
+  const cellOptions = useCells(sector, district)
+  const villageOptions = useVillages(cell, district)
   const maxPrice = Number(params.get('maxPrice') ?? priceMax)
   const verifiedOnly = params.get('verified') === '1'
   const sort = (params.get('sort') as SortKey | null) ?? 'newest'
@@ -90,6 +120,9 @@ export default function PropertiesPage() {
       category: category || undefined,
       subcategory: subcategory || undefined,
       district: district || undefined,
+      sector: sector || undefined,
+      cell: cell || undefined,
+      village: village || undefined,
       max_price: maxPrice < priceMax ? maxPrice : undefined,
       verified_only: verifiedOnly || undefined,
       sort,
@@ -241,16 +274,87 @@ export default function PropertiesPage() {
       </AnimatePresence>
 
       <Field label={t('market.district')}>
-        <div className="flex flex-wrap gap-1.5">
-          {districts.map((d) => (
-            <Chip
-              key={d}
-              active={district === d}
-              onClick={() => setParam('district', district === d ? null : d)}
-            >
-              {d}
-            </Chip>
-          ))}
+        {/* Thirty districts and four hundred sectors are a dropdown, not a wall
+            of chips — and the sector list has to follow the district, because a
+            sector belongs to exactly one. */}
+        <div className="space-y-2">
+          <select
+            value={district}
+            onChange={(e) => {
+              const next = new URLSearchParams(params)
+              if (e.target.value) next.set('district', e.target.value)
+              else next.delete('district')
+              next.delete('sector')
+              setParams(next, { replace: true })
+            }}
+            className={SELECT}
+          >
+            <option value="">All districts</option>
+            {districtGroups.map(([province, names]) => (
+              <optgroup key={province} label={province}>
+                {names.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+
+          <select
+            value={sector}
+            disabled={!district}
+            onChange={(e) => {
+              const next = new URLSearchParams(params)
+              if (e.target.value) next.set('sector', e.target.value)
+              else next.delete('sector')
+              next.delete('cell')
+              next.delete('village')
+              setParams(next, { replace: true })
+            }}
+            className={cn(SELECT, !district && 'cursor-not-allowed opacity-55')}
+          >
+            <option value="">{district ? 'All sectors' : 'Choose a district first'}</option>
+            {sectorOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={cell}
+            disabled={!sector}
+            onChange={(e) => {
+              const next = new URLSearchParams(params)
+              if (e.target.value) next.set('cell', e.target.value)
+              else next.delete('cell')
+              next.delete('village')
+              setParams(next, { replace: true })
+            }}
+            className={cn(SELECT, !sector && 'cursor-not-allowed opacity-55')}
+          >
+            <option value="">{sector ? 'All cells' : 'Choose a sector first'}</option>
+            {cellOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={village}
+            disabled={!cell}
+            onChange={(e) => setParam('village', e.target.value || null)}
+            className={cn(SELECT, !cell && 'cursor-not-allowed opacity-55')}
+          >
+            <option value="">{cell ? 'All villages' : 'Choose a cell first'}</option>
+            {villageOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         </div>
       </Field>
 
@@ -313,7 +417,9 @@ export default function PropertiesPage() {
       />
 
       {/* ---------------- masthead ---------------- */}
-      <section className="border-b border-line bg-canvas">
+      {/* The hero is a page header, and the map is not a page — every pixel it
+          takes is a pixel of ground the buyer cannot see. */}
+      <section className={cn('border-b border-line bg-canvas', view === 'map' && 'hidden')}>
         <div className="container-page py-10 lg:py-14">
           <nav aria-label="Breadcrumb" className="text-[0.75rem] text-ink-faint">
             <Link to="/" className="transition-colors hover:text-gold-600">
@@ -337,7 +443,7 @@ export default function PropertiesPage() {
             <dl className="flex gap-8 border-t border-line pt-5 lg:border-0 lg:pt-0">
               {[
                 { value: String(totalListings), label: t('market.liveListings') },
-                { value: String(districts.length || 7), label: t('market.districts') },
+                { value: String(allDistricts.length || 30), label: t('market.districts') },
                 { value: '100%', label: t('market.verified') },
               ].map((stat) => (
                 <div key={stat.label}>
@@ -359,7 +465,12 @@ export default function PropertiesPage() {
             <button
               type="button"
               onClick={() => setFiltersOpen(true)}
-              className="flex shrink-0 items-center gap-2 rounded-lg border border-line px-3.5 py-2 text-[0.8125rem] font-semibold text-ink transition-colors hover:border-line-strong lg:hidden"
+              className={cn(
+                'shrink-0 items-center gap-2 rounded-lg border border-line px-3.5 py-2 text-[0.8125rem] font-semibold text-ink transition-colors hover:border-line-strong lg:hidden',
+                // The map carries its own filter button; two of them, opening
+                // two different panels, is a choice nobody should have to make.
+                view === 'map' ? 'hidden' : 'flex',
+              )}
             >
               <SlidersHorizontal className="size-3.5" strokeWidth={2.2} />
               {t('market.filters')}
@@ -414,11 +525,12 @@ export default function PropertiesPage() {
               ))}
             </select>
 
-            <div className="hidden items-center rounded-lg border border-line sm:flex">
+            <div className="flex items-center rounded-lg border border-line">
               {(
                 [
                   { id: 'grid', icon: LayoutGrid, label: t('market.gridView') },
                   { id: 'list', icon: Rows3, label: t('market.listView') },
+                  { id: 'map', icon: MapIcon, label: 'Map view' },
                 ] as const
               ).map((v) => {
                 const Cmp = v.icon
@@ -443,8 +555,33 @@ export default function PropertiesPage() {
         </div>
       </div>
 
+      {/* ---------------- map, full bleed ---------------- */}
+      {view === 'map' && (
+        <Suspense
+          fallback={
+            <div className="grid h-[70dvh] place-items-center bg-canvas-alt text-[0.875rem] text-ink-muted">
+              Loading the map…
+            </div>
+          }
+        >
+          {/* The map is the page in this mode — it owns the viewport below the
+              header rather than sitting in a box the rest of the page scrolls
+              past, which is what made it collide with the sections below it. */}
+          <MarketMap
+            filters={{
+              intent: intent === 'all' ? undefined : intent,
+              district: district || undefined,
+              category_id: activeCategory?.id,
+              max_price: maxPrice < priceMax ? maxPrice : undefined,
+            }}
+            filterPanel={filterPanel}
+            activeFilterCount={activeChips.length}
+          />
+        </Suspense>
+      )}
+
       {/* ---------------- results ---------------- */}
-      <section className="bg-canvas py-10 lg:py-14">
+      <section className={cn('bg-canvas py-10 lg:py-14', view === 'map' && 'hidden')}>
         <div className="container-page">
           <div className="grid gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
             {/* desktop filter rail */}

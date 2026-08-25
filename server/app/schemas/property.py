@@ -127,6 +127,9 @@ class PropertyDetail(PropertyCard):
     parcel_id: str | None = None
     land_use: str | None = None
     right_type: str | None = None
+    master_plan_zone: str | None = None
+    master_plan_note: str | None = None
+    master_plan_doc_url: str | None = None
     amount_paid: float | None = None
     is_negotiable: bool
     details: dict | None = None
@@ -143,6 +146,7 @@ class PropertyDetail(PropertyCard):
     owner_contact: str | None = None
     show_owner_info: bool = False
     show_on_map: bool = True
+    allow_directions: bool = False
     allow_bidding: bool = False
     min_bid: float | None = None
     bidding_closes_at: datetime | None = None
@@ -228,6 +232,9 @@ class PropertyBase(BaseModel):
     built_area: float | None = Field(default=None, ge=0)
     land_use: str | None = None
     right_type: str | None = None
+    master_plan_zone: str | None = None
+    master_plan_note: str | None = None
+    master_plan_doc_url: str | None = None
     bedrooms: int | None = Field(default=None, ge=0, le=200)
     bathrooms: int | None = Field(default=None, ge=0, le=200)
 
@@ -261,6 +268,8 @@ class PropertyBase(BaseModel):
     show_on_public: bool = True
     show_owner_info: bool = False
     show_on_map: bool = True
+    #: Publishing turn-by-turn directions to vacant land is opt-in.
+    allow_directions: bool = False
     allow_bidding: bool = False
     min_bid: float | None = Field(default=None, ge=0)
     bidding_closes_at: datetime | None = None
@@ -304,6 +313,7 @@ class PropertyUpdate(BaseModel):
     show_on_public: bool | None = None
     show_owner_info: bool | None = None
     show_on_map: bool | None = None
+    allow_directions: bool | None = None
     allow_bidding: bool | None = None
     min_bid: float | None = None
     bidding_closes_at: datetime | None = None
@@ -333,6 +343,9 @@ class PropertyUpdate(BaseModel):
     built_area: float | None = None
     land_use: str | None = None
     right_type: str | None = None
+    master_plan_zone: str | None = None
+    master_plan_note: str | None = None
+    master_plan_doc_url: str | None = None
     bedrooms: int | None = None
     bathrooms: int | None = None
     intent: ListingIntent | None = None
@@ -380,6 +393,8 @@ class PropertyFilters(BaseModel):
     subcategory: str | None = None
     district: str | None = None
     sector: str | None = None
+    cell: str | None = None
+    village: str | None = None
     min_price: float | None = None
     max_price: float | None = None
     min_size: float | None = None

@@ -59,7 +59,7 @@ from app.schemas.property import (
     PropertyUpdate,
     PropertyVerify,
 )
-from app.services import bidding_service, property_service, storage_service
+from app.services import bidding_service, property_service, spatial_service, storage_service
 from app.services.filtering import PROPERTY_FILTERS, apply_filters, describe
 from app.services.audit import diff, record
 
@@ -317,6 +317,9 @@ async def get_one(
         gis_coordinates=prop.gis_coordinates, boundary_geojson=prop.boundary_geojson,
         boundary_points=prop.boundary_points, boundary_area_sqm=prop.boundary_area_sqm,
         parcel_id=prop.parcel_id, land_use=prop.land_use, right_type=prop.right_type,
+        master_plan_zone=prop.master_plan_zone, master_plan_note=prop.master_plan_note,
+        master_plan_doc_url=prop.master_plan_doc_url,
+        allow_directions=prop.allow_directions,
         amount_paid=float(prop.amount_paid) if prop.amount_paid is not None else None,
         is_negotiable=prop.is_negotiable, details=prop.details,
         parcel_information=prop.parcel_information, amenities=prop.amenities,
@@ -373,6 +376,10 @@ async def create_property(
     )
     property_service.apply_commission(prop)
     property_service.refresh_derived(prop)
+    # Rebuilds the PostGIS geometry, the measured area and the shape warnings
+    # from whatever corners were just saved, so the map and the catalogue can
+    # never disagree about where a parcel is.
+    spatial_service.refresh_geometry(prop)
     db.add(prop)
     await db.flush()
 
@@ -445,6 +452,10 @@ async def update_property(
 
     property_service.apply_commission(prop)
     property_service.refresh_derived(prop)
+    # Rebuilds the PostGIS geometry, the measured area and the shape warnings
+    # from whatever corners were just saved, so the map and the catalogue can
+    # never disagree about where a parcel is.
+    spatial_service.refresh_geometry(prop)
     await record(
         db, actor=actor, action="property.update", entity_type="property",
         entity_id=prop.reference_number, changes=diff(before, prop.as_dict()), request=request,

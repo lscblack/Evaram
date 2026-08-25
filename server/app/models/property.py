@@ -1,6 +1,7 @@
 import enum
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -140,13 +142,40 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
     #: Simple [[lat, lng], …] ring for lightweight map libraries.
     boundary_points: Mapped[list | None] = mapped_column(JSONB)
     boundary_area_sqm: Mapped[float | None] = mapped_column(Float)
+    #: The same outline as real PostGIS geometry. The JSONB above is what the
+    #: browser draws; this is what the database can actually reason about —
+    #: distance to a wetland, which parcels fall inside a map viewport, whether
+    #: two listings overlap. Kept in step by `refresh_geometry`.
+    boundary_geom: Mapped[Any | None] = mapped_column(
+        Geometry(geometry_type="POLYGON", srid=4326, spatial_index=True)
+    )
+    #: The parcel's centre, for pins and radius searches. Derived, never typed.
+    centre_geom: Mapped[Any | None] = mapped_column(
+        Geometry(geometry_type="POINT", srid=4326, spatial_index=True)
+    )
+    #: What is odd about the outline — slivers, spikes, an area that disagrees
+    #: with the declared size. Recomputed on every save; see `analyse_shape`.
+    boundary_issues: Mapped[list | None] = mapped_column(JSONB)
 
     # ---------------- physical ----------------
     parcel_id: Mapped[str | None] = mapped_column(String(64))
     size: Mapped[float | None] = mapped_column(Float, index=True)
     built_area: Mapped[float | None] = mapped_column(Float)
+    #: How the parcel is used today — residential, commercial, agricultural…
     land_use: Mapped[str | None] = mapped_column(String(120))
+    #: The tenure on the certificate: freehold, emphyteutic lease, occupancy.
     right_type: Mapped[str | None] = mapped_column(String(120))
+
+    # ---------------- master plan ----------------
+    #: What the district Master Plan zones this parcel as. Distinct from
+    #: `land_use`: a parcel farmed today may be zoned for housing tomorrow, and
+    #: that gap is what a buyer is actually pricing.
+    master_plan_zone: Mapped[str | None] = mapped_column(String(160))
+    #: Permitted use, density, storeys — whatever the zone allows in practice.
+    master_plan_note: Mapped[str | None] = mapped_column(Text)
+    #: Optional extract or screenshot backing the zone above. Buyers take the
+    #: claim more seriously when the document is attached to it.
+    master_plan_doc_url: Mapped[str | None] = mapped_column(String(500))
     bedrooms: Mapped[int | None] = mapped_column(Integer, index=True)
     bathrooms: Mapped[int | None] = mapped_column(Integer)
 
@@ -251,6 +280,13 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
         Boolean, default=True, server_default=text("true"), nullable=False
     )
 
+    #: Whether the public map may route a buyer to the gate. Off by default:
+    #: turn-by-turn directions to a vacant plot is not something to publish
+    #: unless the seller has agreed to it.
+    allow_directions: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+
     # ---------------- bidding ----------------
     allow_bidding: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     #: Offers below this are rejected outright. Falls back to the asking price.
@@ -303,6 +339,7 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
             self.cell,
             self.village,
             self.land_use,
+            self.master_plan_zone,
             " ".join(self.tags or []),
         ]
         return " ".join(p for p in parts if p)

@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import type { ApiFormField } from '@/types/api'
 import { cn } from '@/lib/utils'
 import { useT } from '@/lib/i18n'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 
 export type FieldValue = string | number | string[] | boolean | undefined
 export type FormValues = Record<string, FieldValue>
@@ -15,6 +16,21 @@ const WIDTHS: Record<string, string> = {
 const INPUT =
   'h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink ' +
   'transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none'
+
+const CURRENCY_UNITS = new Set(['RWF', 'USD', 'EUR', 'FRW'])
+/** Money-ish names, for fields defined before `unit` was used for currency. */
+const MONEY_NAMES = /price|cost|rent|fee|budget|deposit|salary|income|revenue|amount|valuation/i
+
+/**
+ * Whether a number field holds money, and so should group as you type.
+ *
+ * Driven by the field's own `unit` where an admin has set one; the name check
+ * is a fallback so fields configured before that still read correctly.
+ */
+function isMoneyField(field: ApiFormField): boolean {
+  if (field.unit && CURRENCY_UNITS.has(field.unit.toUpperCase())) return true
+  return MONEY_NAMES.test(field.name) || MONEY_NAMES.test(field.label)
+}
 
 /**
  * Renders one FORM_CONFIG field. Every field type in the config is handled —
@@ -167,6 +183,21 @@ export function DynamicField({
       )
 
     case 'number':
+      if (isMoneyField(field)) {
+        return (
+          <div className={span}>
+            {labelNode}
+            <MoneyInput
+              id={field.name}
+              currency={CURRENCY_UNITS.has((field.unit ?? '').toUpperCase()) ? field.unit! : 'RWF'}
+              required={field.is_required}
+              value={(value as number | string) ?? ''}
+              onChange={(v) => onChange(field.name, v === '' ? undefined : Number(v))}
+              className={INPUT}
+            />
+          </div>
+        )
+      }
       return (
         <div className={span}>
           {labelNode}

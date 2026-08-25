@@ -55,6 +55,10 @@ def apply_filters(stmt: Select, filters: PropertyFilters) -> Select:
         stmt = stmt.where(Property.district == filters.district)
     if filters.sector:
         stmt = stmt.where(Property.sector == filters.sector)
+    if filters.cell:
+        stmt = stmt.where(Property.cell == filters.cell)
+    if filters.village:
+        stmt = stmt.where(Property.village == filters.village)
     if filters.min_price is not None:
         stmt = stmt.where(Property.price >= filters.min_price)
     if filters.max_price is not None:

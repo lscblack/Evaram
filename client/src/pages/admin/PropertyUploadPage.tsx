@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { History, Save, Sparkles } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { History, ImagePlus, Save, Sparkles } from 'lucide-react'
 import {
   Badge,
   ErrorNote,
@@ -12,11 +12,65 @@ import {
 } from '@/components/admin/ui'
 import { MediaUploader, type StagedFile } from '@/components/admin/MediaUploader'
 import { DynamicField, type FieldValue, type FormValues } from '@/components/ui/DynamicField'
-import { api } from '@/lib/api'
+import { MoneyInput } from '@/components/ui/MoneyInput'
+import { FORMAT_NAMES, parseBoundary } from '@/lib/boundary'
+import { ringArea } from '@/lib/geoMeasure'
+import { api, mediaUrl } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
-import { useSiteConfig } from '@/lib/siteConfig'
+import { useCells, useLocalities, useSectors, useVillages } from '@/components/ui/LocationPicker'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
-import type { ApiCategory, ApiFormField, ApiSaleRecord, ApiSaleRecordDetail, ClientOption } from '@/types/api'
+import type {
+  ApiAdminPropertyDetail,
+  ApiCategory,
+  ApiFormField,
+  ApiSaleRecord,
+  ApiSaleRecordDetail,
+  ClientOption,
+} from '@/types/api'
+
+/**
+ * Land use as the register records it, and tenure as the certificate grants it.
+ *
+ * Rwandan land is held under a certificate of land registration or an
+ * emphyteutic (long) lease rather than a "title deed", so the wording here
+ * follows the document a seller actually produces.
+ */
+const LAND_USES = [
+  'Residential',
+  'Commercial',
+  'Mixed use',
+  'Industrial',
+  'Agricultural',
+  'Livestock',
+  'Forestry',
+  'Institutional / public',
+  'Recreational',
+  'Wetland / protected',
+]
+
+const RIGHT_TYPES = [
+  'Freehold',
+  'Emphyteutic lease (long-term)',
+  'Leasehold',
+  'Right of occupancy',
+  'Customary (not yet registered)',
+]
+
+/** Common Master Plan designations — free text, so an unusual zone still fits. */
+const MASTER_PLAN_ZONES = [
+  'R1 — low density residential',
+  'R2 — medium density residential',
+  'R3 — high density residential',
+  'C1 — local commercial',
+  'C2 — city commercial',
+  'MU — mixed use',
+  'I1 — light industry',
+  'I2 — heavy industry',
+  'PF — public facility',
+  'AG — agriculture',
+  'GR — green / recreation',
+  'WL — wetland (no build)',
+]
 
 /**
  * The property upload form — staff only.
@@ -27,9 +81,16 @@ import type { ApiCategory, ApiFormField, ApiSaleRecord, ApiSaleRecordDetail, Cli
  */
 export default function PropertyUploadPage() {
   const navigate = useNavigate()
+  // Present only on `/admin/properties/:id/edit`; the same form serves both, so
+  // a field added for new listings is never missing from editing.
+  const { id: editingId } = useParams<{ id: string }>()
+  const { data: existing, loading: loadingExisting } = useQuery<ApiAdminPropertyDetail>(
+    editingId ? `/admin/properties/${editingId}` : null,
+    { ttl: 0 },
+  )
   const { data: taxonomy, loading } = useQuery<ApiCategory[]>('/public/taxonomy')
   const categories = useMemo(() => taxonomy ?? [], [taxonomy])
-  const { districts } = useSiteConfig()
+  const { districts: allDistricts } = useLocalities()
 
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryId, setSubcategoryId] = useState('')
@@ -41,6 +102,8 @@ export default function PropertyUploadPage() {
     summary: '',
     district: '',
     sector: '',
+    cell: '',
+    village: '',
     location: '',
     intent: 'sale',
     price: '',
@@ -48,6 +111,20 @@ export default function PropertyUploadPage() {
     owner_name: '',
     owner_contact: '',
   })
+  const sectorOptions = useSectors(core.district)
+  const cellOptions = useCells(core.sector, core.district)
+  const villageOptions = useVillages(core.cell, core.district)
+
+  /** Thirty districts read far better grouped by province than as one list. */
+  const districtGroups = useMemo(() => {
+    const grouped = new Map<string, string[]>()
+    for (const d of allDistricts) {
+      const key = d.province ?? 'Other'
+      grouped.set(key, [...(grouped.get(key) ?? []), d.name])
+    }
+    return [...grouped.entries()]
+  }, [allDistricts])
+
   /** Seller as a client record, plus the commission that builds the price. */
   const [deal, setDeal] = useState({
     seller_client_id: '',
@@ -63,6 +140,7 @@ export default function PropertyUploadPage() {
     allow_bidding: false,
     is_featured: false,
     show_on_map: true,
+    allow_directions: false,
   })
   const { data: clients } = useQuery<ClientOption[]>('/admin/clients/options')
 
@@ -104,6 +182,17 @@ export default function PropertyUploadPage() {
   const [minBid, setMinBid] = useState('')
   const [photos, setPhotos] = useState<StagedFile[]>([])
   const [geo, setGeo] = useState({ latitude: '', longitude: '', boundary: '' })
+  /** Tenure and zoning — what the parcel is now, and what it may become. */
+  const [parcel, setParcel] = useState({
+    land_use: '',
+    right_type: '',
+    master_plan_zone: '',
+    master_plan_note: '',
+  })
+  /** Optional master-plan extract. Staged until the listing has an id. */
+  const [proof, setProof] = useState<File | null>(null)
+  const [proofUrl, setProofUrl] = useState<string | null>(null)
+
   const [virtual, setVirtual] = useState({
     vr_tour_url: '',
     video_360_url: '',
@@ -113,6 +202,73 @@ export default function PropertyUploadPage() {
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /**
+   * Fill the form from the listing being edited.
+   *
+   * Keyed on the record's `updated_at` rather than on the object, so a refetch
+   * that returns the same version does not discard what is being typed.
+   */
+  useEffect(() => {
+    if (!existing) return
+    const p = existing
+    setCategoryId(p.category_id)
+    setSubcategoryId(p.subcategory_id)
+    setValues((p.details as FormValues) ?? {})
+    setCore({
+      reference_number: p.reference_number,
+      upi: p.upi ?? '',
+      title: p.title,
+      summary: p.summary ?? '',
+      district: p.district ?? '',
+      sector: p.sector ?? '',
+      cell: p.cell ?? '',
+      village: p.village ?? '',
+      location: p.location ?? '',
+      intent: p.intent,
+      price: p.price != null ? String(Math.round(p.price)) : '',
+      size: p.size != null ? String(p.size) : '',
+      owner_name: p.owner_name ?? '',
+      owner_contact: p.owner_contact ?? '',
+    })
+    setDeal({
+      seller_client_id: p.seller_client_id ?? '',
+      owner_price: p.owner_price != null ? String(Math.round(p.owner_price)) : '',
+      commission_basis: p.commission_basis ?? 'percent',
+      commission_rate: p.commission_rate != null ? String(p.commission_rate) : '',
+      commission_amount: p.commission_amount != null ? String(Math.round(p.commission_amount)) : '',
+      commission_in_price: p.commission_in_price,
+    })
+    setFlags({
+      show_on_public: p.show_on_public,
+      show_owner_info: p.show_owner_info,
+      allow_bidding: p.allow_bidding,
+      is_featured: p.is_featured,
+      show_on_map: p.show_on_map,
+      allow_directions: p.allow_directions ?? false,
+    })
+    setParcel({
+      land_use: p.land_use ?? '',
+      right_type: p.right_type ?? '',
+      master_plan_zone: p.master_plan_zone ?? '',
+      master_plan_note: p.master_plan_note ?? '',
+    })
+    setProofUrl(p.master_plan_doc_url)
+    setMinBid(p.min_bid != null ? String(Math.round(p.min_bid)) : '')
+    setGeo({
+      latitude: p.latitude != null ? String(p.latitude) : '',
+      longitude: p.longitude != null ? String(p.longitude) : '',
+      boundary: (p.boundary_points ?? []).map(([lat, lng]) => `${lat}, ${lng}`).join('\n'),
+    })
+    setVirtual({
+      vr_tour_url: p.vr_tour_url ?? '',
+      video_360_url: p.video_360_url ?? '',
+      video_link: p.video_link ?? '',
+      drone_footage_url: p.drone_footage_url ?? '',
+      vr_tour_provider: p.vr_tour_provider ?? '',
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing?.id, existing?.updated_at])
 
   const category = categories.find((c) => c.id === categoryId)
   const subcategory = category?.subcategories.find((s) => s.id === subcategoryId)
@@ -170,21 +326,32 @@ export default function PropertyUploadPage() {
   }
 
   /**
-   * Boundary points are pasted as `lat, lng` per line — the format a surveyor's
-   * report already uses, so nobody has to hand-write GeoJSON.
+   * Whatever the surveyor's software produced — WKT, GeoJSON, or corners pasted
+   * one per line. Parsing all three here means an agent never has to convert
+   * anything by hand, which is where transposed coordinates come from.
    */
-  const boundaryPoints = useMemo(() => {
-    const rows = geo.boundary
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-    const parsed: number[][] = []
-    for (const row of rows) {
-      const [lat, lng] = row.split(/[,\s]+/).map(Number)
-      if (Number.isFinite(lat) && Number.isFinite(lng)) parsed.push([lat, lng])
-    }
-    return parsed
-  }, [geo.boundary])
+  const parsedBoundary = useMemo(() => parseBoundary(geo.boundary), [geo.boundary])
+  const boundaryPoints = parsedBoundary.points
+
+  /** What the outline actually measures — the same sum the server will run. */
+  const boundaryArea = useMemo(
+    () => (boundaryPoints.length >= 3 ? ringArea(boundaryPoints.map(([lat, lng]) => [lng, lat])) : null),
+    [boundaryPoints],
+  )
+
+  /**
+   * How far the drawn outline is from the typed plot size.
+   *
+   * Flagged here rather than after saving: a transposed corner or a misplaced
+   * decimal is obvious the moment the two numbers are put side by side, and
+   * nowhere near as obvious once the listing is live.
+   */
+  const sizeDrift = useMemo(() => {
+    const declared = Number(core.size)
+    if (!boundaryArea || !declared) return null
+    const drift = Math.abs(boundaryArea - declared) / declared
+    return drift > 0.1 ? drift : null
+  }, [boundaryArea, core.size])
 
   const setValue = (name: string, value: FieldValue) =>
     setValues((prev) => ({ ...prev, [name]: value }))
@@ -195,7 +362,7 @@ export default function PropertyUploadPage() {
     setBusy(true)
     setError(null)
     try {
-      const created = await api.post<{ id: string }>('/admin/properties', {
+      const body = {
         reference_number: core.reference_number,
         upi: core.upi || null,
         title: core.title,
@@ -204,6 +371,8 @@ export default function PropertyUploadPage() {
         subcategory_id: subcategory.id,
         district: core.district || null,
         sector: core.sector || null,
+        cell: core.cell || null,
+        village: core.village || null,
         location: core.location || null,
         intent: core.intent,
         price: derivedPrice ?? (core.price ? Number(core.price) : null),
@@ -226,21 +395,45 @@ export default function PropertyUploadPage() {
         video_link: virtual.video_link || null,
         drone_footage_url: virtual.drone_footage_url || null,
         vr_tour_provider: virtual.vr_tour_provider || null,
+        land_use: parcel.land_use || null,
+        right_type: parcel.right_type || null,
+        master_plan_zone: parcel.master_plan_zone || null,
+        master_plan_note: parcel.master_plan_note || null,
+        master_plan_doc_url: proofUrl,
         ...flags,
-      })
+      }
+
+      const saved = editingId
+        ? await api.patch<{ id: string }>(`/admin/properties/${editingId}`, body)
+        : await api.post<{ id: string }>('/admin/properties', body)
 
       // The listing has to exist before its images have somewhere to attach.
       if (photos.length) {
         await api.upload(
-          `/admin/properties/${created.id}/media/upload`,
+          `/admin/properties/${saved.id}/media/upload`,
           photos.map((p) => p.file),
           { kind: 'image' },
         )
       }
 
+      // The extract is uploaded through the media pipeline, then pointed at by
+      // the listing — a second PATCH because its URL does not exist until then.
+      if (proof) {
+        const [uploaded] = await api.upload<{ url: string }[]>(
+          `/admin/properties/${saved.id}/media/upload`,
+          [proof],
+          { kind: 'document' },
+        )
+        if (uploaded?.url) {
+          await api.patch(`/admin/properties/${saved.id}`, {
+            master_plan_doc_url: uploaded.url,
+          })
+        }
+      }
+
       invalidate('/admin/properties')
       invalidate('/public/properties')
-      navigate(`/admin/properties?highlight=${created.id}`)
+      navigate(`/admin/properties?highlight=${saved.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That listing was not saved.')
     } finally {
@@ -249,12 +442,17 @@ export default function PropertyUploadPage() {
   }
 
   if (loading && categories.length === 0) return <Loading label="Reading the taxonomy…" />
+  if (editingId && loadingExisting && !existing) return <Loading label="Opening the listing…" />
 
   return (
     <form onSubmit={submit}>
       <PageHeader
-        title="New property"
-        description="Staff-entered so the reference number and UPI can be trusted."
+        title={editingId ? 'Edit listing' : 'New property'}
+        description={
+          editingId
+            ? 'Changes are audited. An agent editing a live listing sends it back for review.'
+            : 'Staff-entered so the reference number and UPI can be trusted.'
+        }
         action={
           <button
             type="submit"
@@ -262,7 +460,7 @@ export default function PropertyUploadPage() {
             className="inline-flex items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             <Save className="size-3.5" strokeWidth={2.2} />
-            {busy ? 'Saving…' : 'Save listing'}
+            {busy ? 'Saving…' : editingId ? 'Save changes' : 'Save listing'}
           </button>
         }
       />
@@ -337,7 +535,7 @@ export default function PropertyUploadPage() {
                 />
               </Field>
 
-              {history.length > 0 && (
+              {!editingId && history.length > 0 && (
                 <div className="sm:col-span-2">
                   <div className="rounded-2xl border border-gold-300 bg-gold-50 p-4">
                     <p className="flex items-center gap-2 text-[0.8125rem] font-semibold text-gold-800">
@@ -398,22 +596,75 @@ export default function PropertyUploadPage() {
                 <select
                   className={FIELD}
                   value={core.district}
-                  onChange={(e) => setCore((c) => ({ ...c, district: e.target.value }))}
+                  onChange={(e) =>
+                    // A sector belongs to exactly one district, so changing the
+                    // district has to clear it — otherwise the listing is filed
+                    // in a sector that does not exist there.
+                    setCore((c) => ({ ...c, district: e.target.value, sector: '' }))
+                  }
                 >
                   <option value="">Choose…</option>
-                  {districts.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
+                  {districtGroups.map(([province, names]) => (
+                    <optgroup key={province} label={province}>
+                      {names.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </Field>
               <Field label="Sector">
-                <input
-                  className={FIELD}
+                <select
+                  className={cn(FIELD, !core.district && 'cursor-not-allowed opacity-55')}
+                  disabled={!core.district}
                   value={core.sector}
-                  onChange={(e) => setCore((c) => ({ ...c, sector: e.target.value }))}
-                />
+                  onChange={(e) =>
+                    setCore((c) => ({ ...c, sector: e.target.value, cell: '', village: '' }))
+                  }
+                >
+                  <option value="">
+                    {core.district ? 'Choose…' : 'Choose a district first'}
+                  </option>
+                  {sectorOptions.map((sectorName) => (
+                    <option key={sectorName} value={sectorName}>
+                      {sectorName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Cell">
+                <select
+                  className={cn(FIELD, !core.sector && 'cursor-not-allowed opacity-55')}
+                  disabled={!core.sector}
+                  value={core.cell}
+                  onChange={(e) => setCore((c) => ({ ...c, cell: e.target.value, village: '' }))}
+                >
+                  <option value="">{core.sector ? 'Choose…' : 'Choose a sector first'}</option>
+                  {cellOptions.map((cellName) => (
+                    <option key={cellName} value={cellName}>
+                      {cellName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Village">
+                <select
+                  className={cn(FIELD, !core.cell && 'cursor-not-allowed opacity-55')}
+                  disabled={!core.cell}
+                  value={core.village}
+                  onChange={(e) => setCore((c) => ({ ...c, village: e.target.value }))}
+                >
+                  <option value="">{core.cell ? 'Choose…' : 'Choose a cell first'}</option>
+                  {villageOptions.map((villageName) => (
+                    <option key={villageName} value={villageName}>
+                      {villageName}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Location">
@@ -453,14 +704,16 @@ export default function PropertyUploadPage() {
               <div className="sm:col-span-2">
                 <Field
                   label="Parcel boundary"
-                  hint="One corner per line as `latitude, longitude` — straight off the surveyor's report."
+                  hint="Paste a WKT polygon, a GeoJSON feature, or one corner per line as `latitude, longitude`."
                 >
                   <textarea
                     rows={6}
                     className={cn(FIELD, 'h-auto py-2.5 font-mono text-[0.8125rem]')}
                     value={geo.boundary}
                     onChange={(e) => setGeo((g) => ({ ...g, boundary: e.target.value }))}
-                    placeholder={'-1.9701, 30.1388\n-1.9701, 30.1400\n-1.9711, 30.1400\n-1.9711, 30.1388'}
+                    placeholder={
+                      'POLYGON ((30.1396 -2.3077, 30.1396 -2.3079, 30.1394 -2.3079, 30.1396 -2.3077))\n\n…or one corner per line:\n-1.9701, 30.1388\n-1.9701, 30.1400'
+                    }
                   />
                 </Field>
 
@@ -468,40 +721,165 @@ export default function PropertyUploadPage() {
                   <p
                     className={cn(
                       'text-[0.75rem]',
-                      boundaryPoints.length >= 3
-                        ? 'text-emerald-700'
-                        : geo.boundary
-                          ? 'text-amber-700'
-                          : 'text-ink-muted',
+                      parsedBoundary.error
+                        ? 'text-red-600'
+                        : boundaryPoints.length >= 3
+                          ? 'text-emerald-700'
+                          : geo.boundary
+                            ? 'text-amber-700'
+                            : 'text-ink-muted',
                     )}
                   >
-                    {boundaryPoints.length >= 3
-                      ? `${boundaryPoints.length} corners — the outline and its 3D view will render`
-                      : geo.boundary
-                        ? `${boundaryPoints.length} valid corner(s) — at least 3 are needed`
-                        : 'Leave blank if the parcel has not been surveyed yet'}
+                    {parsedBoundary.error
+                      ? parsedBoundary.error
+                      : boundaryPoints.length >= 3
+                        ? `Read as ${FORMAT_NAMES[parsedBoundary.format ?? ''] ?? 'coordinates'} — ` +
+                          `${boundaryPoints.length} corners` +
+                          (boundaryArea ? `, ${Math.round(boundaryArea).toLocaleString('en-RW')} sqm` : '')
+                        : geo.boundary
+                          ? `${boundaryPoints.length} valid corner(s) — at least 3 are needed`
+                          : 'Leave blank if the parcel has not been surveyed yet'}
                   </p>
+                  {parsedBoundary.transposed && (
+                    <p className="text-[0.75rem] text-amber-700">
+                      The pairs were longitude first, so they have been swapped to match.
+                    </p>
+                  )}
+                  {sizeDrift !== null && (
+                    <p className="text-[0.75rem] text-amber-700">
+                      That outline measures {Math.round(boundaryArea!).toLocaleString('en-RW')} sqm
+                      but the plot size says {Number(core.size).toLocaleString('en-RW')} —
+                      a {Math.round(sizeDrift * 100)}% difference.
+                    </p>
+                  )}
                   {boundaryPoints.length >= 3 && (
                     <BoundaryPreview points={boundaryPoints} />
                   )}
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="space-y-3 sm:col-span-2">
                 <Toggle
                   label="Show the exact location on the public map"
                   hint="Off still names the district and sector, but withholds the pin and the parcel outline."
                   checked={flags.show_on_map}
-                  onChange={(v) => setFlags((f) => ({ ...f, show_on_map: v }))}
+                  onChange={(v) =>
+                    setFlags((f) => ({
+                      ...f,
+                      show_on_map: v,
+                      // Directions to a plot we are not placing on the map would
+                      // give away the position the seller just withheld.
+                      allow_directions: v ? f.allow_directions : false,
+                    }))
+                  }
                 />
+                {flags.show_on_map && (
+                  <Toggle
+                    label="Let buyers route themselves to the plot"
+                    hint="Only with the owner's agreement. Turn-by-turn directions send strangers to vacant land unaccompanied."
+                    checked={flags.allow_directions}
+                    onChange={(v) => setFlags((f) => ({ ...f, allow_directions: v }))}
+                  />
+                )}
               </div>
+            </div>
+          </Panel>
+
+          {/* ---- tenure & zoning ---- */}
+          <Panel title="Land use & master plan">
+            <div className="grid gap-3.5 p-5 sm:grid-cols-2">
+              <Field label="Current land use" hint="How the parcel is used today.">
+                <select
+                  className={FIELD}
+                  value={parcel.land_use}
+                  onChange={(e) => setParcel((p) => ({ ...p, land_use: e.target.value }))}
+                >
+                  <option value="">Not stated</option>
+                  {LAND_USES.map((use) => (
+                    <option key={use} value={use}>
+                      {use}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field
+                label="Type of right"
+                hint="What the certificate of land registration grants."
+              >
+                <select
+                  className={FIELD}
+                  value={parcel.right_type}
+                  onChange={(e) => setParcel((p) => ({ ...p, right_type: e.target.value }))}
+                >
+                  <option value="">Not stated</option>
+                  {RIGHT_TYPES.map((right) => (
+                    <option key={right} value={right}>
+                      {right}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field
+                label="Master plan zone"
+                hint="The zoning the district Master Plan gives this parcel."
+              >
+                <input
+                  className={FIELD}
+                  list="master-plan-zones"
+                  value={parcel.master_plan_zone}
+                  onChange={(e) => setParcel((p) => ({ ...p, master_plan_zone: e.target.value }))}
+                  placeholder="R1 — low density residential"
+                />
+                <datalist id="master-plan-zones">
+                  {MASTER_PLAN_ZONES.map((zone) => (
+                    <option key={zone} value={zone} />
+                  ))}
+                </datalist>
+              </Field>
+
+              <Field label="What the zone allows" hint="Density, storeys, permitted use.">
+                <input
+                  className={FIELD}
+                  value={parcel.master_plan_note}
+                  onChange={(e) => setParcel((p) => ({ ...p, master_plan_note: e.target.value }))}
+                  placeholder="Up to G+3, residential"
+                />
+              </Field>
+
+              <div className="sm:col-span-2">
+                <Field
+                  label="Master plan extract"
+                  hint="Optional. A screenshot or scan of the zoning extract — buyers weigh the claim differently when the document is attached."
+                >
+                  <ProofUpload
+                    file={proof}
+                    url={mediaUrl(proofUrl) ?? null}
+                    onPick={setProof}
+                    onClear={() => {
+                      setProof(null)
+                      setProofUrl(null)
+                    }}
+                  />
+                </Field>
+              </div>
+
+              <p className="text-[0.75rem] leading-relaxed text-ink-muted sm:col-span-2">
+                The zone is what a district approves a building permit against, so it is worth
+                confirming at the One Stop Centre rather than taking it from the seller.
+              </p>
             </div>
           </Panel>
 
           {/* ---- photographs ---- */}
           <Panel title="Photographs">
             <div className="p-5">
-              <MediaUploader staged={photos} onStagedChange={setPhotos} />
+              {editingId ? (
+                <MediaUploader propertyId={editingId} existing={existing?.media} />
+              ) : (
+                <MediaUploader staged={photos} onStagedChange={setPhotos} />
+              )}
             </div>
           </Panel>
 
@@ -591,19 +969,19 @@ export default function PropertyUploadPage() {
                 </select>
               </Field>
               <Field
-                label="Asking price (RWF)"
+                label="Asking price"
                 hint={
                   derivedPrice
                     ? "Worked out from the seller's price plus commission — edit those below."
                     : undefined
                 }
               >
-                <input
-                  type="number"
+                <MoneyInput
+                  currency="RWF"
                   className={cn(FIELD, Boolean(derivedPrice) && 'bg-canvas-alt text-ink-muted')}
                   value={derivedPrice ? String(derivedPrice) : core.price}
                   readOnly={Boolean(derivedPrice)}
-                  onChange={(e) => setCore((c) => ({ ...c, price: e.target.value }))}
+                  onChange={(v) => setCore((c) => ({ ...c, price: v }))}
                 />
               </Field>
               <Field label="Plot size (sqm)">
@@ -654,12 +1032,12 @@ export default function PropertyUploadPage() {
               </Field>
 
               <div className="border-t border-line pt-3.5">
-                <Field label="What the seller wants (RWF)" hint="Their net figure, before our fee.">
-                  <input
+                <Field label="What the seller wants" hint="Their net figure, before our fee.">
+                  <MoneyInput
+                    currency="RWF"
                     className={FIELD}
-                    inputMode="numeric"
                     value={deal.owner_price}
-                    onChange={(e) => setDeal((d) => ({ ...d, owner_price: e.target.value }))}
+                    onChange={(v) => setDeal((d) => ({ ...d, owner_price: v }))}
                   />
                 </Field>
               </div>
@@ -685,12 +1063,12 @@ export default function PropertyUploadPage() {
                     />
                   </Field>
                 ) : (
-                  <Field label="Amount (RWF)">
-                    <input
+                  <Field label="Commission amount">
+                    <MoneyInput
+                      currency="RWF"
                       className={FIELD}
-                      inputMode="numeric"
                       value={deal.commission_amount}
-                      onChange={(e) => setDeal((d) => ({ ...d, commission_amount: e.target.value }))}
+                      onChange={(v) => setDeal((d) => ({ ...d, commission_amount: v }))}
                     />
                   </Field>
                 )}
@@ -733,12 +1111,12 @@ export default function PropertyUploadPage() {
                 onChange={(v) => setFlags((f) => ({ ...f, allow_bidding: v }))}
               />
               {flags.allow_bidding && (
-                <Field label="Minimum offer (RWF)">
-                  <input
-                    type="number"
+                <Field label="Minimum offer">
+                  <MoneyInput
+                    currency="RWF"
                     className={FIELD}
                     value={minBid}
-                    onChange={(e) => setMinBid(e.target.value)}
+                    onChange={setMinBid}
                   />
                 </Field>
               )}
@@ -828,5 +1206,77 @@ function BoundaryPreview({ points }: { points: number[][] }) {
         strokeLinejoin="round"
       />
     </svg>
+  )
+}
+
+/**
+ * A single optional image, staged in the browser.
+ *
+ * Not the gallery uploader: this is one document standing behind one claim, so
+ * adding a second would only raise the question of which one is the proof.
+ */
+function ProofUpload({
+  file,
+  url,
+  onPick,
+  onClear,
+}: {
+  file: File | null
+  url: string | null
+  onPick: (file: File) => void
+  onClear: () => void
+}) {
+  const [preview, setPreview] = useState<string | null>(null)
+
+  // An object URL outlives its image unless it is revoked by hand.
+  useEffect(() => {
+    if (!file) {
+      setPreview(null)
+      return
+    }
+    const made = URL.createObjectURL(file)
+    setPreview(made)
+    return () => URL.revokeObjectURL(made)
+  }, [file])
+
+  const shown = preview ?? url
+
+  if (shown) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-line bg-canvas p-3">
+        <img
+          src={shown}
+          alt="Master plan extract"
+          className="size-16 shrink-0 rounded-xl object-cover"
+        />
+        <p className="min-w-0 flex-1 truncate text-[0.8125rem] text-ink-soft">
+          {file ? file.name : 'Attached'}
+        </p>
+        <button
+          type="button"
+          onClick={onClear}
+          className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[0.75rem] font-semibold text-ink-soft transition-colors hover:border-red-300 hover:text-red-600"
+        >
+          Remove
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-line bg-canvas px-4 py-6 text-[0.8125rem] font-semibold text-ink-soft transition-colors hover:border-gold-500 hover:text-ink">
+      <ImagePlus className="size-4" strokeWidth={2.2} />
+      Attach an extract
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        className="sr-only"
+        onChange={(e) => {
+          const picked = e.target.files?.[0]
+          if (picked) onPick(picked)
+          e.target.value = ''
+        }}
+      />
+    </label>
   )
 }

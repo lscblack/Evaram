@@ -455,6 +455,8 @@ class SellerSubmission(Base, UUIDPrimaryKey, TimestampMixin):
 
     district: Mapped[str | None] = mapped_column(String(80))
     sector: Mapped[str | None] = mapped_column(String(80))
+    cell: Mapped[str | None] = mapped_column(String(80))
+    village: Mapped[str | None] = mapped_column(String(80))
     location: Mapped[str | None] = mapped_column(String(240))
     property_type: Mapped[str | None] = mapped_column(String(120))
     asking_price: Mapped[float | None] = mapped_column(Numeric(16, 2))

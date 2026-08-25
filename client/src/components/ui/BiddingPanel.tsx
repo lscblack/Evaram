@@ -8,6 +8,8 @@ import { useAuth } from '@/lib/auth'
 import { useQuery } from '@/lib/queries'
 import { useFormErrors } from '@/lib/formErrors'
 import { useT } from '@/lib/i18n'
+import { groupAmount } from '@/lib/money'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { formatCurrency } from '@/lib/utils'
 import type { ApiPropertyDetail, BidSummary } from '@/types/api'
 
@@ -149,16 +151,14 @@ export function BiddingPanel({ property }: { property: ApiPropertyDetail }) {
               >
                 Your offer ({property.currency})
               </label>
-              <input
+              <MoneyInput
                 id="bid-amount"
-                type="number"
                 required
-                min={floor || undefined}
-                step={100000}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder={floor ? String(floor) : 'Amount'}
-                className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] tabular-nums text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
+                onChange={setAmount}
+                placeholder={floor ? groupAmount(String(floor)) : 'Amount'}
+                readout={false}
+                className="h-12 w-full rounded-2xl border border-line bg-canvas px-4 text-[0.9375rem] text-ink transition-colors placeholder:text-ink-faint focus:border-gold-500 focus:bg-surface focus:outline-none"
               />
               {errors.for('amount') ? (
                 <p className="mt-1.5 text-[0.75rem] text-red-600">{errors.for('amount')}</p>

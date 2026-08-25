@@ -6,24 +6,49 @@ where it makes sense, a 360° walkthrough and a VR tour.
 what marks a property as genuinely on the market.
 """
 
+import math
+
 
 def _img(photo_id: str) -> str:
     return f"https://images.unsplash.com/{photo_id}?auto=format&fit=crop&w=1600&q=80"
 
 
-def _ring(lat: float, lng: float, d: float = 0.0014) -> dict:
-    """A simple rectangular parcel outline around a centre point."""
-    return {
-        "type": "Polygon",
-        "coordinates": [[
-            [lng - d, lat - d], [lng + d, lat - d],
-            [lng + d, lat + d], [lng - d, lat + d], [lng - d, lat - d],
-        ]],
-    }
+def _points(lat: float, lng: float, size_sqm: float, skew: float = 0.12) -> list:
+    """A parcel outline of roughly `size_sqm`, centred on the given point.
+
+    Built from the declared size rather than a fixed offset, so the outline a
+    seeded listing draws actually measures what the listing says it does —
+    otherwise every demo parcel trips the area-mismatch check the moment its
+    geometry is analysed.
+
+    `skew` nudges two corners so the result is a quadrilateral rather than a
+    perfect square: real parcels are not square, and a map full of identical
+    rectangles reads as fake.
+    """
+    half = math.sqrt(size_sqm) / 2
+
+    phi = math.radians(lat)
+    lat_m = 111_132.92 - 559.82 * math.cos(2 * phi) + 1.175 * math.cos(4 * phi)
+    lng_m = 111_412.84 * math.cos(phi) - 93.5 * math.cos(3 * phi)
+
+    dlat = half / lat_m
+    dlng = half / lng_m
+
+    # Widen one side and narrow the other by the same amount: a trapezium keeps
+    # the area while losing the symmetry.
+    return [
+        [lat - dlat, lng - dlng * (1 + skew)],
+        [lat - dlat, lng + dlng * (1 - skew)],
+        [lat + dlat, lng + dlng * (1 + skew)],
+        [lat + dlat, lng - dlng * (1 - skew)],
+    ]
 
 
-def _points(lat: float, lng: float, d: float = 0.0014) -> list:
-    return [[lat - d, lng - d], [lat - d, lng + d], [lat + d, lng + d], [lat + d, lng - d]]
+def _ring(lat: float, lng: float, size_sqm: float) -> dict:
+    """The same outline as GeoJSON, longitude first and closed."""
+    coords = [[lng, lat] for lat, lng in _points(lat, lng, size_sqm)]
+    coords.append(coords[0])
+    return {"type": "Polygon", "coordinates": [coords]}
 
 
 PANORAMA = [
@@ -51,8 +76,8 @@ PROPERTIES: list[dict] = [
         "location": "Kanombe, near the airport road", "province": "Kigali City",
         "district": "Kicukiro", "sector": "Kanombe", "cell": "Rubirizi", "village": "Karama",
         "latitude": -1.9706, "longitude": 30.1394, "gis_coordinates": "-1.9706, 30.1394",
-        "boundary_geojson": _ring(-1.9706, 30.1394),
-        "boundary_points": _points(-1.9706, 30.1394),
+        "boundary_geojson": _ring(-1.9706, 30.1394, 812),
+        "boundary_points": _points(-1.9706, 30.1394, 812),
         "boundary_area_sqm": 812,
         "size": 812, "land_use": "Residential", "right_type": "Freehold",
         "intent": "sale", "price": 42_000_000, "currency": "RWF",
@@ -90,8 +115,8 @@ PROPERTIES: list[dict] = [
         "location": "Kimironko, near the market", "province": "Kigali City", "district": "Gasabo",
         "sector": "Kimironko", "cell": "Bibare", "village": "Nyagatovu",
         "latitude": -1.9403, "longitude": 30.1233, "gis_coordinates": "-1.9403, 30.1233",
-        "boundary_geojson": _ring(-1.9403, 30.1233, 0.0011),
-        "boundary_points": _points(-1.9403, 30.1233, 0.0011),
+        "boundary_geojson": _ring(-1.9403, 30.1233, 640),
+        "boundary_points": _points(-1.9403, 30.1233, 640),
         "boundary_area_sqm": 640,
         "size": 640, "built_area": 285, "bedrooms": 4, "bathrooms": 3,
         "land_use": "Residential", "right_type": "Leasehold — 99 years",
@@ -136,8 +161,8 @@ PROPERTIES: list[dict] = [
         "location": "Muhazi, Eastern Province", "province": "Eastern Province",
         "district": "Rwamagana", "sector": "Muhazi", "cell": "Kabare", "village": "Gishari",
         "latitude": -1.9487, "longitude": 30.4347, "gis_coordinates": "-1.9487, 30.4347",
-        "boundary_geojson": _ring(-1.9487, 30.4347, 0.0095),
-        "boundary_points": _points(-1.9487, 30.4347, 0.0095),
+        "boundary_geojson": _ring(-1.9487, 30.4347, 42_000),
+        "boundary_points": _points(-1.9487, 30.4347, 42_000),
         "boundary_area_sqm": 42_000,
         "size": 42_000, "land_use": "Agricultural", "right_type": "Freehold",
         "intent": "sale", "price": 74_000_000, "currency": "RWF",
@@ -189,8 +214,8 @@ PROPERTIES: list[dict] = [
         "location": "Huye, Southern Province", "province": "Southern Province",
         "district": "Huye", "sector": "Mbazi", "cell": "Rugera", "village": "Nyaruteja",
         "latitude": -2.5921, "longitude": 29.7386, "gis_coordinates": "-2.5921, 29.7386",
-        "boundary_geojson": _ring(-2.5921, 29.7386, 0.0122),
-        "boundary_points": _points(-2.5921, 29.7386, 0.0122),
+        "boundary_geojson": _ring(-2.5921, 29.7386, 68_000),
+        "boundary_points": _points(-2.5921, 29.7386, 68_000),
         "boundary_area_sqm": 68_000,
         "size": 68_000, "land_use": "Agricultural", "right_type": "Freehold",
         "intent": "sale", "price": 152_000_000, "currency": "RWF",
@@ -235,8 +260,8 @@ PROPERTIES: list[dict] = [
         "location": "Kayonza, Eastern Province", "province": "Eastern Province",
         "district": "Kayonza", "sector": "Mukarange", "cell": "Bwiza", "village": "Nyamirama",
         "latitude": -1.8672, "longitude": 30.6194, "gis_coordinates": "-1.8672, 30.6194",
-        "boundary_geojson": _ring(-1.8672, 30.6194, 0.0162),
-        "boundary_points": _points(-1.8672, 30.6194, 0.0162),
+        "boundary_geojson": _ring(-1.8672, 30.6194, 120_000),
+        "boundary_points": _points(-1.8672, 30.6194, 120_000),
         "boundary_area_sqm": 120_000,
         "size": 120_000, "land_use": "Agricultural", "right_type": "Leasehold — 99 years",
         "intent": "sale", "price": 265_000_000, "currency": "RWF",
@@ -280,8 +305,8 @@ PROPERTIES: list[dict] = [
         "location": "Kacyiru, off KG 7 Ave", "province": "Kigali City", "district": "Gasabo",
         "sector": "Kacyiru", "cell": "Kamatamu", "village": "Rukiri",
         "latitude": -1.9345, "longitude": 30.0894, "gis_coordinates": "-1.9345, 30.0894",
-        "boundary_geojson": _ring(-1.9345, 30.0894, 0.0016),
-        "boundary_points": _points(-1.9345, 30.0894, 0.0016),
+        "boundary_geojson": _ring(-1.9345, 30.0894, 1240),
+        "boundary_points": _points(-1.9345, 30.0894, 1240),
         "boundary_area_sqm": 1240,
         "size": 1240, "built_area": 1860, "bedrooms": 3, "bathrooms": 2,
         "land_use": "Commercial", "right_type": "Leasehold — 99 years",
@@ -315,8 +340,8 @@ PROPERTIES: list[dict] = [
         "location": "Nyarugenge, Kigali CBD", "province": "Kigali City", "district": "Nyarugenge",
         "sector": "Nyarugenge", "cell": "Rwampara", "village": "Centre",
         "latitude": -1.9494, "longitude": 30.0588, "gis_coordinates": "-1.9494, 30.0588",
-        "boundary_geojson": _ring(-1.9494, 30.0588, 0.0013),
-        "boundary_points": _points(-1.9494, 30.0588, 0.0013),
+        "boundary_geojson": _ring(-1.9494, 30.0588, 900),
+        "boundary_points": _points(-1.9494, 30.0588, 900),
         "boundary_area_sqm": 900,
         "size": 900, "built_area": 2400, "land_use": "Commercial",
         "right_type": "Leasehold — 99 years",
@@ -345,8 +370,8 @@ PROPERTIES: list[dict] = [
         "location": "Special Economic Zone, Masoro", "province": "Kigali City",
         "district": "Gasabo", "sector": "Ndera", "cell": "Masoro", "village": "SEZ Phase II",
         "latitude": -1.9105, "longitude": 30.1662, "gis_coordinates": "-1.9105, 30.1662",
-        "boundary_geojson": _ring(-1.9105, 30.1662, 0.0028),
-        "boundary_points": _points(-1.9105, 30.1662, 0.0028),
+        "boundary_geojson": _ring(-1.9105, 30.1662, 3600),
+        "boundary_points": _points(-1.9105, 30.1662, 3600),
         "boundary_area_sqm": 3600,
         "size": 3600, "built_area": 2800, "land_use": "Industrial",
         "right_type": "Leasehold — 50 years",
@@ -377,8 +402,8 @@ PROPERTIES: list[dict] = [
         "location": "Kinigi, Northern Province", "province": "Northern Province",
         "district": "Musanze", "sector": "Kinigi", "cell": "Nyabigoma", "village": "Bisoke",
         "latitude": -1.4708, "longitude": 29.6392, "gis_coordinates": "-1.4708, 29.6392",
-        "boundary_geojson": _ring(-1.4708, 29.6392, 0.0078),
-        "boundary_points": _points(-1.4708, 29.6392, 0.0078),
+        "boundary_geojson": _ring(-1.4708, 29.6392, 28_000),
+        "boundary_points": _points(-1.4708, 29.6392, 28_000),
         "boundary_area_sqm": 28_000,
         "size": 28_000, "land_use": "Forest", "right_type": "Freehold",
         "intent": "sale", "price": 31_000_000, "currency": "RWF",
@@ -405,8 +430,8 @@ PROPERTIES: list[dict] = [
         "location": "Rwamagana town", "province": "Eastern Province", "district": "Rwamagana",
         "sector": "Kigabiro", "cell": "Nyakariro", "village": "Munyaga",
         "latitude": -1.9487, "longitude": 30.4361, "gis_coordinates": "-1.9487, 30.4361",
-        "boundary_geojson": _ring(-1.9487, 30.4361, 0.0027),
-        "boundary_points": _points(-1.9487, 30.4361, 0.0027),
+        "boundary_geojson": _ring(-1.9487, 30.4361, 3400),
+        "boundary_points": _points(-1.9487, 30.4361, 3400),
         "boundary_area_sqm": 3400,
         "size": 3400, "land_use": "Public", "right_type": "Leasehold — 99 years",
         "intent": "sale", "price": 88_000_000, "currency": "RWF", "appreciation": 12,
@@ -430,8 +455,8 @@ PROPERTIES: list[dict] = [
         "location": "Rulindo, Northern Province", "province": "Northern Province",
         "district": "Rulindo", "sector": "Base", "cell": "Gitare", "village": "Rwankeri",
         "latitude": -1.7452, "longitude": 30.0641, "gis_coordinates": "-1.7452, 30.0641",
-        "boundary_geojson": _ring(-1.7452, 30.0641, 0.0045),
-        "boundary_points": _points(-1.7452, 30.0641, 0.0045),
+        "boundary_geojson": _ring(-1.7452, 30.0641, 9800),
+        "boundary_points": _points(-1.7452, 30.0641, 9800),
         "boundary_area_sqm": 9800,
         "size": 9800, "built_area": 2400, "land_use": "Agricultural", "right_type": "Freehold",
         "intent": "sale", "price": 96_000_000, "currency": "RWF",
@@ -469,8 +494,8 @@ PROPERTIES: list[dict] = [
         "location": "Nyamata, Bugesera", "province": "Eastern Province", "district": "Bugesera",
         "sector": "Nyamata", "cell": "Kayumba", "village": "Rwesero",
         "latitude": -2.1467, "longitude": 30.0937, "gis_coordinates": "-2.1467, 30.0937",
-        "boundary_geojson": _ring(-2.1467, 30.0937, 0.0058),
-        "boundary_points": _points(-2.1467, 30.0937, 0.0058),
+        "boundary_geojson": _ring(-2.1467, 30.0937, 16_500),
+        "boundary_points": _points(-2.1467, 30.0937, 16_500),
         "boundary_area_sqm": 16_500,
         "size": 16_500, "land_use": "Agricultural", "right_type": "Freehold",
         "intent": "sale", "price": 118_000_000, "currency": "RWF",

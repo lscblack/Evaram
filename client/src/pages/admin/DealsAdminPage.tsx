@@ -14,6 +14,7 @@ import {
   Th,
 } from '@/components/admin/ui'
 import { ClientDrawer } from '@/components/admin/ClientDrawer'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { api, qs } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { invalidate, useQuery } from '@/lib/queries'
@@ -469,12 +470,12 @@ function InvestmentsTab({ canDelete }: { canDelete: boolean }) {
                   ))}
                 </select>
               </Field>
-              <Field label="Amount (RWF)">
-                <input
+              <Field label="Amount">
+                <MoneyInput
+                  currency="RWF"
                   className={FIELD}
-                  inputMode="numeric"
                   value={draft.amount}
-                  onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))}
+                  onChange={(v) => setDraft((d) => ({ ...d, amount: v }))}
                 />
               </Field>
               <Field label="Spent on">
@@ -660,8 +661,8 @@ function PastSaleTab() {
         <Field label="Size (sqm)">
           <input className={FIELD} inputMode="numeric" value={draft.size} onChange={(e) => set('size')(e.target.value)} />
         </Field>
-        <Field label="Sold for (RWF)">
-          <input className={FIELD} inputMode="numeric" value={draft.sold_price} onChange={(e) => set('sold_price')(e.target.value)} />
+        <Field label="Sold for">
+          <MoneyInput currency="RWF" className={FIELD} value={draft.sold_price} onChange={set('sold_price')} />
         </Field>
         <Field label="Sold on">
           <input type="date" className={FIELD} value={draft.sold_at} onChange={(e) => set('sold_at')(e.target.value)} />
@@ -709,8 +710,8 @@ function PastSaleTab() {
             <input className={FIELD} inputMode="decimal" value={draft.commission_rate} onChange={(e) => set('commission_rate')(e.target.value)} />
           </Field>
         ) : (
-          <Field label="Amount (RWF)" hint="Leave blank to skip booking a commission.">
-            <input className={FIELD} inputMode="numeric" value={draft.commission_amount} onChange={(e) => set('commission_amount')(e.target.value)} />
+          <Field label="Amount" hint="Leave blank to skip booking a commission.">
+            <MoneyInput currency="RWF" className={FIELD} value={draft.commission_amount} onChange={set('commission_amount')} />
           </Field>
         )}
 

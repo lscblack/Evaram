@@ -60,6 +60,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="properties" element={<PropertiesAdminPage />} />
             <Route path="properties/new" element={<PropertyUploadPage />} />
+            <Route path="properties/:id/edit" element={<PropertyUploadPage />} />
             <Route path="offers" element={<OffersAdminPage />} />
             <Route path="deals" element={<DealsAdminPage />} />
             <Route path="taxonomy" element={<TaxonomyAdminPage />} />

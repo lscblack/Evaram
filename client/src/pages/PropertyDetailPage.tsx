@@ -1,5 +1,11 @@
-import { useMemo, useState } from 'react'
+import { Suspense, lazy, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+
+// MapLibre is the better part of a megabyte; a visitor who never scrolls to the
+// map should not download it with the page.
+const ParcelContext = lazy(() =>
+  import('@/components/map/ParcelContext').then((m) => ({ default: m.ParcelContext })),
+)
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -10,9 +16,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Compass,
   Copy,
-  ExternalLink,
   FileCheck2,
   Hash,
   Heart,
@@ -39,7 +43,7 @@ import { PropertyCard } from '@/components/ui/PropertyCard'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { SpecificationPanel } from '@/components/ui/SpecificationPanel'
 import type { ApiCategory, ApiPropertyCard, ApiPropertyDetail } from '@/types/api'
-import { api } from '@/lib/api'
+import { api, mediaUrl } from '@/lib/api'
 import { useBlock, useQuery } from '@/lib/queries'
 import { buildDetailGroups, parseVideoLink } from '@/lib/propertyDetails'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
@@ -193,11 +197,6 @@ export default function PropertyDetailPage() {
       seller: { '@type': 'Organization', name: site.name },
     },
   }
-
-  const mapSrc =
-    property.latitude && property.longitude
-      ? `https://www.openstreetmap.org/export/embed.html?bbox=${property.longitude - 0.012}%2C${property.latitude - 0.008}%2C${property.longitude + 0.012}%2C${property.latitude + 0.008}&layer=mapnik&marker=${property.latitude}%2C${property.longitude}`
-      : null
 
   const keyFigures = [
     { icon: Ruler, label: 'Parcel size', value: formatArea(property.size) },
@@ -469,6 +468,21 @@ export default function PropertyDetailPage() {
                 <ImmersiveViewer property={property} />
               </motion.div>
 
+              {/* where it is, and what is around it */}
+              {property.show_on_map && (
+                <motion.div {...revealProps} variants={fadeUp} className="mt-12">
+                  <Suspense
+                    fallback={
+                      <div className="grid h-64 place-items-center rounded-3xl border border-line bg-surface text-[0.875rem] text-ink-muted">
+                        Loading the map…
+                      </div>
+                    }
+                  >
+                    <ParcelContext slug={property.slug} title={property.title} />
+                  </Suspense>
+                </motion.div>
+              )}
+
               {/* parcel information */}
               {parcel && (
                 <motion.div {...revealProps} variants={fadeUp} className="mt-12">
@@ -515,7 +529,9 @@ export default function PropertyDetailPage() {
                         { label: 'Sector', value: parcel.sector },
                         { label: 'Cell', value: parcel.cell },
                         { label: 'Village', value: parcel.village },
-                        { label: 'Land use', value: parcel.land_use },
+                        { label: 'Land use', value: property.land_use ?? parcel.land_use },
+                        { label: 'Master plan zone', value: property.master_plan_zone },
+                        { label: 'Zone allows', value: property.master_plan_note },
                         {
                           label: 'Parcel size',
                           value: parcel.parcel_size
@@ -539,6 +555,30 @@ export default function PropertyDetailPage() {
                           </div>
                         ))}
                     </dl>
+
+                    {property.master_plan_doc_url && (
+                      <div className="border-t border-line px-6 py-5 sm:px-8">
+                        <p className="text-[0.75rem] font-semibold tracking-wide text-ink-muted uppercase">
+                          Master plan extract
+                        </p>
+                        <a
+                          href={mediaUrl(property.master_plan_doc_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2.5 block overflow-hidden rounded-2xl border border-line"
+                        >
+                          <img
+                            src={mediaUrl(property.master_plan_doc_url)}
+                            alt="Master plan extract for this parcel"
+                            loading="lazy"
+                            // Extracts are wide and irregular — contained rather
+                            // than cropped, and capped so one never takes over
+                            // the page.
+                            className="max-h-[26rem] w-full bg-canvas-alt object-contain"
+                          />
+                        </a>
+                      </div>
+                    )}
 
                     <p className="flex items-start gap-2.5 border-t border-line bg-canvas px-6 py-4 text-[0.8125rem] leading-relaxed text-ink-muted sm:px-8">
                       <ShieldCheck
@@ -569,47 +609,17 @@ export default function PropertyDetailPage() {
                 </motion.div>
               )}
 
-              {/* location */}
-              <motion.div {...revealProps} variants={fadeUp} className="mt-12">
-                <h2 className="font-display text-xl font-semibold text-ink">Location</h2>
-                <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-soft">
-                  {property.location} — {property.district} District. Exact boundaries are walked
-                  with you during the viewing.
-                </p>
-
-                <div className="mt-6 overflow-hidden rounded-3xl border border-line bg-surface">
-                  {mapSrc ? (
-                    <iframe
-                      title={`Map of ${property.title}`}
-                      src={mapSrc}
-                      loading="lazy"
-                      className="h-80 w-full border-0 sm:h-96"
-                    />
-                  ) : (
-                    <div className="grid h-72 place-items-center bg-canvas-alt text-ink-muted">
-                      <Compass className="size-10" strokeWidth={1.6} />
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-6 py-4">
-                    <p className="flex items-center gap-2 font-mono text-[0.8125rem] text-ink-soft">
-                      <Compass className="size-4 text-gold-500" strokeWidth={2.2} />
-                      {property.latitude?.toFixed(4)}, {property.longitude?.toFixed(4)}
-                    </p>
-                    {property.latitude && property.longitude && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${property.latitude},${property.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-[0.875rem] font-bold text-gold-600 transition-colors hover:text-gold-700"
-                      >
-                        Open in Google Maps
-                        <ExternalLink className="size-3.5" strokeWidth={2.4} />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
+              {/* location — only where the interactive map is withheld, since it
+                  answers the same question far better wherever it is shown */}
+              {!property.show_on_map && (
+                <motion.div {...revealProps} variants={fadeUp} className="mt-12">
+                  <h2 className="font-display text-xl font-semibold text-ink">Location</h2>
+                  <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-soft">
+                    {property.location} — {property.district} District. The owner has asked us not
+                    to publish the exact position; boundaries are walked with you at the viewing.
+                  </p>
+                </motion.div>
+              )}
 
               {/* wealth cycle projection */}
               <motion.div {...revealProps} variants={fadeUp} className="mt-12">

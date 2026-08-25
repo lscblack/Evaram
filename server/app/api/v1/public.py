@@ -21,7 +21,8 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -64,6 +65,7 @@ from app.models.property import (
     PropertyStatus,
     UploaderType,
 )
+from app.models.locality import Locality
 from app.models.taxonomy import District, PropertyCategory, PropertySubCategory
 from app.models.user import User, UserRole, UserStatus
 from app.schemas.common import Message, Page
@@ -262,6 +264,139 @@ async def districts(db: AsyncSession = Depends(get_db)) -> list[DistrictOut]:
     return [DistrictOut.model_validate(r) for r in rows]
 
 
+@router.get("/localities", summary="Provinces, districts and sectors")
+async def localities(
+    db: AsyncSession = Depends(get_db),
+    district: str | None = None,
+) -> dict:
+    """Rwanda's administrative geography, for cascading location pickers.
+
+    Returns the whole tree by default — thirty districts and four hundred and
+    sixteen sectors is a few kilobytes, and shipping it once beats a round trip
+    on every district a user tries. Pass `district` to narrow it to one.
+    """
+    parent = aliased(Locality)
+    query = (
+        select(
+            Locality.name,
+            Locality.level,
+            Locality.latitude,
+            Locality.longitude,
+            parent.name.label("parent"),
+        )
+        .select_from(Locality)
+        .outerjoin(parent, Locality.parent_id == parent.id)
+        .where(Locality.is_active.is_(True), Locality.level.in_(("district", "sector")))
+        # Districts grouped by province, Kigali first — the order Rwandans list
+        # them in, and the order a picker is easiest to scan in.
+        .order_by(
+            Locality.level,
+            case(
+                {"City of Kigali": 0, "Southern": 1, "Western": 2, "Northern": 3, "Eastern": 4},
+                value=parent.name,
+                else_=9,
+            ),
+            Locality.name,
+        )
+    )
+    if district:
+        query = query.where(
+            or_(
+                and_(Locality.level == "sector", parent.name.ilike(district)),
+                and_(Locality.level == "district", Locality.name.ilike(district)),
+            )
+        )
+
+    rows = (await db.execute(query)).all()
+
+    districts: list[dict] = []
+    sectors: dict[str, list[str]] = {}
+    for row in rows:
+        if row.level == "district":
+            districts.append({
+                "name": row.name,
+                "province": row.parent,
+                "latitude": row.latitude,
+                "longitude": row.longitude,
+            })
+        elif row.parent and row.name not in sectors.setdefault(row.parent, []):
+            sectors[row.parent].append(row.name)
+
+    return {
+        "districts": districts,
+        "sectors": sectors,
+        "attribution": "Boundaries © geoBoundaries (CC BY 4.0)",
+    }
+
+
+@router.get("/localities/{level}", summary="Cells or villages under one parent")
+async def locality_children(
+    level: str,
+    parent: str,
+    db: AsyncSession = Depends(get_db),
+    district: str | None = None,
+) -> dict:
+    """The next level down, fetched on demand.
+
+    Districts and sectors ship together because 446 names are a few kilobytes.
+    Cells and villages do not: there are 2,148 and roughly 15,000 of them, and
+    sending all of that so someone can pick one would be absurd. They are
+    fetched a parent at a time instead.
+
+    `district` disambiguates a repeated parent name — sector names are not
+    unique across the country, and a cell picker that silently merged two
+    identically named sectors would be worse than one that asked.
+    """
+    if level not in ("cell", "village"):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "Only cells and villages are fetched this way"
+        )
+
+    mother = aliased(Locality)
+    grandmother = aliased(Locality)
+
+    # Distinct on the name: place names repeat, and two cells called Karama in
+    # one sector are the same choice as far as anyone filling in a form is
+    # concerned. Offering the name twice only invites picking the wrong one.
+    query = (
+        select(
+            Locality.name,
+            func.min(Locality.latitude).label("latitude"),
+            func.min(Locality.longitude).label("longitude"),
+        )
+        .select_from(Locality)
+        .join(mother, Locality.parent_id == mother.id)
+        .where(
+            Locality.is_active.is_(True),
+            Locality.level == level,
+            mother.name.ilike(parent),
+        )
+        .group_by(Locality.name)
+        .order_by(Locality.name)
+    )
+
+    if district:
+        # cell → sector → district, village → cell → sector, so the extra hop
+        # differs by level.
+        query = query.join(grandmother, mother.parent_id == grandmother.id)
+        if level == "cell":
+            query = query.where(grandmother.name.ilike(district))
+        else:
+            great = aliased(Locality)
+            query = query.join(great, grandmother.parent_id == great.id).where(
+                great.name.ilike(district)
+            )
+
+    rows = (await db.execute(query)).all()
+    return {
+        "level": level,
+        "parent": parent,
+        "items": [
+            {"name": r.name, "latitude": r.latitude, "longitude": r.longitude} for r in rows
+        ],
+    }
+
+
 # ------------------------------------------------------------------ properties
 @router.get("/properties", response_model=Page[PropertyCard], summary="Search the catalogue")
 async def list_properties(
@@ -353,6 +488,10 @@ async def property_detail(
         boundary_area_sqm=prop.boundary_area_sqm,
         parcel_id=prop.parcel_id,
         land_use=prop.land_use,
+        master_plan_zone=prop.master_plan_zone,
+        master_plan_note=prop.master_plan_note,
+        master_plan_doc_url=prop.master_plan_doc_url,
+        allow_directions=prop.allow_directions,
         right_type=prop.right_type,
         amount_paid=float(prop.amount_paid) if prop.amount_paid is not None else None,
         is_negotiable=prop.is_negotiable,

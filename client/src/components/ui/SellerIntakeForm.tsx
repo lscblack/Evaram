@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, IdCard, ImagePlus, Loader2, Plus, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
+import { MoneyInput } from '@/components/ui/MoneyInput'
 import { api } from '@/lib/api'
-import { useSiteConfig } from '@/lib/siteConfig'
+import { useCells, useLocalities, useSectors, useVillages } from '@/components/ui/LocationPicker'
 import { cn } from '@/lib/utils'
 import { useFormErrors } from '@/lib/formErrors'
 import { useT } from '@/lib/i18n'
@@ -52,12 +53,14 @@ interface Receipt {
  */
 export function SellerIntakeForm() {
   const t = useT()
-  const { districts } = useSiteConfig()
+  const { districts: allDistricts } = useLocalities()
 
   const [parcel, setParcel] = useState({
     upi: '',
     district: '',
     sector: '',
+    cell: '',
+    village: '',
     location: '',
     property_type: '',
     asking_price: '',
@@ -69,6 +72,20 @@ export function SellerIntakeForm() {
   const [captcha, setCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
   const [busy, setBusy] = useState(false)
   const [step, setStep] = useState('')
+  const sectorOptions = useSectors(parcel.district)
+  const cellOptions = useCells(parcel.sector, parcel.district)
+  const villageOptions = useVillages(parcel.cell, parcel.district)
+
+  /** Grouped by province — thirty districts in one flat list is unreadable. */
+  const districtGroups = useMemo(() => {
+    const grouped = new Map<string, string[]>()
+    for (const d of allDistricts) {
+      const key = d.province ?? 'Other'
+      grouped.set(key, [...(grouped.get(key) ?? []), d.name])
+    }
+    return [...grouped.entries()]
+  }, [allDistricts])
+
   const errors = useFormErrors(['upi', 'district', 'sector', 'location', 'property_type', 'asking_price', 'size', 'notes', 'owners', 'captcha_answer'])
   const [done, setDone] = useState<Receipt | null>(null)
 
@@ -87,6 +104,8 @@ export function SellerIntakeForm() {
       const receipt = await api.post<Receipt>('/public/seller-submissions', {
         upi: parcel.upi,
         district: parcel.district || null,
+        cell: parcel.cell || null,
+        village: parcel.village || null,
         sector: parcel.sector || null,
         location: parcel.location || null,
         property_type: parcel.property_type || null,
@@ -192,14 +211,22 @@ export function SellerIntakeForm() {
             <select
               id="s-district"
               value={parcel.district}
-              onChange={(e) => setParcelField('district')(e.target.value)}
+              onChange={(e) => {
+                // The sector must go with it — it belongs to one district only.
+                setParcelField('district')(e.target.value)
+                setParcelField('sector')('')
+              }}
               className={INPUT}
             >
               <option value="">{t('ui.choose')}</option>
-              {districts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
+              {districtGroups.map(([province, names]) => (
+                <optgroup key={province} label={province}>
+                  {names.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
@@ -207,12 +234,71 @@ export function SellerIntakeForm() {
             <label htmlFor="s-sector" className={LABEL}>
               Sector
             </label>
-            <input
+            <select
               id="s-sector"
               value={parcel.sector}
-              onChange={(e) => setParcelField('sector')(e.target.value)}
-              className={INPUT}
-            />
+              disabled={!parcel.district}
+              onChange={(e) => {
+                setParcelField('sector')(e.target.value)
+                setParcelField('cell')('')
+                setParcelField('village')('')
+              }}
+              className={cn(INPUT, !parcel.district && 'cursor-not-allowed opacity-55')}
+            >
+              <option value="">
+                {parcel.district ? t('ui.choose') : 'Choose a district first'}
+              </option>
+              {sectorOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="s-cell" className={LABEL}>
+              Cell
+            </label>
+            <select
+              id="s-cell"
+              value={parcel.cell}
+              disabled={!parcel.sector}
+              onChange={(e) => {
+                setParcelField('cell')(e.target.value)
+                setParcelField('village')('')
+              }}
+              className={cn(INPUT, !parcel.sector && 'cursor-not-allowed opacity-55')}
+            >
+              <option value="">
+                {parcel.sector ? t('ui.choose') : 'Choose a sector first'}
+              </option>
+              {cellOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="s-village" className={LABEL}>
+              Village
+            </label>
+            <select
+              id="s-village"
+              value={parcel.village}
+              disabled={!parcel.cell}
+              onChange={(e) => setParcelField('village')(e.target.value)}
+              className={cn(INPUT, !parcel.cell && 'cursor-not-allowed opacity-55')}
+            >
+              <option value="">{parcel.cell ? t('ui.choose') : 'Choose a cell first'}</option>
+              {villageOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -242,13 +328,13 @@ export function SellerIntakeForm() {
 
           <div className="sm:col-span-2">
             <label htmlFor="s-price" className={LABEL}>
-              What do you hope to get for it? (RWF)
+              What do you hope to get for it?
             </label>
-            <input
+            <MoneyInput
               id="s-price"
-              type="number"
+              currency="RWF"
               value={parcel.asking_price}
-              onChange={(e) => setParcelField('asking_price')(e.target.value)}
+              onChange={setParcelField('asking_price')}
               className={INPUT}
             />
           </div>

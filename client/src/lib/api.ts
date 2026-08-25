@@ -18,6 +18,19 @@ import {
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://127.0.0.1:8000'
 const PREFIX = '/api/v1'
 
+/**
+ * Resolve a stored media path against the API host.
+ *
+ * Uploads come back as `/media/…`, which the browser would otherwise resolve
+ * against the *client* origin — correct in production where one host serves
+ * both, broken in dev where they differ.
+ */
+export function mediaUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined
+  if (/^(https?:|data:|blob:)/.test(path)) return path
+  return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 const ACCESS_KEY = 'evaramu-access'
 const REFRESH_KEY = 'evaramu-refresh'
 
