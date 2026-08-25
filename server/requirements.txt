@@ -19,3 +19,10 @@ python-slugify==8.0.4
 pillow==11.3.0
 httpx==0.28.1
 greenlet==3.2.4
+
+# Parcel geography. GeoAlchemy2 maps the PostGIS columns, shapely does the
+# shape maths that does not need a database round trip, and ijson streams the
+# 124 MB village-boundary file that would otherwise be parsed whole.
+GeoAlchemy2==0.20.0
+shapely==2.1.2
+ijson==3.5.1
