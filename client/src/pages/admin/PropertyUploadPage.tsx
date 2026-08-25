@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { History, ImagePlus, Save, Sparkles } from 'lucide-react'
 import {
@@ -38,6 +38,14 @@ import type {
  * emphyteutic (long) lease rather than a "title deed", so the wording here
  * follows the document a seller actually produces.
  */
+// MapLibre is the better part of a megabyte; an agent filling in the text
+// fields should not wait for it until there is a boundary to draw.
+const BoundaryPreviewMap = lazy(() =>
+  import('@/components/map/BoundaryPreviewMap').then((m) => ({
+    default: m.BoundaryPreviewMap,
+  })),
+)
+
 const LAND_USES = [
   'Residential',
   'Commercial',
@@ -789,6 +797,26 @@ export default function PropertyUploadPage() {
                     <BoundaryPreview points={boundaryPoints} />
                   )}
                 </div>
+
+                {/* The outline on real ground. A coordinate list and an
+                    abstract shape both look right until the parcel turns out
+                    to be in the wrong sector — this is the check that catches
+                    a transposed pair before a listing goes out. */}
+                <Suspense
+                  fallback={
+                    <div className="mt-3 grid h-64 place-items-center rounded-2xl border border-line bg-canvas-alt text-[0.8125rem] text-ink-muted">
+                      Loading the map…
+                    </div>
+                  }
+                >
+                  <BoundaryPreviewMap
+                    className="mt-3"
+                    points={boundaryPoints}
+                    latitude={geo.latitude ? Number(geo.latitude) : null}
+                    longitude={geo.longitude ? Number(geo.longitude) : null}
+                    areaSqm={boundaryArea}
+                  />
+                </Suspense>
               </div>
 
               <div className="space-y-3 sm:col-span-2">

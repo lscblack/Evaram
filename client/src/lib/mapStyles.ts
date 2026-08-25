@@ -18,6 +18,15 @@ export interface BaseMap {
 const OSM_ATTRIB = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 const ESRI_ATTRIB = 'Imagery © <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics'
 
+/**
+ * A raster basemap.
+ *
+ * `maxzoom` is the deepest level the provider actually has tiles for — not the
+ * deepest the map may zoom to. Past it MapLibre upscales the last real tile,
+ * which is blurry but correct; without it the provider returns its own
+ * "map data not yet available" placeholder and the parcel appears to be
+ * floating on nothing.
+ */
 function raster(tiles: string[], attribution: string, maxzoom = 19): StyleSpecification {
   return {
     version: 8,
@@ -35,9 +44,10 @@ function rasterWithLabels(
   tiles: string[],
   labelTiles: string[],
   attribution: string,
+  maxzoom = 19,
 ): StyleSpecification {
-  const style = raster(tiles, attribution)
-  style.sources.labels = { type: 'raster', tiles: labelTiles, tileSize: 256, maxzoom: 19 }
+  const style = raster(tiles, attribution, maxzoom)
+  style.sources.labels = { type: 'raster', tiles: labelTiles, tileSize: 256, maxzoom }
   style.layers.push({ id: 'labels', type: 'raster', source: 'labels' })
   return style
 }
@@ -59,6 +69,7 @@ export const BASEMAPS: BaseMap[] = [
           'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         ],
         ESRI_ATTRIB,
+        18,
       ),
   },
   {
@@ -74,6 +85,7 @@ export const BASEMAPS: BaseMap[] = [
           'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
         ],
         ESRI_ATTRIB,
+        18,
       ),
   },
   {
