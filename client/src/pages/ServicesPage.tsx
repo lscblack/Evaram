@@ -229,7 +229,6 @@ export default function ServicesPage() {
                 </div>
                 <dl className="mt-6 space-y-4">
                   {[
-                    { label: 'Prime apartments', value: '8–12% / year' },
                     { label: 'Villas', value: '7–10% / year' },
                     { label: 'Our fee', value: '10% of rent collected' },
                   ].map((row) => (

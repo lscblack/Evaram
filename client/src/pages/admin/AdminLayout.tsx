@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -23,7 +23,7 @@ import { Logo } from '@/components/ui/Logo'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { RouteLoader } from '@/components/layout/RouteLoader'
 import { useAuth } from '@/lib/auth'
-import { useSiteConfig } from '@/lib/siteConfig'
+import { ensureFontLoaded, useSiteConfig } from '@/lib/siteConfig'
 import { EASE, routeTransition } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/api'
@@ -87,6 +87,14 @@ export default function AdminLayout() {
   const { setting } = useSiteConfig()
   const location = useLocation()
   const [open, setOpen] = useState(false)
+
+  // The console's typeface is fetched here, not with the public site — a
+  // visitor reading a listing has no use for the font the back office is set
+  // in. Declared before the early returns below, as every hook must be.
+  const consoleFont = setting('theme.font_admin', 'Poppins')
+  useEffect(() => {
+    ensureFontLoaded(consoleFont)
+  }, [consoleFont])
 
   if (loading) return <RouteLoader />
   if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />
@@ -177,7 +185,6 @@ export default function AdminLayout() {
   // Scoped to the console: overriding the font tokens here re-typesets
   // everything inside without touching the public site, which keeps its
   // editorial serif.
-  const consoleFont = setting('theme.font_admin', 'Poppins')
   const fontStack = {
     '--font-sans': `"${consoleFont}", ui-sans-serif, system-ui, sans-serif`,
     '--font-display': `"${consoleFont}", ui-sans-serif, system-ui, sans-serif`,

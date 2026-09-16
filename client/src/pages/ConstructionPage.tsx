@@ -428,7 +428,9 @@ export default function ConstructionPage() {
         </div>
       </section>
 
-      {/* ---------------- estimator ---------------- */}
+      {/* ---------------- estimator — only when a package carries a price,
+          since without one it is a form that computes nothing ---------------- */}
+      {packages.some((pkg) => pkg.price_per_sqm != null) && (
       <section
         id="estimate"
         className="relative overflow-hidden bg-navy-950 py-16 text-white lg:py-24"
@@ -531,6 +533,7 @@ export default function ConstructionPage() {
           </div>
         </div>
       </section>
+      )}
       <section className="bg-canvas-alt py-16 lg:py-24">
         <div className="container-page">
           <SectionHeading

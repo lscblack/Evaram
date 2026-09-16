@@ -158,7 +158,7 @@ UI_STRINGS: dict[str, dict] = {
 
 CONTENT_BLOCKS: list[dict] = [
     {"page": "home",
-     "key": "market",
+     "key": "market", "is_active": False,
      "label": "Market section",
      "display_order": 1,
      "eyebrow": "The market",
@@ -183,11 +183,11 @@ CONTENT_BLOCKS: list[dict] = [
      "label": "Featured listings",
      "display_order": 3,
      "eyebrow": "Current listings",
-     "title": "Verified properties,",
-     "accent": "ready to move on.",
+     "title": "Checked before",
+     "accent": "they go live.",
      "body": "Every listing below has been checked against its UPI at the National Land Authority. You see the parcel size, the tenure and the coordinates before you ever pick up the phone."},
     {"page": "home",
-     "key": "wealth_cycle",
+     "key": "wealth_cycle", "is_active": False,
      "label": "Wealth Cycle section",
      "display_order": 4,
      "eyebrow": "Our signature model",
@@ -200,66 +200,30 @@ CONTENT_BLOCKS: list[dict] = [
      "key": "why",
      "label": "Why Evaramu",
      "display_order": 5,
-     "eyebrow": "Why Evaramu",
-     "title": "There are 204 registered agencies in Rwanda.",
-     "accent": "Almost none of them do this.",
-     "body": "99% are single-owner informal operations with no systems, no branding and no technology. The few large formal players ignore the middle market entirely.",
-     "items": [
-        {
-                "gap": "After the sale",
-                "them": "Sell once, then disappear",
-                "us": "Stay through buy → build → earn → sell → reinvest"
-        },
-        {
-                "gap": "Diaspora clients",
-                "them": "Phone calls and WhatsApp, no documentation",
-                "us": "Video updates, digital contracts, verified titles, monthly reports"
-        },
-        {
-                "gap": "Marketing a property",
-                "them": "Blurry phone photos in WhatsApp groups",
-                "us": "Drone video, professional photography, mapped online listings"
-        },
-        {
-                "gap": "Realty and construction",
-                "them": "Agents and builders are separate businesses",
-                "us": "One company that brokers and builds — the full value chain"
-        },
-        {
-                "gap": "Documentation",
-                "them": "Verbal deals, no receipts, title disputes",
-                "us": "Digital contracts, cost tracking, NLA verification workflow"
-        },
-        {
-                "gap": "Following up a lead",
-                "them": "Leads lost, no follow-up system",
-                "us": "Every contact tracked; response within two hours"
-        },
-        {
-                "gap": "Educating clients",
-                "them": "Almost no agent publishes anything useful",
-                "us": "Weekly land tours, market data, renovation reveals, testimonials"
-        }
-]},
+     "eyebrow": "How we work",
+     "title": "Four things we hold to",
+     "accent": "on every engagement.",
+     "body": "Land in Rwanda changes hands on trust more than on paper. These are the commitments that replace trust with paperwork.",
+     "items": []},
     {"page": "home",
      "key": "trust",
      "label": "Trust commitments",
      "display_order": 6,
      "items": [
         {
-                "title": "Every title verified at NLA",
+                "title": "Titles checked at the NLA",
                 "icon": "ShieldCheck",
-                "description": "No transaction moves forward without clean confirmation from the National Land Authority. We would rather lose a deal than hand you a dispute."
+                "description": "Before a listing is marked verified, its title is checked against the National Land Authority register. A dispute found late costs more than a deal lost early."
         },
         {
-                "title": "Every deal documented",
+                "title": "Written contracts",
                 "icon": "FileCheck2",
                 "description": "Digital contracts, receipts and cost tracking on every engagement. No verbal-only agreements — inside or outside the company."
         },
         {
-                "title": "Response within 2 hours",
+                "title": "We answer",
                 "icon": "Timer",
-                "description": "Speed is our differentiator. Competitors take days to return a call; we answer every lead the same working day."
+                "description": "Enquiries are answered the same working day. When we cannot, we say so."
         },
         {
                 "title": "We stay after the sale",
@@ -349,24 +313,24 @@ CONTENT_BLOCKS: list[dict] = [
      "key": "trust_points",
      "label": "Why Evaramu — trust points",
      "display_order": 20,
-     "eyebrow": "Why Evaramu",
-     "title": "There are 204 registered agencies in Rwanda.",
+     "eyebrow": "How we work",
+     "title": "Four things we hold to",
      "accent": "Here is what separates us.",
      "body": "Four commitments we hold to on every engagement, written down so you can hold us to them.",
      "items": [
         {
-                "title": "Every title verified at NLA",
-                "description": "No transaction moves forward without clean confirmation from the National Land Authority. We would rather lose a deal than hand you a dispute.",
+                "title": "Titles checked at the NLA",
+                "description": "Before a listing is marked verified, its title is checked against the National Land Authority register. A dispute found late costs more than a deal lost early.",
                 "icon": "ShieldCheck"
         },
         {
-                "title": "Every deal documented",
+                "title": "Written contracts",
                 "description": "Digital contracts, receipts and cost tracking on every engagement. No verbal-only agreements — inside or outside the company.",
                 "icon": "FileCheck2"
         },
         {
-                "title": "Response within 2 hours",
-                "description": "Speed is our differentiator. Competitors take days to return a call; we answer every lead the same working day.",
+                "title": "We answer",
+                "description": "Enquiries are answered the same working day. When we cannot, we say so.",
                 "icon": "Timer"
         },
         {
@@ -573,7 +537,7 @@ CONTENT_BLOCKS: list[dict] = [
      "display_order": 1,
      "eyebrow": "Contact us",
      "title": "Every enquiry answered",
-     "accent": "within two hours.",
+     "accent": "the same working day.",
      "body": "Not a promise on a poster — a rule we measure. Whether you are buying your first plot, selling a family property or building from abroad, tell us what you need and someone who can actually help will get back to you today."},
     {"page": "contact",
      "key": "send_message",
@@ -733,7 +697,7 @@ CONTENT_BLOCKS: list[dict] = [
      "accent": "become?",
      "body": "Move the sliders. This is an indicative model built on the same assumptions we use in a planning session — a build uplift of roughly 35%, corridor appreciation of 16% a year, and rent at around 9% of value."},
     {"page": "home",
-     "key": "construction",
+     "key": "construction", "is_active": False,
      "label": "Construction teaser",
      "display_order": 1,
      "eyebrow": "Evaramu Construction",
@@ -741,7 +705,7 @@ CONTENT_BLOCKS: list[dict] = [
      "accent": "before we start.",
      "body": "Construction cost overrun is the highest risk in this business. We manage it the only honest way: a fixed-price contract, a 15% contingency stated openly at signature, and a cost sheet you can open at any time."},
     {"page": "home",
-     "key": "insights",
+     "key": "insights", "is_active": False,
      "label": "Insights heading",
      "display_order": 3,
      "eyebrow": "Insights",
@@ -749,7 +713,7 @@ CONTENT_BLOCKS: list[dict] = [
      "accent": "actually see.",
      "body": "Monthly market reports, wealth education and construction cost breakdowns. Almost no agent in Rwanda publishes anything useful — we treat that as an opportunity."},
     {"page": "home",
-     "key": "testimonials",
+     "key": "testimonials", "is_active": False,
      "label": "Testimonials heading",
      "display_order": 6,
      "eyebrow": "Client stories",
@@ -876,36 +840,17 @@ CONTENT_BLOCKS: list[dict] = [
         }
 ]},
     {"page": "home",
-     "key": "hero_marquee",
+     "key": "hero_marquee", "is_active": False,
      "label": "Hero marquee",
      "display_order": 34,
-     "items": [
-        "Every title verified at the National Land Authority",
-        "We broker and we build",
-        "Response within two hours",
-        "Diaspora reporting every month",
-        "Commission agreed in writing"
-]},
+     "items": []},
     {"page": "home",
-     "key": "hero_stats",
+     "key": "hero_stats", "is_active": False,
      "label": "Hero figures",
      "display_order": 35,
-     "items": [
-        {
-                "value": "750+",
-                "label": "Properties catalogued"
-        },
-        {
-                "value": "20–50%",
-                "label": "Value added by build"
-        },
-        {
-                "value": "100%",
-                "label": "Titles verified"
-        }
-]},
+     "items": []},
     {"page": "home",
-     "key": "join_benefits",
+     "key": "join_benefits", "is_active": False,
      "label": "Join teaser benefits",
      "display_order": 36,
      "items": [
@@ -931,46 +876,10 @@ CONTENT_BLOCKS: list[dict] = [
         }
 ]},
     {"page": "home",
-     "key": "why_gaps",
+     "key": "why_gaps", "is_active": False,
      "label": "Why Evaramu — comparison rows",
      "display_order": 37,
-     "items": [
-        {
-                "gap": "After the sale",
-                "them": "Sell once, then disappear",
-                "us": "Stay through buy → build → earn → sell → reinvest"
-        },
-        {
-                "gap": "Diaspora clients",
-                "them": "Phone calls and WhatsApp, no documentation",
-                "us": "Video updates, digital contracts, verified titles, monthly reports"
-        },
-        {
-                "gap": "Marketing a property",
-                "them": "Blurry phone photos in WhatsApp groups",
-                "us": "Drone video, professional photography, mapped online listings"
-        },
-        {
-                "gap": "Realty and construction",
-                "them": "Agents and builders are separate businesses",
-                "us": "One company that brokers and builds — the full value chain"
-        },
-        {
-                "gap": "Documentation",
-                "them": "Verbal deals, no receipts, title disputes",
-                "us": "Digital contracts, cost tracking, NLA verification workflow"
-        },
-        {
-                "gap": "Following up a lead",
-                "them": "Leads lost, no follow-up system",
-                "us": "Every contact tracked; response within two hours"
-        },
-        {
-                "gap": "Educating clients",
-                "them": "Almost no agent publishes anything useful",
-                "us": "Weekly land tours, market data, renovation reveals, testimonials"
-        }
-]},
+     "items": []},
     {"page": "join",
      "key": "culture_rules",
      "label": "Culture rules",
@@ -982,7 +891,7 @@ CONTENT_BLOCKS: list[dict] = [
         },
         {
                 "title": "Speed is a differentiator",
-                "body": "Every lead gets a response within two hours. Competitors take days — that gap is our advantage and we protect it."
+                "body": "Every lead gets a response the same working day. That standard is the job."
         },
         {
                 "title": "No one hides problems",
@@ -1118,8 +1027,8 @@ CONTENT_BLOCKS: list[dict] = [
     # ---- per-page search engine listing ----
     {"page": "home", "key": "seo", "label": "Search engine listing",
      "display_order": 99,
-     "title": "Evaramu Group Ltd — Real Estate, Construction & Property Wealth in Kigali",
-     "body": "Buy verified land and property in Rwanda, build with our construction division, earn rental income and grow from one property to a portfolio. Every title verified at NLA. Book a free consultation.",
+     "title": "Evaramu Group Ltd — Real Estate & Construction in Kigali",
+     "body": "Land, houses and commercial property in Rwanda, with titles checked at the National Land Authority before a listing is marked verified. Build with our construction division. Book a consultation.",
      "items": [
         {
                 "text": "Evaramu Group Ltd"
@@ -1362,36 +1271,39 @@ CONTENT_BLOCKS: list[dict] = [
 ]
 
 
+#: Sample entries only, and seeded *unpublished*. The names are invented, and
+#: an invented client on a live site is the one thing a real one will not
+#: forgive. Publish a testimonial from the console once you have a real one.
 TESTIMONIALS: list[dict] = [
-    {"author_name": "Jean-Paul Habyarimana", "author_role": "Teacher",
+    {"is_published": False, "author_name": "Jean-Paul Habyarimana", "author_role": "Teacher",
      "location": "Kicukiro, Kigali", "rating": 5, "display_order": 1,
      "milestone": "Completed one full cycle · 3 properties",
      "photo_url": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80",
      "quote": ("I bought a plot in Kanombe with everything I had saved. Evaramu did not stop "
                "there — they built two rental units on it, found the tenants, and told me "
                "exactly when to sell. I own three properties now.")},
-    {"author_name": "Yvette Mukamana", "author_role": "Nurse · Diaspora client",
+    {"is_published": False, "author_name": "Yvette Mukamana", "author_role": "Nurse · Diaspora client",
      "location": "Brussels, Belgium", "rating": 5, "display_order": 2,
      "milestone": "Remote purchase · Kigali plot",
      "photo_url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
      "quote": ("I live in Brussels and had been burned once before. Claudine sent me a video "
                "walking the boundary with the UPI on screen, then the NLA verification, then "
                "the contract. I signed from my kitchen table.")},
-    {"author_name": "Emmanuel & Grace Niyonzima", "author_role": "Homeowners",
+    {"is_published": False, "author_name": "Emmanuel & Grace Niyonzima", "author_role": "Homeowners",
      "location": "Kimironko, Kigali", "rating": 5, "display_order": 3,
      "milestone": "Premium Finish package · 240 sqm",
      "photo_url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
      "quote": ("Our house shell had been sitting unfinished for four years. Evaramu gave a "
                "fixed price with the contingency written down and stuck to it. We moved in "
                "eleven days ahead of schedule.")},
-    {"author_name": "Diane Uwimana", "author_role": "Business owner",
+    {"is_published": False, "author_name": "Diane Uwimana", "author_role": "Business owner",
      "location": "Nyarutarama, Kigali", "rating": 5, "display_order": 4,
      "milestone": "Sold at peak · reinvested into 2 plots",
      "photo_url": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80",
      "quote": ("What I value is the honesty. I wanted to sell at the end of last year and they "
                "told me to wait eight months. I waited. I got eleven million more than the "
                "offer I nearly took.")},
-    {"author_name": "Olivier Rwema", "author_role": "Engineer · Diaspora client",
+    {"is_published": False, "author_name": "Olivier Rwema", "author_role": "Engineer · Diaspora client",
      "location": "Toronto, Canada", "rating": 5, "display_order": 5,
      "milestone": "Property management · 2 units",
      "photo_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
@@ -1576,9 +1488,8 @@ FAQS: list[dict] = [
     {"page": "contact", "display_order": 1,
      "question": "How quickly will you actually reply?",
      "answer": (
-                "Within two working hours. That is not marketing language — it is a culture "
-                "rule inside the company and we measure it. Competitors take days, and that "
-                "gap is one of our few genuine advantages.")},
+                "The same working day. If you write outside office hours, you will hear "
+                "from us the next morning.")},
     {"page": "contact", "display_order": 2,
      "question": "Can I just walk into the office?",
      "answer": (

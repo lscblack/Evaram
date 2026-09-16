@@ -1,63 +1,15 @@
 import { motion } from 'framer-motion'
-import { Check, X } from 'lucide-react'
 import { useBlock, useBlockItems } from '@/lib/queries'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
-import { useT } from '@/lib/i18n'
-
-/** The seven gaps, from the business plan's competitor analysis. */
-/** Fallback for `home` → `why_gaps` — the shipped copy. */
-const GAPS_FALLBACK: { gap: string; them: string; us: string }[] = [
-  {
-    gap: 'After the sale',
-    them: 'Sell once, then disappear',
-    us: 'Stay through buy → build → earn → sell → reinvest',
-  },
-  {
-    gap: 'Diaspora clients',
-    them: 'Phone calls and WhatsApp, no documentation',
-    us: 'Video updates, digital contracts, verified titles, monthly reports',
-  },
-  {
-    gap: 'Marketing a property',
-    them: 'Blurry phone photos in WhatsApp groups',
-    us: 'Drone video, professional photography, mapped online listings',
-  },
-  {
-    gap: 'Realty and construction',
-    them: 'Agents and builders are separate businesses',
-    us: 'One company that brokers and builds — the full value chain',
-  },
-  {
-    gap: 'Documentation',
-    them: 'Verbal deals, no receipts, title disputes',
-    us: 'Digital contracts, cost tracking, NLA verification workflow',
-  },
-  {
-    gap: 'Following up a lead',
-    them: 'Leads lost, no follow-up system',
-    us: 'Every contact tracked; response within two hours',
-  },
-  {
-    gap: 'Educating clients',
-    them: 'Almost no agent publishes anything useful',
-    us: 'Weekly land tours, market data, renovation reveals, testimonials',
-  },
-]
 
 export function WhyEvaramu() {
-  const t = useT()
-  const gaps = useBlockItems(
-    'home',
-    'why_gaps',
-    GAPS_FALLBACK,
-  )
   const block = useBlock('home', 'why', {
-    eyebrow: "Why Evaramu",
-    title: "There are 204 registered agencies in Rwanda.",
-    accent: "Almost none of them do this.",
-    body: "99% are single-owner informal operations with no systems, no branding and no technology. The few large formal players ignore the middle market entirely. Here is the difference, line by line.",
+    eyebrow: "How we work",
+    title: "Four things we hold to",
+    accent: "on every engagement.",
+    body: "Land in Rwanda changes hands on trust more than on paper. These are the commitments that replace trust with paperwork.",
   })
   const points = useBlockItems<{ title: string; description: string; icon: string }>('home', 'trust_points')
 
@@ -94,59 +46,6 @@ export function WhyEvaramu() {
               </p>
             </motion.div>
           ))}
-        </motion.div>
-
-        {/* ---- comparison table ---- */}
-        <motion.div
-          {...revealProps}
-          variants={fadeUp}
-          className="mt-14 overflow-hidden rounded-3xl border border-line shadow-soft"
-        >
-          {/* header */}
-          <div className="hidden grid-cols-12 gap-6 bg-navy-950 px-8 py-5 text-white md:grid">
-            <p className="col-span-3 text-[0.6875rem] font-bold tracking-[0.2em] text-white/50 uppercase">
-              {t('compare.gap')}
-            </p>
-            <p className="col-span-4 text-[0.6875rem] font-bold tracking-[0.2em] text-white/50 uppercase">
-              {t('compare.competitors')}
-            </p>
-            <p className="col-span-5 text-[0.6875rem] font-bold tracking-[0.2em] text-gold-400 uppercase">
-              {t('compare.evaramu')}
-            </p>
-          </div>
-
-          <div className="divide-y divide-line bg-surface">
-            {gaps.map((row, i) => (
-              <motion.div
-                key={row.gap}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.4 }}
-                transition={{ duration: 0.5, delay: i * 0.05 }}
-                className="grid gap-4 px-6 py-6 transition-colors hover:bg-canvas md:grid-cols-12 md:gap-6 md:px-8"
-              >
-                <p className="font-display text-[1.0625rem] font-semibold text-ink md:col-span-3 md:text-base">
-                  {row.gap}
-                </p>
-
-                <div className="flex items-start gap-3 md:col-span-4">
-                  <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-red-50">
-                    <X className="size-3 text-red-500" strokeWidth={3} />
-                  </span>
-                  <p className="text-[0.9375rem] leading-snug text-ink-muted">{row.them}</p>
-                </div>
-
-                <div className="flex items-start gap-3 md:col-span-5">
-                  <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-gold-100">
-                    <Check className="size-3 text-gold-700" strokeWidth={3.5} />
-                  </span>
-                  <p className="text-[0.9375rem] leading-snug font-medium text-ink">
-                    {row.us}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
         </motion.div>
       </div>
     </section>

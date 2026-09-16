@@ -29,18 +29,52 @@ const STATIC_ROUTES = [
   { path: '/terms', changefreq: 'yearly', priority: '0.3' },
 ]
 
-/** Pull ids/slugs out of the data files without needing a TS runtime. */
-const read = (rel) => fs.readFileSync(path.join(ROOT, 'client/src/data', rel), 'utf8')
+/**
+ * Live listings and articles come from the API, not from files.
+ *
+ * The old version scraped slugs out of static demo data — and so submitted
+ * `/properties/1` through `/properties/12` and six demo article URLs to search
+ * engines, none of which resolved. A sitemap of dead links is worse than none.
+ *
+ * If the API is unreachable at build time the sitemap still ships, with the
+ * static routes only, and says so — a deploy must not fail because the API
+ * was restarting.
+ */
+const API = process.env.SITEMAP_API_URL ?? 'http://127.0.0.1:8000/api/v1'
 
-const propertyIds = [...read('properties.ts').matchAll(/^\s{4}id:\s*(\d+),$/gm)].map((m) => m[1])
-const insightSlugs = [...read('content.ts').matchAll(/^\s{4}slug:\s*'([^']+)',$/gm)].map((m) => m[1])
+async function fetchJson(pathname) {
+  const res = await fetch(`${API}${pathname}`, { signal: AbortSignal.timeout(8000) })
+  if (!res.ok) throw new Error(`${pathname} → HTTP ${res.status}`)
+  return res.json()
+}
+
+/** Walk every page of a paginated listing. The API caps a page at 60. */
+async function allSlugs(pathname) {
+  const slugs = []
+  for (let page = 1; page <= 50; page += 1) {
+    const data = await fetchJson(`${pathname}${pathname.includes('?') ? '&' : '?'}per_page=60&page=${page}`)
+    const items = Array.isArray(data) ? data : (data.items ?? [])
+    slugs.push(...items.map((p) => p.slug).filter(Boolean))
+    if (items.length < 60 || page >= (data.pages ?? 1)) break
+  }
+  return slugs
+}
+
+let propertySlugs = []
+let insightSlugs = []
+try {
+  propertySlugs = await allSlugs('/public/properties')
+  insightSlugs = await allSlugs('/public/insights')
+} catch (err) {
+  console.warn(`sitemap: API not reachable (${err.message}) — static routes only`)
+}
 
 const today = new Date().toISOString().slice(0, 10)
 
 const entries = [
   ...STATIC_ROUTES.map((r) => ({ loc: r.path, changefreq: r.changefreq, priority: r.priority })),
-  ...propertyIds.map((id) => ({
-    loc: `/properties/${id}`,
+  ...propertySlugs.map((slug) => ({
+    loc: `/properties/${slug}`,
     changefreq: 'weekly',
     priority: '0.8',
   })),
@@ -68,5 +102,5 @@ ${entries
 
 fs.writeFileSync(OUT, xml)
 console.log(
-  `sitemap.xml written — ${entries.length} URLs (${propertyIds.length} properties, ${insightSlugs.length} insights)`,
+  `sitemap.xml written — ${entries.length} URLs (${propertySlugs.length} properties, ${insightSlugs.length} insights)`,
 )

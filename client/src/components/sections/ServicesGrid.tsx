@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowUpRight, Check } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiServiceLine } from '@/types/api'
 import { Icon } from '@/components/ui/Icon'
@@ -16,16 +16,21 @@ const DIVISION_STYLES: Record<string, string> = {
   Group: 'bg-emerald-50 text-emerald-700',
 }
 
+const HOME_SERVICE_COUNT = 6
+
 export function ServicesGrid() {
   const t = useT()
   const block = useBlock('home', 'services', {
     eyebrow: "What we do",
     title: "Two divisions.",
     accent: "One value chain.",
-    body: "Most agencies sell and disappear. Most builders never see the buyer. Evaramu Realty and Evaramu Construction sit inside the same company — which is why we can add value to a property instead of just transacting on it.",
+    body: "We broker property and we build on it, so the same team that found you a plot can put a house on it.",
   })
   const { data } = useLocalizedQuery<ApiServiceLine>('/public/services')
-  const services = data ?? []
+  // The homepage shows what we do, not everything about it. Six cards with a
+  // line each; the full descriptions and bullet lists live on /services, which
+  // is where anyone who wants them is one click from.
+  const services = (data ?? []).slice(0, HOME_SERVICE_COUNT)
 
   if (services.length === 0) return null
 
@@ -70,25 +75,9 @@ export function ServicesGrid() {
               <p className="mt-1.5 text-[0.875rem] font-semibold text-gold-600">
                 {service.tagline}
               </p>
-              <p className="mt-4 text-[0.9375rem] leading-relaxed text-ink-soft">
-                {service.description}
-              </p>
-
-              <ul className="mt-6 space-y-2.5">
-                {(service.bullets ?? []).map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2.5 text-[0.875rem] text-ink-soft">
-                    <Check
-                      className="mt-0.5 size-4 shrink-0 text-gold-500"
-                      strokeWidth={3}
-                    />
-                    {bullet}
-                  </li>
-                ))}
-              </ul>
-
               <Link
                 to={service.href ?? '/services'}
-                className="group/link mt-7 inline-flex items-center gap-2 text-[0.9375rem] font-bold text-ink transition-colors hover:text-gold-600 before:absolute before:inset-0"
+                className="group/link mt-6 inline-flex items-center gap-2 text-[0.9375rem] font-bold text-ink transition-colors hover:text-gold-600 before:absolute before:inset-0"
               >
                 {t('cta.learnMore')}
                 <ArrowUpRight
@@ -99,6 +88,18 @@ export function ServicesGrid() {
             </motion.article>
           ))}
         </motion.div>
+
+        {(data ?? []).length > HOME_SERVICE_COUNT && (
+          <div className="mt-10 text-center">
+            <Link
+              to="/services"
+              className="inline-flex items-center gap-2 rounded-full border border-line px-5 py-2.5 text-[0.9375rem] font-semibold text-ink transition-colors hover:border-line-strong hover:text-gold-600"
+            >
+              All {(data ?? []).length} services
+              <ArrowUpRight className="size-4" strokeWidth={2.4} />
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   )

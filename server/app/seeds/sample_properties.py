@@ -51,13 +51,6 @@ def _ring(lat: float, lng: float, size_sqm: float) -> dict:
     return {"type": "Polygon", "coordinates": [coords]}
 
 
-PANORAMA = [
-    {"url": _img("photo-1600585154340-be6161a56a0c"), "title": "Entrance",
-     "hotspots": [{"pitch": -5, "yaw": 120, "text": "Main gate"}]},
-    {"url": _img("photo-1600566753086-00f18fb6b3ea"), "title": "Living area",
-     "hotspots": [{"pitch": 0, "yaw": 40, "text": "Terrace"}]},
-    {"url": _img("photo-1600607687939-ce8a6c25118c"), "title": "Rear garden", "hotspots": []},
-]
 
 
 PROPERTIES: list[dict] = [
@@ -83,10 +76,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 42_000_000, "currency": "RWF",
         "projected_yield": 9.5, "appreciation": 18, "is_featured": True,
         "tags": ["Build-ready", "Fenced", "Airport corridor"],
-        "video_360_url": "https://cdn.evaramu.rw/360/kanombe-plot.mp4",
-        "vr_tour_url": "https://kuula.co/share/collection/evaramu-kanombe",
-        "vr_tour_provider": "kuula",
-        "drone_footage_url": "https://cdn.evaramu.rw/drone/kanombe-plot.mp4",
         "details": {"has_electricity": "Yes", "has_water": "Yes", "has_parking": "No",
                     "sewage_type": "Septic Tank", "has_fence": "Yes",
                     "fence_material": "Concrete/Cement"},
@@ -123,9 +112,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 128_000_000, "currency": "RWF",
         "projected_yield": 8.2, "appreciation": 14, "is_featured": True,
         "tags": ["4 bedrooms", "Move-in ready", "Walled compound"],
-        "vr_tour_url": "https://my.matterport.com/show/?m=evaramu-kimironko",
-        "vr_tour_provider": "matterport",
-        "panorama_scenes": PANORAMA,
         "details": {"condition": "Excellent", "built_area": 285,
                     "building_type": "Detached building", "floors": 2,
                     "roof_type": "Double-Pitch", "roof_material": "Tile",
@@ -168,8 +154,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 74_000_000, "currency": "RWF",
         "projected_yield": 7.4, "appreciation": 9, "is_featured": True,
         "tags": ["Irrigated", "4.2 hectares", "Producing", "Permit included"],
-        "video_360_url": "https://cdn.evaramu.rw/360/muhazi-farm.mp4",
-        "drone_footage_url": "https://cdn.evaramu.rw/drone/muhazi-farm.mp4",
         "details": {
             "seasonal": "Yes", "perennial": "Yes",
             "products": ["Maize/Sorghum/Wheat/Corn", "Banana", "Fruits"],
@@ -221,9 +205,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 152_000_000, "currency": "RWF",
         "projected_yield": 11.2, "appreciation": 11, "is_featured": True,
         "tags": ["Coffee", "Washing station", "Off-take contract", "6.8 hectares"],
-        "video_360_url": "https://cdn.evaramu.rw/360/huye-coffee.mp4",
-        "vr_tour_url": "https://kuula.co/share/collection/evaramu-huye",
-        "vr_tour_provider": "kuula",
         "details": {
             "crop": "Coffee", "variety": "Bourbon (Arabica)", "tree_count": 21500,
             "planting_year": 2012, "crop_size": "Mature", "annual_output": 34000,
@@ -267,7 +248,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 265_000_000, "currency": "RWF",
         "projected_yield": 13.4, "appreciation": 8,
         "tags": ["Dairy", "60 head", "Biogas", "12 hectares"],
-        "video_360_url": "https://cdn.evaramu.rw/360/kayonza-dairy.mp4",
         "details": {
             "livestock_types": ["Dairy cattle", "Poultry (layers)"], "herd_size": 60,
             "daily_output": 640, "grazing_area": 9.5, "fodder_grown": "Yes",
@@ -313,8 +293,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 465_000_000, "currency": "RWF",
         "projected_yield": 11.4, "appreciation": 12, "is_featured": True,
         "tags": ["Income producing", "87% occupied", "Prime location"],
-        "vr_tour_url": "https://my.matterport.com/show/?m=evaramu-kacyiru",
-        "vr_tour_provider": "matterport",
         "details": {"condition": "Excellent", "built_area": 1860,
                     "building_type": "Detached building", "floors": 5, "roof_type": "Flat roof",
                     "roof_material": "Reinforced Concrete",
@@ -378,7 +356,6 @@ PROPERTIES: list[dict] = [
         "intent": "rent", "rent_amount": 6_800, "currency": "RWF",
         "projected_yield": 10.6, "appreciation": 8,
         "tags": ["SEZ", "Loading dock", "Clear span"],
-        "video_360_url": "https://cdn.evaramu.rw/360/sez-warehouse.mp4",
         "details": {"condition": "Excellent", "built_area": 2800,
                     "building_type": "Detached building", "floors": 1, "roof_type": "Mono-Pitch",
                     "roof_material": "Corrugated Iron Sheets", "wall_material": "Cement blocks",
@@ -409,7 +386,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 31_000_000, "currency": "RWF",
         "projected_yield": 6.2, "appreciation": 15,
         "tags": ["Mature stand", "Tourism corridor", "2.8 hectares"],
-        "drone_footage_url": "https://cdn.evaramu.rw/drone/kinigi-forest.mp4",
         "details": {"products": ["Other"], "species": "Eucalyptus grandis", "crop_size": "Mature",
                     "coverage": "Above 75%", "stand_age": 14,
                     "topography": "Moderate slope (15–30%)",
@@ -462,7 +438,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 96_000_000, "currency": "RWF",
         "projected_yield": 14.8, "appreciation": 10,
         "tags": ["Greenhouse", "Drip fertigation", "Year-round production"],
-        "video_360_url": "https://cdn.evaramu.rw/360/rulindo-greenhouse.mp4",
         "details": {
             "greenhouse_count": 6, "covered_area": 2400, "structure_material": "Galvanised steel",
             "cover_material": "UV polythene", "condition": "Excellent", "construction_year": 2023,
@@ -501,7 +476,6 @@ PROPERTIES: list[dict] = [
         "intent": "sale", "price": 118_000_000, "currency": "RWF",
         "projected_yield": 15.6, "appreciation": 22, "is_featured": True,
         "tags": ["Aquaculture", "Hatchery", "Airport corridor"],
-        "video_360_url": "https://cdn.evaramu.rw/360/bugesera-fish.mp4",
         "details": {
             "pond_count": 8, "total_pond_area": 6400, "pond_type": "Lined (HDPE)",
             "species": "Nile tilapia, African catfish", "annual_output": 42000,

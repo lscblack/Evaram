@@ -157,6 +157,30 @@ function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
  * Pushes admin-configured brand colours into the CSS custom properties the
  * whole design system reads. Only overrides what is actually set.
  */
+/** Families in the page already, so the same one is never requested twice. */
+const SHIPPED_FONTS = new Set(['Plus Jakarta Sans', 'Fraunces'])
+const SYSTEM_FONTS = new Set(['Arial', 'Helvetica', 'Georgia', 'system-ui'])
+
+/**
+ * Fetch a Google font the first time a setting asks for it.
+ *
+ * The page ships with the two defaults. Loading every option in the font
+ * dropdown up front — six families, most weights — added around 300 KB to
+ * every visit for the sake of a choice almost nobody makes.
+ */
+export function ensureFontLoaded(family: string): void {
+  if (SHIPPED_FONTS.has(family) || SYSTEM_FONTS.has(family)) return
+  const id = `font-${family.replace(/\s+/g, '-').toLowerCase()}`
+  if (document.getElementById(id)) return
+  const link = document.createElement('link')
+  link.id = id
+  link.rel = 'stylesheet'
+  link.href =
+    `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}` +
+    ':ital,wght@0,300..800;1,400..700&display=swap'
+  document.head.appendChild(link)
+}
+
 function applyTheme(settings: Record<string, string | null>): void {
   const root = document.documentElement
 
@@ -202,7 +226,9 @@ function applyTheme(settings: Record<string, string | null>): void {
         ? 'ui-serif, Georgia, serif'
         : 'ui-sans-serif, system-ui, -apple-system, sans-serif'
     root.style.setProperty(cssVar, `"${family}", ${fallback}`)
+    ensureFontLoaded(family)
   }
+
 
   const favicon = settings['brand.favicon']
   if (favicon) {

@@ -139,6 +139,14 @@ export default function PropertiesPage() {
   }, [debouncedQ, intent, category, subcategory, district, maxPrice, verifiedOnly, sort])
 
   const totalListings = categories?.reduce((n, c) => n + c.property_count, 0) ?? 0
+  // The share that has actually passed the title check — counted, not asserted.
+  // A listing is only badged verified once it has; the figure follows the badges.
+  const verifiedShare = useMemo(() => {
+    const rows = results?.items ?? []
+    if (!rows.length) return '—'
+    const verified = rows.filter((p) => p.is_verified).length
+    return `${Math.round((verified / rows.length) * 100)}%`
+  }, [results])
 
   const activeChips = (
     [
@@ -444,7 +452,7 @@ export default function PropertiesPage() {
               {[
                 { value: String(totalListings), label: t('market.liveListings') },
                 { value: String(allDistricts.length || 30), label: t('market.districts') },
-                { value: '100%', label: t('market.verified') },
+                { value: verifiedShare, label: t('market.verified') },
               ].map((stat) => (
                 <div key={stat.label}>
                   <dd className="font-display text-xl leading-none font-semibold text-ink">

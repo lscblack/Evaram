@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Quote, Star } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Quote } from 'lucide-react'
 import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiTestimonial } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
-import { EASE, fadeUp, revealProps } from '@/lib/motion'
+import { EASE } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -45,9 +45,9 @@ export function Testimonials() {
           accent={block.accent}
         />
 
-        <div className="mt-14 grid gap-12 lg:grid-cols-12 lg:gap-16">
+        <div className="mt-14">
           {/* ---- quote ---- */}
-          <div className="lg:col-span-7">
+          <div className="max-w-3xl">
             <Quote className="size-12 text-gold-500/40" strokeWidth={1.5} />
 
             <div className="relative mt-6 min-h-[19rem] sm:min-h-[15rem]">
@@ -137,38 +137,6 @@ export function Testimonials() {
             </div>
           </div>
 
-          {/* ---- rating panel ---- */}
-          <motion.div
-            {...revealProps}
-            variants={fadeUp}
-            className="lg:col-span-5 lg:pl-8"
-          >
-            <div className="rounded-4xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="size-5 fill-gold-400 text-gold-400" strokeWidth={0} />
-                ))}
-                <span className="ml-2 font-display text-xl font-semibold text-white">4.9</span>
-              </div>
-              <p className="mt-3 text-[0.9375rem] leading-relaxed text-white/60">
-                {t('stories.ratingNote')}
-              </p>
-
-              <dl className="mt-8 space-y-6 border-t border-white/10 pt-8">
-                {[
-                  { value: '10+', label: t('stories.dealsYearOne') },
-                  { value: '3–5', label: t('stories.renovations') },
-                  { value: '15+', label: t('stories.rentalUnits') },
-                  { value: '100%', label: t('stories.titlesVerified') },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-baseline justify-between gap-4">
-                    <dt className="text-[0.9375rem] text-white/55">{item.label}</dt>
-                    <dd className="font-display text-xl font-semibold text-gold-400">{item.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          </motion.div>
         </div>
       </div>
     </section>

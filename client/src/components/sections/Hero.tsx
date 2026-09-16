@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Search } from 'lucide-react'
-import { useBlockItems, useQuery } from '@/lib/queries'
+import { useQuery } from '@/lib/queries'
 import { useSiteConfig, useSite } from '@/lib/siteConfig'
-import type { ApiCategory, ApiPropertyCard } from '@/types/api'
+import type { ApiCategory, ApiPropertyCard, CategorySummary } from '@/types/api'
 import { EASE } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { cn, formatCompactCurrency } from '@/lib/utils'
@@ -15,33 +15,8 @@ import { cn, formatCompactCurrency } from '@/lib/utils'
  * asymmetric and type-led rather than a centred image with a floating panel.
  */
 
-/** Fallback for `home` → `hero_stats` — the shipped copy. */
-const HERO_STATS_FALLBACK = [
-  { value: '750+', label: 'Properties catalogued' },
-  { value: '20–50%', label: 'Value added by build' },
-  { value: '100%', label: 'Titles verified' },
-]
-
-/** Fallback for `home` → `hero_marquee` — the shipped copy. */
-const MARQUEE_ITEMS_FALLBACK: string[] = [
-  'Every title verified at the National Land Authority',
-  'We broker and we build',
-  'Response within two hours',
-  'Diaspora reporting every month',
-  'Commission agreed in writing',
-]
 
 export function Hero() {
-  const heroStats = useBlockItems(
-    'home',
-    'hero_stats',
-    HERO_STATS_FALLBACK,
-  )
-  const marqueeItems = useBlockItems(
-    'home',
-    'hero_marquee',
-    MARQUEE_ITEMS_FALLBACK,
-  )
   const site = useSite()
   const navigate = useNavigate()
   const t = useT()
@@ -57,7 +32,18 @@ export function Hero() {
 
   const { data: categoryData } = useQuery<ApiCategory[]>('/public/taxonomy')
   const categories = categoryData ?? []
+
   const { districts } = useSiteConfig()
+  const { data: categorySummary } = useQuery<CategorySummary[]>('/public/categories')
+  const liveStats = useMemo(() => {
+    const listings = (categorySummary ?? []).reduce((n, c) => n + c.property_count, 0)
+    const kinds = (categorySummary ?? []).filter((c) => c.property_count > 0).length
+    return [
+      { value: listings ? listings.toLocaleString('en-RW') : '—', label: 'Listings live now' },
+      { value: kinds ? String(kinds) : '—', label: 'Property types' },
+      { value: String(districts.length || 30), label: 'Districts covered' },
+    ]
+  }, [categorySummary, districts.length])
 
   useEffect(() => {
     if (featured.length < 2) return
@@ -158,7 +144,10 @@ export function Hero() {
               transition={{ duration: 0.8, delay: 0.65 }}
               className="mt-12 grid max-w-lg grid-cols-3 divide-x divide-line border-t border-line pt-6"
             >
-              {heroStats.map((stat, i) => (
+              {/* Counted from the catalogue rather than typed in. A number a
+                  visitor can check against the listings page is worth more
+                  than a bigger one they cannot. */}
+              {liveStats.map((stat, i) => (
                 <div key={stat.label} className={cn(i > 0 && 'pl-5', i < 2 && 'pr-5')}>
                   <dd className="font-display text-xl leading-none font-semibold text-ink sm:text-2xl">
                     {stat.value}
@@ -354,29 +343,6 @@ export function Hero() {
             </div>
           </div>
         </motion.form>
-      </div>
-
-      {/* ---------- promise marquee ---------- */}
-      <div className="mt-8 border-y border-line bg-canvas-alt py-3 lg:mt-10">
-        <div className="mask-fade-x flex overflow-hidden">
-          {[0, 1].map((copy) => (
-            <div
-              key={copy}
-              aria-hidden={copy === 1}
-              className="flex animate-marquee shrink-0 items-center gap-10 pr-10 whitespace-nowrap"
-            >
-              {marqueeItems.map((item) => (
-                <span
-                  key={`${copy}-${item}`}
-                  className="flex items-center gap-10 text-[0.8125rem] font-medium text-ink-muted"
-                >
-                  {item}
-                  <span aria-hidden className="size-1 rounded-full bg-gold-500" />
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
       </div>
 
       <p className="sr-only">

@@ -210,17 +210,11 @@ NAVIGATION: list[dict] = [
 ]
 
 
-MARKET_STATS: list[dict] = [
-    {"key": "housing_deficit", "value": "400,000+", "label": "National housing deficit",
-     "detail": "Units short, and the gap widens every year", "icon": "Home", "display_order": 1,
-     "source": "Rwanda housing market analysis 2025"},
-    {"key": "land_appreciation", "value": "15–20%", "label": "Annual land appreciation",
-     "detail": "In strategic Kigali growth corridors", "icon": "TrendingUp", "display_order": 2},
-    {"key": "rental_yield", "value": "8–12%", "label": "Prime rental yield",
-     "detail": "Apartments per year · 7–10% on villas", "icon": "Wallet", "display_order": 3},
-    {"key": "kigali_demand", "value": "2×", "label": "Kigali demand by 2032",
-     "detail": "367,000 → 721,000 households", "icon": "Users", "display_order": 4},
-]
+#: Deliberately empty. The four figures that used to live here — a housing
+#: deficit, "15–20% annual appreciation", "8–12% yield", "2× demand by 2032" —
+#: were investment-return claims with no source a visitor could check. An admin
+#: can add a statistic from the console; it should carry a source when they do.
+MARKET_STATS: list[dict] = []
 
 
 WEALTH_CYCLE: list[dict] = [

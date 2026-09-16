@@ -181,9 +181,8 @@ export default function AboutPage() {
         image="https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=2000&q=80"
         stats={[
           { value: '2025', label: 'Founded in Kigali' },
-          { value: '2', label: 'Active divisions' },
-          { value: '204', label: 'Registered agencies we compete with' },
-          { value: '100%', label: 'Titles verified before transacting' },
+          { value: '2', label: 'Divisions — realty and construction' },
+          { value: '30', label: 'Districts we list in' },
         ]}
       />
 
@@ -235,20 +234,15 @@ export default function AboutPage() {
 
               <motion.div variants={fadeUp} className="mt-6 space-y-5 text-[0.9375rem] leading-relaxed text-ink-soft">
                 <p>
-                  Rwanda needs more than 30,000 new housing units every year and delivered 13.8% of
-                  that in 2024. The national deficit sits above 400,000 units and widens annually.
-                  Kigali's household count is projected to double by 2032. That demand is
-                  structural, not speculative.
+                  Rwanda builds far fewer homes each year than it needs, and most of the trade in
+                  land still runs on a handshake and a phone call. Titles go unchecked, agreements
+                  go unwritten, and the buyer finds out too late.
                 </p>
                 <p>
-                  And yet 204 registered real estate and construction companies exist here, of which
-                  roughly 99% are single-owner informal operations with no systems, no branding and
-                  no technology. The few large formal players ignore the middle market entirely.
-                </p>
-                <p>
-                  That gap is the whole reason we exist. We built a company for the family with RWF
-                  10–80 million to invest, and for the Rwandan abroad who wants to buy at home but
-                  has heard too many stories about deposits that vanished.
+                  We built a company for the family with RWF 10–80 million to invest, and for the
+                  Rwandan abroad who wants to buy at home but has heard too many stories about
+                  deposits that vanished. Titles checked before a listing goes live, contracts in
+                  writing, and the same team on the plot from purchase through to the build.
                 </p>
               </motion.div>
 

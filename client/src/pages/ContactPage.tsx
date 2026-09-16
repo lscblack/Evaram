@@ -75,7 +75,7 @@ export default function ContactPage() {
   const heroBlock = useBlock('contact', 'hero', {
     eyebrow: "Contact us",
     title: "Every enquiry answered",
-    accent: "within two hours.",
+    accent: "the same working day.",
     body: "Not a promise on a poster — a rule we measure. Whether you are buying your first plot, selling a family property or building from abroad, tell us what you need and someone who can actually help will get back to you today.",
   })
   const sendMessageBlock = useBlock('contact', 'send_message', {

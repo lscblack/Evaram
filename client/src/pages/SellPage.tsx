@@ -186,7 +186,7 @@ export default function SellPage() {
             {[
               {
                 step: '01',
-                title: 'We call within 2 hours',
+                title: 'We call the same working day',
                 body: 'A consultant confirms the details and books the valuation visit.',
               },
               {

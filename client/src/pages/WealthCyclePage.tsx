@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Check, Quote, Sparkles, TrendingUp, X } from 'lucide-react'
+import { ArrowRight, Check, Quote, X } from 'lucide-react'
 import { Seo, breadcrumbJsonLd, faqJsonLd } from '@/components/Seo'
 import { PageHero } from '@/components/layout/PageHero'
 import { SectionHeading } from '@/components/ui/SectionHeading'
@@ -9,11 +8,10 @@ import { Icon } from '@/components/ui/Icon'
 import { Eyebrow } from '@/components/ui/Eyebrow'
 import { FaqSection } from '@/components/sections/FaqSection'
 
-import { useBlock, useLocalizedQuery, useQuery } from '@/lib/queries'
-import type { ApiCycleStep, ApiFaq, ApiTestimonial, ContentBlock } from '@/types/api'
+import { useBlock, useLocalizedQuery } from '@/lib/queries'
+import type { ApiCycleStep, ApiFaq, ApiTestimonial } from '@/types/api'
 import { fadeUp, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
-import { cn, formatCompactCurrency, formatCurrency } from '@/lib/utils'
 
 
 export default function WealthCyclePage() {
@@ -35,71 +33,12 @@ export default function WealthCyclePage() {
     accent: "beside you for all of them.",
     body: "Each step compounds into the next. Skip one and the cycle still works — it just works more slowly.",
   })
-  const workedExampleIntroBlock = useBlock('wealth-cycle', 'worked_example_intro', {
-    eyebrow: "A real client journey",
-    title: "RWF 8 million in savings.",
-    accent: "Three properties by Year 3.",
-    body: "This is the worked example from our business plan, published in full. Every figure is one we have actually seen, not a projection we invented for a brochure.",
-  })
-  const calculatorBlock = useBlock('wealth-cycle', 'calculator', {
-    eyebrow: "Run your own numbers",
-    title: "What could your capital",
-    accent: "become?",
-    body: "Move the sliders. This is an indicative model built on the same assumptions we use in a planning session — a build uplift of roughly 35%, corridor appreciation of 16% a year, and rent at around 9% of value.",
-  })
   const { data: faqData } = useLocalizedQuery<ApiFaq>('/public/faqs?page=wealth-cycle')
   const faqs = faqData ?? []
 
   const { data: stepData } = useLocalizedQuery<ApiCycleStep>('/public/wealth-cycle')
   const steps = stepData ?? []
   const { data: storyData } = useLocalizedQuery<ApiTestimonial>('/public/testimonials')
-  const { data: blocks } = useQuery<ContentBlock[]>('/public/content/wealth-cycle')
-
-  /** The worked client journey, editable in the admin as a content block. */
-  const timeline = ((blocks ?? []).find((b) => b.key === 'worked_example')?.items ??
-    []) as unknown as {
-    year: string
-    situation: string
-    action: string
-    outcome: string
-    portfolioValue: number
-  }[]
-
-  const [capital, setCapital] = useState(8_000_000)
-  const [years, setYears] = useState(3)
-
-  /**
-   * Indicative model, deliberately conservative and mirroring the business
-   * plan's worked example: the build roughly doubles the asset, rent runs at
-   * ~9% of value, and proceeds are recycled once per ~18 months.
-   */
-  const projection = useMemo(() => {
-    const rows: { year: number; portfolio: number; properties: number; rentPerYear: number }[] = []
-    let portfolio = capital * 1.25 // first plot, bought below market
-    let properties = 1
-
-    for (let year = 1; year <= years; year++) {
-      // build / improve uplift in the first half of each cycle
-      portfolio *= 1.35
-      // corridor appreciation
-      portfolio *= 1.16
-      // reinvestment splits into more assets every ~18 months
-      if (year % 2 === 0) properties += 1
-      if (year >= 3 && year % 3 === 0) properties += 1
-
-      rows.push({
-        year,
-        portfolio: Math.round(portfolio),
-        properties,
-        rentPerYear: Math.round(portfolio * 0.09),
-      })
-    }
-    return rows
-  }, [capital, years])
-
-  const final = projection[projection.length - 1]
-  const maxPortfolio = Math.max(...projection.map((r) => r.portfolio))
-
   const cycleStory = (storyData ?? [])[0]
 
   return (
@@ -128,7 +67,6 @@ export default function WealthCyclePage() {
         stats={[
           { value: '1 → 4–5', label: 'Properties within 3 years' },
           { value: '20–50%', label: 'Value added by the build step' },
-          { value: '8–12%', label: 'Annual yield once tenanted' },
           { value: '10%', label: 'Our management fee — only on rent collected' },
         ]}
       />
@@ -182,245 +120,6 @@ export default function WealthCyclePage() {
         </div>
       </section>
 
-      {/* ---------------- worked example ---------------- */}
-      <section className="relative overflow-hidden bg-navy-950 py-20 text-white lg:py-28">
-        <div className="pointer-events-none absolute inset-0 bg-blueprint opacity-60" />
-
-        <div className="container-page relative">
-          <SectionHeading
-            tone="light"
-            eyebrow={workedExampleIntroBlock.eyebrow}
-            title={workedExampleIntroBlock.title}
-            accent={workedExampleIntroBlock.accent}
-            description="This is the worked example from our business plan, published in full. Every figure is one we have actually seen, not a projection we invented for a brochure."
-          />
-
-          <motion.ol {...revealProps} variants={stagger(0.08)} className="relative mt-14">
-            <span
-              aria-hidden
-              className="absolute top-4 bottom-4 left-6 hidden w-px bg-gradient-to-b from-gold-500 via-white/20 to-transparent lg:block"
-            />
-
-            {timeline.map((row, i) => (
-              <motion.li
-                key={row.year}
-                variants={fadeUp}
-                className="relative mb-4 grid gap-5 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm last:mb-0 sm:p-7 lg:grid-cols-12 lg:items-start lg:gap-8 lg:pl-20"
-              >
-                <span
-                  aria-hidden
-                  className="absolute top-8 left-6 z-10 hidden size-3 -translate-x-1/2 rounded-full bg-gold-500 ring-4 ring-navy-950 lg:block"
-                />
-
-                <div className="lg:col-span-2">
-                  <p className="font-display text-xl font-semibold text-gold-400">{row.year}</p>
-                  <p className="mt-1.5 text-[0.8125rem] text-white/40">Step {i + 1}</p>
-                </div>
-
-                <div className="lg:col-span-4">
-                  <p className="text-[0.6875rem] font-bold tracking-[0.16em] text-white/35 uppercase">
-                    Situation
-                  </p>
-                  <p className="mt-2 text-[0.9375rem] leading-relaxed text-white/70">
-                    {row.situation}
-                  </p>
-                </div>
-
-                <div className="lg:col-span-3">
-                  <p className="text-[0.6875rem] font-bold tracking-[0.16em] text-white/35 uppercase">
-                    What we do
-                  </p>
-                  <p className="mt-2 text-[0.9375rem] leading-relaxed text-white/70">
-                    {row.action}
-                  </p>
-                </div>
-
-                <div className="lg:col-span-3">
-                  <p className="text-[0.6875rem] font-bold tracking-[0.16em] text-gold-400 uppercase">
-                    Outcome
-                  </p>
-                  <p className="mt-2 text-[0.9375rem] leading-relaxed font-medium text-white">
-                    {row.outcome}
-                  </p>
-                  <p className="mt-3 font-display text-lg font-semibold text-gold-400">
-                    {formatCompactCurrency(row.portfolioValue)}
-                  </p>
-                </div>
-              </motion.li>
-            ))}
-          </motion.ol>
-        </div>
-      </section>
-
-      {/* ---------------- interactive projector ---------------- */}
-      <section className="bg-surface py-16 lg:py-24">
-        <div className="container-page">
-          <SectionHeading
-            eyebrow={calculatorBlock.eyebrow}
-            title={calculatorBlock.title}
-            accent={calculatorBlock.accent}
-            description="Move the sliders. This is an indicative model built on the same assumptions we use in a planning session — a build uplift of roughly 35%, corridor appreciation of 16% a year, and rent at around 9% of value."
-          />
-
-          <div className="mt-14 grid gap-10 lg:grid-cols-12 lg:gap-12">
-            {/* controls */}
-            <motion.div {...revealProps} variants={fadeUp} className="lg:col-span-4">
-              <div className="rounded-3xl border border-line bg-canvas p-7">
-                <div className="flex items-center gap-2.5">
-                  <Sparkles className="size-5 text-gold-600" strokeWidth={2.2} />
-                  <h3 className="font-display text-lg font-semibold text-ink">Your inputs</h3>
-                </div>
-
-                <div className="mt-8">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <label
-                      htmlFor="wc-capital"
-                      className="text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase"
-                    >
-                      Starting capital
-                    </label>
-                    <span className="font-display text-lg font-semibold text-ink">
-                      {formatCompactCurrency(capital)}
-                    </span>
-                  </div>
-                  <input
-                    id="wc-capital"
-                    type="range"
-                    min={5_000_000}
-                    max={150_000_000}
-                    step={1_000_000}
-                    value={capital}
-                    onChange={(e) => setCapital(Number(e.target.value))}
-                    className="mt-4 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-navy-100 accent-gold-500"
-                  />
-                  <div className="mt-2 flex justify-between text-[0.75rem] text-ink-muted">
-                    <span>RWF 5M</span>
-                    <span>RWF 150M</span>
-                  </div>
-                </div>
-
-                <div className="mt-8">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <label
-                      htmlFor="wc-years"
-                      className="text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase"
-                    >
-                      Time horizon
-                    </label>
-                    <span className="font-display text-lg font-semibold text-ink">
-                      {years} {years === 1 ? 'year' : 'years'}
-                    </span>
-                  </div>
-                  <input
-                    id="wc-years"
-                    type="range"
-                    min={1}
-                    max={8}
-                    step={1}
-                    value={years}
-                    onChange={(e) => setYears(Number(e.target.value))}
-                    className="mt-4 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-navy-100 accent-gold-500"
-                  />
-                  <div className="mt-2 flex justify-between text-[0.75rem] text-ink-muted">
-                    <span>1 year</span>
-                    <span>8 years</span>
-                  </div>
-                </div>
-
-                <dl className="mt-8 space-y-4 border-t border-line-strong pt-7">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-[0.9375rem] text-ink-soft">Portfolio value</dt>
-                    <dd className="font-display text-xl font-semibold text-ink">
-                      {formatCompactCurrency(final.portfolio)}
-                    </dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-[0.9375rem] text-ink-soft">Properties owned</dt>
-                    <dd className="font-display text-xl font-semibold text-ink">
-                      {final.properties}
-                    </dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-[0.9375rem] text-ink-soft">Rental income / year</dt>
-                    <dd className="font-display text-xl font-semibold text-gold-600">
-                      {formatCompactCurrency(final.rentPerYear)}
-                    </dd>
-                  </div>
-                </dl>
-
-                <p className="mt-6 text-[0.75rem] leading-relaxed text-ink-muted">
-                  Indicative only. Actual returns depend on the specific parcel, the build
-                  specification, tenant demand and the market at the time you sell. We will model
-                  your real numbers in a planning session.
-                </p>
-
-                <Button to="/consultation?type=wealth-plan" variant="gold" className="mt-6 w-full">
-                  Model my real numbers
-                </Button>
-              </div>
-            </motion.div>
-
-            {/* chart */}
-            <motion.div {...revealProps} variants={fadeUp} className="lg:col-span-8">
-              <div className="flex flex-col rounded-3xl border border-line bg-canvas p-7">
-                <div className="flex flex-wrap items-baseline justify-between gap-4">
-                  <h3 className="font-display text-lg font-semibold text-ink">
-                    Projected portfolio growth
-                  </h3>
-                  <span className="flex items-center gap-1.5 rounded-full bg-gold-50 px-3 py-1.5 text-[0.8125rem] font-bold text-gold-700">
-                    <TrendingUp className="size-3.5" strokeWidth={2.6} />
-                    {Math.round((final.portfolio / capital - 1) * 100)}% over {years}{' '}
-                    {years === 1 ? 'year' : 'years'}
-                  </span>
-                </div>
-
-                {/* bar chart */}
-                <div className="mt-10 flex h-72 items-end gap-2 sm:h-80 sm:gap-4">
-                  {projection.map((row) => (
-                    <div key={row.year} className="flex flex-1 flex-col items-center gap-3">
-                      <span className="font-display text-[0.8125rem] font-bold text-ink sm:text-sm">
-                        {formatCompactCurrency(row.portfolio).replace('RWF ', '')}
-                      </span>
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${(row.portfolio / maxPortfolio) * 100}%` }}
-                        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                        className={cn(
-                          'w-full min-h-2 rounded-t-xl',
-                          row.year === years
-                            ? 'bg-gradient-to-t from-gold-600 to-gold-400'
-                            : 'bg-gradient-to-t from-navy-800 to-navy-500',
-                        )}
-                      />
-                      <span className="text-[0.75rem] font-semibold text-ink-muted">
-                        Y{row.year}
-                      </span>
-                      <span className="hidden text-[0.6875rem] text-ink-muted sm:block">
-                        {row.properties} {row.properties === 1 ? 'property' : 'properties'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="mt-8 border-t border-line-strong pt-6 text-[0.875rem] leading-relaxed text-ink-muted">
-                  Starting from{' '}
-                  <span className="font-semibold text-ink">{formatCurrency(capital)}</span>,
-                  this model reaches{' '}
-                  <span className="font-semibold text-ink">
-                    {formatCurrency(final.portfolio)}
-                  </span>{' '}
-                  across {final.properties}{' '}
-                  {final.properties === 1 ? 'property' : 'properties'}, generating roughly{' '}
-                  <span className="font-semibold text-ink">
-                    {formatCurrency(Math.round(final.rentPerYear / 12))}
-                  </span>{' '}
-                  a month in rent.
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
 
       {/* ---------------- why it wins ---------------- */}
       <section className="bg-canvas-alt py-16 lg:py-24">

@@ -30,7 +30,6 @@ import {
   Ruler,
   Share2,
   ShieldCheck,
-  Star,
   TrendingUp,
   X,
 } from 'lucide-react'
@@ -832,10 +831,14 @@ export default function PropertyDetailPage() {
                       <div className="min-w-0">
                         <p className="font-display text-[1.0625rem] font-semibold text-ink">{agent.full_name}</p>
                         <p className="text-[0.875rem] text-ink-muted">{agent.job_title}</p>
-                        <p className="mt-1 flex items-center gap-1 text-[0.8125rem] text-ink-soft">
-                          <Star className="size-3.5 fill-gold-400 text-gold-400" strokeWidth={0} />
-                          {agent.rating} · {agent.deals_closed} deals closed
-                        </p>
+                        {/* Only the counter that a recorded sale actually increments.
+                            A star rating with no reviews behind it is a decoration
+                            dressed as a fact. */}
+                        {agent.deals_closed > 0 && (
+                          <p className="mt-1 text-[0.8125rem] text-ink-soft">
+                            {agent.deals_closed} {agent.deals_closed === 1 ? 'deal' : 'deals'} closed
+                          </p>
+                        )}
                       </div>
                     </div>
 

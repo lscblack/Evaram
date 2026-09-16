@@ -48,7 +48,7 @@ const ROLES: Role[] = [
     requirements: [
       'Demonstrable local network in your target sector',
       'Own smartphone and reliable transport',
-      'Willing to respond to leads within two hours',
+      'Willing to respond to leads the same working day',
       'No history of undisclosed double-brokering',
     ],
   },
@@ -122,7 +122,7 @@ const CULTURE_RULES_FALLBACK: { body: string; title: string }[] = [
   },
   {
     title: 'Speed is a differentiator',
-    body: 'Every lead gets a response within two hours. Competitors take days — that gap is our advantage and we protect it.',
+    body: 'Every lead gets a response the same working day. That standard is the job.',
   },
   {
     title: 'No one hides problems',
@@ -826,7 +826,7 @@ export default function JoinPage() {
                       />
                       <span className="text-[0.875rem] leading-relaxed text-white/60">
                         I have read the culture rules above and I am comfortable working to them,
-                        including documenting every deal and responding to leads within two hours.
+                        including documenting every deal and responding to leads the same working day.
                       </span>
                     </label>
 

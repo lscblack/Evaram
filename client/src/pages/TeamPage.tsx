@@ -235,7 +235,7 @@ export default function TeamPage() {
                       <div className="flex gap-2">
                         <dt className="w-20 shrink-0 text-ink-faint">Record</dt>
                         <dd className="text-ink-soft">
-                          {person.deals_closed} {t('team.deals')} · {person.rating}/5
+                          {person.deals_closed} {t('team.deals')}
                         </dd>
                       </div>
                     )}
