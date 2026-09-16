@@ -443,8 +443,8 @@ export default function PropertiesPage() {
                 {t('market.title')}
               </h1>
               <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-soft">
-                Every parcel here is checked against its UPI at the National Land Authority before it
-                reaches this page — tenure, size and coordinates published up front.
+                Titles are checked against the National Land Authority before a listing is marked
+                verified — tenure, size and coordinates are published up front.
               </p>
             </div>
 

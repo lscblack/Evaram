@@ -190,6 +190,12 @@ async def run() -> None:
             "   OR video_360_url ~ 'cdn.evaramu.rw' OR drone_footage_url ~ 'cdn.evaramu.rw'"))
         logger.info("  cleared placeholder tour media on %d listings", result.rowcount)
 
+        # ---- per-listing growth badges ("+18%/yr"): forecasts dressed as facts
+        result = await db.execute(
+            text("UPDATE properties SET appreciation = NULL, projected_yield = NULL")
+        )
+        logger.info("  cleared growth figures on %d listings", result.rowcount)
+
         # ---- unsourced market figures
         result = await db.execute(text("UPDATE market_stats SET is_active = false"))
         logger.info("  retired %d market stats", result.rowcount)

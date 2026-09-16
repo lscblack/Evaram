@@ -261,7 +261,7 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: EASE, delay: 0.55 }}
           onSubmit={onSearch}
-          className="relative -mb-8 overflow-hidden rounded-2xl border border-line bg-surface shadow-lift lg:-mb-10"
+          className="relative mb-8 overflow-hidden rounded-2xl border border-line bg-surface shadow-lift lg:mb-10"
         >
           <div className="grid divide-y divide-line lg:grid-cols-[auto_1fr_1fr_1fr_auto] lg:divide-x lg:divide-y-0">
             <div className="flex items-center gap-1 p-2 lg:p-3">

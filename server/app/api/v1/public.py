@@ -226,7 +226,14 @@ async def categories(db: AsyncSession = Depends(get_db)) -> list[CategorySummary
         (
             await db.execute(
                 select(Property.category_id, func.count(Property.id))
-                .where(Property.status.in_(property_service.PUBLIC_STATUSES))
+                # The same predicate the marketplace lists by. Counting on
+                # status alone put "12 listings live" above a page showing 8:
+                # four were live in status but withheld from the public site.
+                .where(
+                    Property.status.in_(property_service.PUBLIC_STATUSES),
+                    Property.show_on_public.is_(True),
+                    Property.is_archived.is_(False),
+                )
                 .group_by(Property.category_id)
             )
         ).all()

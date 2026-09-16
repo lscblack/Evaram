@@ -125,10 +125,13 @@
   --surface: #ffffff;
   --surface-alt: var(--brand-sand-50);
 
-  --ink: var(--brand-navy-900);
-  --ink-soft: var(--brand-navy-700);
-  --ink-muted: var(--brand-navy-500);
-  --ink-faint: var(--brand-navy-300);
+  /* Text is neutral with a trace of the brand, not the brand itself. Setting
+     body copy in the navy ramp made every paragraph read as blue; the brand
+     colour belongs on buttons, links and accents, where it means something. */
+  --ink: color-mix(in oklab, #0f1720 88%, var(--brand-navy-900));
+  --ink-soft: color-mix(in oklab, #3a4452 88%, var(--brand-navy-700));
+  --ink-muted: color-mix(in oklab, #6b7280 88%, var(--brand-navy-500));
+  --ink-faint: color-mix(in oklab, #a1a7b3 88%, var(--brand-navy-300));
 
   --line: var(--brand-navy-100);
   --line-strong: var(--brand-navy-200);
