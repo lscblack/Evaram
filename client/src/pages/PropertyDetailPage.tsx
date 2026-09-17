@@ -84,6 +84,7 @@ export default function PropertyDetailPage() {
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
+  const [showAll, setShowAll] = useState(false)
   const [enquirySent, setEnquirySent] = useState(false)
   const [enquirySending, setEnquirySending] = useState(false)
   const [enquiryError, setEnquiryError] = useState<string | null>(null)
@@ -115,6 +116,7 @@ export default function PropertyDetailPage() {
   const parcel = property.parcel_information
   const images = property.media.filter((m) => m.kind === 'image' || m.kind === 'drone')
   const hasTour = Boolean(property.vr_tour_url || property.video_360_url)
+  const tileCount = Math.min(images.length, video || hasTour ? 3 : 4)
 
   const bedrooms = property.bedrooms ?? undefined
   const bathrooms = property.bathrooms ?? undefined
@@ -326,28 +328,45 @@ export default function PropertyDetailPage() {
 
             {/* thumbnails + video */}
             <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-2">
-              {images.slice(0, video || hasTour ? 3 : 4).map((image, i) => (
-                <button
-                  key={image.id}
-                  type="button"
-                  onClick={() => setActiveImage(i)}
-                  aria-label={`View image ${i + 1}`}
-                  className={cn(
-                    'group relative overflow-hidden rounded-2xl transition-all duration-300',
-                    i === activeImage
-                      ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-navy-950'
-                      : 'opacity-70 hover:opacity-100',
-                  )}
-                >
-                  <img
-                    src={image.url}
-                    alt=""
-                    aria-hidden
-                    loading="lazy"
-                    className="aspect-4/3 w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                </button>
-              ))}
+              {/* Four tiles fit beside the carousel; the rest are one click
+                  away. The last tile says how many more there are rather than
+                  pretending the four are all of them. */}
+              {images.slice(0, tileCount).map((image, i) => {
+                const isLast = i === tileCount - 1
+                const hidden = images.length - tileCount
+                return (
+                  <button
+                    key={image.id}
+                    type="button"
+                    onClick={() => (isLast && hidden > 0 ? setShowAll(true) : setActiveImage(i))}
+                    aria-label={
+                      isLast && hidden > 0 ? `Show all ${images.length} photos` : `View image ${i + 1}`
+                    }
+                    className={cn(
+                      'group relative overflow-hidden rounded-2xl transition-all duration-300',
+                      i === activeImage && !(isLast && hidden > 0)
+                        ? 'ring-2 ring-gold-500 ring-offset-2 ring-offset-navy-950'
+                        : 'opacity-70 hover:opacity-100',
+                    )}
+                  >
+                    <img
+                      src={image.url}
+                      alt=""
+                      aria-hidden
+                      loading="lazy"
+                      className="aspect-4/3 w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    {isLast && hidden > 0 && (
+                      <span className="absolute inset-0 grid place-items-center bg-navy-950/65 text-center text-white transition-colors group-hover:bg-navy-950/50">
+                        <span>
+                          <span className="block font-display text-2xl font-semibold">+{hidden}</span>
+                          <span className="block text-[0.75rem] font-medium">more photos</span>
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
 
               {video && (
                 <button
@@ -1063,6 +1082,64 @@ export default function PropertyDetailPage() {
             <span className="absolute bottom-6 rounded-full bg-white/10 px-4 py-2 text-[0.875rem] text-white">
               {activeImage + 1} / {images.length}
             </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ---------------- all photos ---------------- */}
+      <AnimatePresence>
+        {showAll && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-60 overflow-y-auto bg-navy-950/95 p-4 sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`All ${images.length} photos`}
+            onClick={() => setShowAll(false)}
+          >
+            <div className="mx-auto max-w-6xl" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-5 flex items-center justify-between text-white">
+                <p className="font-display text-lg font-semibold">
+                  {images.length} photos · {property.title}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowAll(false)}
+                  aria-label="Close"
+                  className="grid size-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
+                >
+                  <X className="size-5" strokeWidth={2.2} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {images.map((image, i) => (
+                  <button
+                    key={image.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveImage(i)
+                      setShowAll(false)
+                      setLightbox(true)
+                    }}
+                    aria-label={`Open photo ${i + 1}`}
+                    className="group relative overflow-hidden rounded-2xl"
+                  >
+                    <img
+                      src={image.url}
+                      alt={image.alt_text ?? ''}
+                      loading="lazy"
+                      className="aspect-4/3 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <span className="absolute bottom-2 left-2 rounded-md bg-navy-950/70 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-white tabular-nums">
+                      {i + 1} / {images.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
