@@ -50,7 +50,10 @@ export function usePriceMarkers({
             event.stopPropagation()
             handler.current(p)
           })
-          marker = new Marker({ element: el, anchor: 'center' })
+          // Anchored at the bottom so the pill floats just above the parcel's
+          // centre rather than covering it — on a small plot a pill anchored
+          // in the middle hides most of the outline it is labelling.
+          marker = new Marker({ element: el, anchor: 'bottom', offset: [0, -8] })
             .setLngLat([p.longitude, p.latitude])
             .addTo(map)
           markers.current.set(p.id, marker)

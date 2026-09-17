@@ -71,14 +71,20 @@ export function MarketMap({
   const filterKey = JSON.stringify(filters ?? {})
 
   /* ------------------------------------------------------------- parcels */
+  // The first load is nationwide, not the viewport. The map opens on a fixed
+  // Kigali view that happens to contain one parcel — framing that alone put a
+  // visitor at street level on a single plot with no sign of the other seven.
+  // Once everything has been framed, the viewport takes over.
+  const [framedOnce, setFramedOnce] = useState(false)
+
   useEffect(() => {
     let cancelled = false
-    if (!searching && !bbox) return
+    if (!searching && framedOnce && !bbox) return
 
     setLoading(true)
     const path = searching
       ? `/public/map/search${qs({ near: criteriaKey, ...(filters ?? {}) })}`
-      : `/public/map/properties${qs({ bbox, ...(filters ?? {}) })}`
+      : `/public/map/properties${qs({ ...(framedOnce ? { bbox } : {}), ...(filters ?? {}) })}`
 
     api
       .get<ParcelCollection>(path)
@@ -102,7 +108,7 @@ export function MarketMap({
     return () => {
       cancelled = true
     }
-  }, [bbox, criteriaKey, searching, filterKey])
+  }, [bbox, criteriaKey, searching, filterKey, framedOnce])
 
   /* ------------------------------------------------- optional map layers */
   useEffect(() => {
@@ -160,6 +166,18 @@ export function MarketMap({
     framed.current = true
     mapRef.current?.fitTo()
   }, [collection])
+
+  // The viewport starts driving fetches only once the first frame has landed:
+  // the `moveend` at the end of that fit is the first viewport change after the
+  // nationwide collection arrived. Anything earlier is the map's own initial
+  // camera, which is not a view anyone chose.
+  const viewportChanged = useCallback(
+    (next: string) => {
+      setBbox(next)
+      if (framed.current) setFramedOnce(true)
+    },
+    [],
+  )
 
   useEffect(() => {
     if (searching && collection?.features.length) mapRef.current?.fitTo()
@@ -257,7 +275,7 @@ export function MarketMap({
         selectedIds={selectedIds}
         onSelect={(f) => pick(f ? (f.properties as ParcelProperties) : null)}
         onMapClick={clickedEmptyMap}
-        onViewportChange={setBbox}
+        onViewportChange={viewportChanged}
         measuring={measuring}
         className="evr-market-map h-full"
       />

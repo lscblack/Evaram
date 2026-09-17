@@ -50,6 +50,10 @@ interface Props {
   activity?: FeatureCollection | null
   /** Turn-by-turn line, when a listing allows directions. */
   route?: Feature | null
+  /** Price pills over each parcel. Off where there is one parcel and it is
+   *  the page's subject — a pill reading "—" in the middle of the outline is
+   *  a dot where the shape should be. */
+  priceMarkers?: boolean
   measuring?: boolean
   className?: string
 }
@@ -90,6 +94,7 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
     onMapClick,
     onViewportChange,
     route,
+    priceMarkers = true,
     measuring = false,
     className,
   },
@@ -349,9 +354,9 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
         }
         instance.fitBounds(bounds as LngLatBoundsLike, {
           padding: { top: 70, bottom: 70, left: 70, right: 70 },
-          // A single point has no extent to fit, so cap the zoom or the map
-          // slams to street level and loses all context.
-          maxZoom: wanted.length === 1 ? 17 : 15,
+          // One parcel is fitted close enough that its outline is clearly
+          // larger than the pill over it; a set is capped so context survives.
+          maxZoom: wanted.length === 1 ? 18 : 15,
           duration: 700,
         })
       }
@@ -383,7 +388,7 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
     activeId,
     selectedIds,
     onSelect: (p) => handlers.current.onSelect?.(parcels.find((f) => f.properties.id === p.id) ?? null),
-    visible: !measuring,
+    visible: priceMarkers && !measuring,
   })
 
   const measured = measurePath.length > 1 ? pathLength(measurePath) : 0

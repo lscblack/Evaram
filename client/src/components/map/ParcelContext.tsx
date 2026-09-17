@@ -190,6 +190,7 @@ export function ParcelContext({ slug, title }: { slug: string; title: string }) 
           activeId={slug}
           route={route?.geometry ?? null}
           measuring={measuring}
+          priceMarkers={false}
         />
       </div>
 
