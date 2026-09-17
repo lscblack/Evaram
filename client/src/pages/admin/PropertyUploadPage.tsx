@@ -95,6 +95,7 @@ export default function PropertyUploadPage() {
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryId, setSubcategoryId] = useState('')
   const [values, setValues] = useState<FormValues>({})
+  const [emptyLand, setEmptyLand] = useState(false)
   const [core, setCore] = useState({
     reference_number: '',
     upi: '',
@@ -223,6 +224,7 @@ export default function PropertyUploadPage() {
     setCategoryId(p.category_id)
     setSubcategoryId(p.subcategory_id)
     setValues((p.details as FormValues) ?? {})
+    setEmptyLand(Boolean((p.details as Record<string, unknown> | null)?.empty_land))
     setCore({
       reference_number: p.reference_number,
       upi: p.upi ?? '',
@@ -407,7 +409,7 @@ export default function PropertyUploadPage() {
         commission_rate: deal.commission_rate ? Number(deal.commission_rate) : null,
         commission_amount: deal.commission_amount ? Number(deal.commission_amount) : null,
         commission_in_price: deal.commission_in_price,
-        details: values,
+        details: emptyLand ? { empty_land: true } : values,
         min_bid: flags.allow_bidding && minBid ? Number(minBid) : null,
         latitude: geo.latitude ? Number(geo.latitude) : null,
         longitude: geo.longitude ? Number(geo.longitude) : null,
@@ -999,16 +1001,32 @@ export default function PropertyUploadPage() {
           {/* ---- the type-specific form ---- */}
           {subcategory && (
             <Panel title={`Specification · ${subcategory.label}`}>
-              <div className="grid grid-cols-1 gap-5 p-5 sm:grid-cols-6">
-                {visibleFields.map((field) => (
-                  <DynamicField
-                    key={field.id}
-                    field={field}
-                    value={values[field.name]}
-                    onChange={setValue}
-                  />
-                ))}
+              <div className="border-b border-line px-5 py-4">
+                {/* A bare plot has nothing to specify. Asking about fences,
+                    sewage and fittings for land with nothing on it produces a
+                    page of "No" answers that tell a buyer less than one line. */}
+                <Toggle
+                  label="Empty land — nothing built on it"
+                  hint="Skips the specification. The listing says 'bare land' instead of a list of features it does not have."
+                  checked={emptyLand}
+                  onChange={(v) => {
+                    setEmptyLand(v)
+                    if (v) setValues({})
+                  }}
+                />
               </div>
+              {!emptyLand && (
+                <div className="grid grid-cols-1 gap-5 p-5 sm:grid-cols-6">
+                  {visibleFields.map((field) => (
+                    <DynamicField
+                      key={field.id}
+                      field={field}
+                      value={values[field.name]}
+                      onChange={setValue}
+                    />
+                  ))}
+                </div>
+              )}
             </Panel>
           )}
         </div>

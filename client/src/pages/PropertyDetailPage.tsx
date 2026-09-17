@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Bath,
+  LandPlot,
   BedDouble,
   Calendar,
   Check,
@@ -89,9 +90,15 @@ export default function PropertyDetailPage() {
   const [enquiryCaptcha, setEnquiryCaptcha] = useState<CaptchaValue>(EMPTY_CAPTCHA)
   const [enquiry, setEnquiry] = useState({ name: '', contact: '' })
 
+  const isEmptyLand = Boolean(
+    (property?.details as Record<string, unknown> | null | undefined)?.empty_land,
+  )
   const detailGroups = useMemo(
-    () => (property ? buildDetailGroups(property.details, taxonomy, property.subcategory_id) : []),
-    [property, taxonomy],
+    () =>
+      property && !isEmptyLand
+        ? buildDetailGroups(property.details, taxonomy, property.subcategory_id)
+        : [],
+    [property, taxonomy, isEmptyLand],
   )
 
   if (loading && !property) {
@@ -602,7 +609,22 @@ export default function PropertyDetailPage() {
               )}
 
               {/* dynamic specification */}
-              {detailGroups.length > 0 && (
+              {isEmptyLand ? (
+                <motion.div {...revealProps} variants={fadeUp} className="mt-12">
+                  <div className="flex items-start gap-3 rounded-2xl border border-line bg-surface px-5 py-4">
+                    <LandPlot className="mt-0.5 size-5 shrink-0 text-gold-600" strokeWidth={2} />
+                    <div>
+                      <p className="font-display text-[1.0625rem] font-semibold text-ink">
+                        Bare land
+                      </p>
+                      <p className="mt-1 text-[0.9375rem] leading-relaxed text-ink-soft">
+                        Nothing is built on this plot. What you are buying is the parcel itself —
+                        its size, its title and its position on the map above.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : detailGroups.length > 0 && (
                 <motion.div {...revealProps} variants={stagger(0.08)} className="mt-12">
                   <motion.h2
                     variants={fadeUp}

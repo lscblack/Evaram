@@ -25,6 +25,27 @@ docker run -d --name evaramu-db \
 
 Interactive docs at `/docs`, health at `/health`.
 
+## Uploaded media
+
+Photos, profile pictures and document scans are written to `MEDIA_ROOT`
+(default `server/media/`) and served by the API at `/media/…`. Every stored
+URL is **relative** — `/media/property/2026-09/<hash>.jpg` — so the same value
+works wherever the site is hosted.
+
+That means the host serving the front end must route `/media/` to the API,
+exactly as it routes `/api/`. In development Vite does this with a proxy
+(`client/vite.config.ts`). In production, add the equivalent to nginx:
+
+```nginx
+location /media/ {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+}
+```
+
+Without it, uploaded images 404 on the public site while the API itself is
+perfectly healthy — the browser asks the wrong server for them.
+
 ## Accounts
 
 | Account | Role | Notes |
