@@ -16,11 +16,11 @@ const DIVISION_STYLES: Record<string, string> = {
 }
 
 /**
- * What we do, as a list you can read top to bottom.
+ * What we do, as a grid of compact cards.
  *
- * One row per service: icon, name, one line, which division. No cards, no
- * descriptions, no bullet points — those live on /services, one click away.
- * A list is scanned in seconds; a wall of cards is read, or more often not.
+ * One card per service: icon, name, one line, which division. No descriptions,
+ * no bullet points — those live on /services, one click away. The card carries
+ * exactly enough to choose one, which is all a homepage section is for.
  */
 export function ServicesGrid() {
   const t = useT()
@@ -45,54 +45,53 @@ export function ServicesGrid() {
           description={block.body}
         />
 
-        <motion.ol
+        <motion.div
           {...revealProps}
           variants={stagger(0.05)}
-          className="mt-12 divide-y divide-line border-y border-line"
+          className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
         >
           {services.map((service, index) => (
-            <motion.li key={service.id} variants={fadeUp}>
+            <motion.div key={service.id} variants={fadeUp}>
               <Link
                 to={service.href ?? '/services'}
-                className="group grid grid-cols-[auto_1fr_auto] items-center gap-4 py-5 transition-colors hover:bg-canvas sm:grid-cols-[2.5rem_auto_1fr_auto] sm:gap-6"
+                className="group flex h-full flex-col rounded-2xl border border-line bg-canvas p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-line-strong hover:bg-surface hover:shadow-soft"
               >
-                <span className="hidden font-display text-[0.8125rem] tabular-nums text-ink-faint sm:block">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-
-                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-canvas-alt text-ink transition-colors group-hover:bg-gold-500 group-hover:text-white">
-                  <Icon name={service.icon ?? 'Building2'} className="size-5" strokeWidth={1.9} />
-                </span>
-
-                <span className="min-w-0">
-                  <span className="block font-display text-[1.0625rem] font-semibold text-ink sm:text-lg">
-                    {service.title}
+                <div className="flex items-start justify-between gap-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-canvas-alt text-ink transition-colors group-hover:bg-gold-500 group-hover:text-white">
+                    <Icon name={service.icon ?? 'Building2'} className="size-5" strokeWidth={1.9} />
                   </span>
-                  {service.tagline && (
-                    <span className="mt-0.5 block text-[0.9375rem] leading-snug text-ink-soft">
-                      {service.tagline}
-                    </span>
-                  )}
-                </span>
+                  <span className="font-display text-[0.75rem] tabular-nums text-ink-faint">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                </div>
 
-                <span className="flex items-center gap-3">
+                <span className="mt-4 block font-display text-[1.0625rem] leading-snug font-semibold text-ink">
+                  {service.title}
+                </span>
+                {service.tagline && (
+                  <span className="mt-1 block text-[0.875rem] leading-snug text-ink-soft">
+                    {service.tagline}
+                  </span>
+                )}
+
+                <span className="mt-auto flex items-center justify-between pt-4">
                   <span
                     className={cn(
-                      'hidden text-[0.6875rem] font-bold tracking-wide uppercase md:block',
+                      'text-[0.6875rem] font-bold tracking-wide uppercase',
                       DIVISION_STYLES[service.division] ?? 'text-ink-muted',
                     )}
                   >
                     {t(`division.${service.division}` as TranslationKey)}
                   </span>
                   <ArrowUpRight
-                    className="size-4 shrink-0 text-ink-faint transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-gold-600"
+                    className="size-4 text-ink-faint transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-gold-600"
                     strokeWidth={2.4}
                   />
                 </span>
               </Link>
-            </motion.li>
+            </motion.div>
           ))}
-        </motion.ol>
+        </motion.div>
 
         <div className="mt-8">
           <Link
