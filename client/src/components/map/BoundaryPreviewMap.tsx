@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { Map as MapIcon, MapPinOff } from 'lucide-react'
 import { BASEMAPS, DEFAULT_BASEMAP } from '@/lib/mapStyles'
 import { formatAreaShort } from '@/lib/geoMeasure'
+import { zoneColor, zoneFor } from '@/data/masterPlan'
 import { cn } from '@/lib/utils'
 
 const SOURCE = 'draft-parcel'
@@ -21,6 +22,7 @@ export function BoundaryPreviewMap({
   latitude,
   longitude,
   areaSqm,
+  zone,
   className,
 }: {
   /** `[[lat, lng], …]`, as the rest of the console stores them. */
@@ -29,6 +31,8 @@ export function BoundaryPreviewMap({
   latitude?: number | null
   longitude?: number | null
   areaSqm?: number | null
+  /** The Master Plan zone chosen on the form; the outline takes its colour. */
+  zone?: string | null
   className?: string
 }) {
   const holder = useRef<HTMLDivElement>(null)
@@ -149,6 +153,17 @@ export function BoundaryPreviewMap({
     })
   }
 
+  // Repaint the outline when the zone changes: the colour is the point of
+  // choosing one, and it should show before the listing is saved.
+  useEffect(() => {
+    const instance = map.current
+    if (!instance || !ready) return
+    const color = zoneColor(zone)
+    for (const [layer, prop] of [['draft-fill', 'fill-color'], ['draft-line', 'line-color']] as const) {
+      if (instance.getLayer(layer)) instance.setPaintProperty(layer, prop, color)
+    }
+  }, [zone, ready])
+
   const empty = data.features.length === 0
 
   return (
@@ -195,6 +210,16 @@ export function BoundaryPreviewMap({
             {points.length >= 3 ? `${points.length} corners` : 'Pin only'}
           </span>
           {areaSqm ? <span>{formatAreaShort(areaSqm)}</span> : null}
+          {zoneFor(zone) && (
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="size-3 rounded-sm"
+                style={{ background: zoneColor(zone) }}
+              />
+              {zoneFor(zone)!.code} · {zoneFor(zone)!.name}
+            </span>
+          )}
           <span className="text-ink-faint">
             Check it sits where you expect before saving.
           </span>

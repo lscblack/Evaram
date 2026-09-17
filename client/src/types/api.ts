@@ -802,10 +802,13 @@ export interface ParcelProperties {
   has_outline: boolean
   issue_count: number
   allow_directions: boolean
+  master_plan_zone: string | null
   /** Present on `/map/nearby` results only. */
   distance_m?: number
   /** Added client-side for the map's price labels. */
   price_label?: string
+  /** Added client-side: the zone code the map colours by. */
+  zone_code?: string | null
 }
 
 export interface ParcelCollection {

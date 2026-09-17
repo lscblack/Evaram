@@ -77,6 +77,7 @@ def _feature(row: Any) -> dict:
             "has_outline": row.geometry is not None and row.geometry.get("type") == "Polygon",
             "issue_count": len(row.boundary_issues or []),
             "allow_directions": row.allow_directions,
+            "master_plan_zone": row.master_plan_zone,
         },
     }
 
@@ -122,6 +123,7 @@ def _selection() -> Any:
         Property.is_verified,
         Property.boundary_issues,
         Property.allow_directions,
+        Property.master_plan_zone,
         func.ST_Y(Property.centre_geom).label("lat"),
         func.ST_X(Property.centre_geom).label("lng"),
         # `ST_AsGeoJSON` returns text; the cast makes asyncpg hand back a dict

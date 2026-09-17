@@ -15,6 +15,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { ParcelProperties } from '@/types/api'
 import { BASEMAPS, DEFAULT_BASEMAP, RWANDA_CENTRE } from '@/lib/mapStyles'
+import { ZONE_COLOR_EXPRESSION } from '@/data/masterPlan'
 import { usePriceMarkers } from './PriceMarkers'
 import { Map } from 'lucide-react'
 import { formatDistance, pathLength } from '@/lib/geoMeasure'
@@ -504,14 +505,11 @@ function addLayers(instance: MapLibreMap) {
     source: PARCELS,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
-      // A parcel with boundary problems is tinted amber rather than hidden —
-      // the buyer should see it and the warning together.
-      'fill-color': [
-        'case',
-        ['>', ['get', 'issue_count'], 0], '#f59e0b',
-        '#c98a2b',
-      ],
-      'fill-opacity': 0.28,
+      // The Master Plan zone's own legend colour, so a parcel reads on the
+      // map the way it reads on the district's plan. Unzoned parcels stay in
+      // the brand gold, which is on no legend and so cannot be mistaken.
+      'fill-color': ZONE_COLOR_EXPRESSION as never,
+      'fill-opacity': 0.42,
     },
   })
 
@@ -521,8 +519,23 @@ function addLayers(instance: MapLibreMap) {
     source: PARCELS,
     filter: ['==', ['geometry-type'], 'Polygon'],
     paint: {
-      'line-color': ['case', ['>', ['get', 'issue_count'], 0], '#b45309', '#8a5a12'],
-      'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 18, 2.5],
+      'line-color': ZONE_COLOR_EXPRESSION as never,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.2, 18, 3],
+    },
+  })
+
+  // Boundary warnings keep their own signal, drawn over the zone colour: a
+  // dashed amber ring says "check this" without hiding what the zone is.
+  instance.addLayer({
+    id: 'parcel-warn',
+    type: 'line',
+    source: PARCELS,
+    filter: ['all', ['==', ['geometry-type'], 'Polygon'], ['>', ['get', 'issue_count'], 0]],
+    paint: {
+      'line-color': '#b45309',
+      'line-width': 2,
+      'line-dasharray': [1.5, 1.5],
+      'line-offset': -3,
     },
   })
 
@@ -551,7 +564,7 @@ function addLayers(instance: MapLibreMap) {
     filter: ['==', ['geometry-type'], 'Point'],
     paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 9],
-      'circle-color': '#c98a2b',
+      'circle-color': ZONE_COLOR_EXPRESSION as never,
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 2,
       'circle-opacity': 0.9,

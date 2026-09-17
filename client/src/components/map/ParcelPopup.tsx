@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { ZoneChip } from '@/components/ui/ZoneChip'
 import { formatArea, formatCurrency, cn } from '@/lib/utils'
 import { formatDistance } from '@/lib/geoMeasure'
 import type { ParcelContext, ParcelProperties } from '@/types/api'
@@ -116,6 +117,7 @@ export function ParcelPopup({
           </span>
         )}
         {!parcel.has_outline && <span className="text-ink-faint">no surveyed outline</span>}
+        {parcel.master_plan_zone && <ZoneChip value={parcel.master_plan_zone} compact />}
       </div>
 
       {/* what is nearby, measured */}

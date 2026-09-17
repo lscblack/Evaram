@@ -7,8 +7,10 @@ import { ParcelMap, type ParcelMapHandle, priceLabel } from './ParcelMap'
 import { ParcelCard } from './ParcelCard'
 import { ParcelPopup } from './ParcelPopup'
 import { CompareTray } from './CompareTray'
+import { ZoneLegend } from './ZoneLegend'
 import { SurroundingsSearch, buildCriteria } from './SurroundingsSearch'
 import { api, qs } from '@/lib/api'
+import { zoneCode } from '@/data/masterPlan'
 import { cn } from '@/lib/utils'
 import type { ParcelCollection, ParcelProperties, ProximityCriterion } from '@/types/api'
 import type { FeatureCollection } from 'geojson'
@@ -97,6 +99,7 @@ export function MarketMap({
               : feature.properties.price,
             feature.properties.currency,
           )
+          feature.properties.zone_code = zoneCode(feature.properties.master_plan_zone)
         }
         setCollection(data)
         setRelaxed(data.relaxed?.length ? data.relaxed : undefined)
@@ -213,6 +216,7 @@ export function MarketMap({
           feature.properties.price,
           feature.properties.currency,
         )
+        feature.properties.zone_code = zoneCode(feature.properties.master_plan_zone)
       }
       setCollection(found)
       setListOpen(true)
@@ -417,6 +421,8 @@ export function MarketMap({
           </span>
         </button>
       )}
+
+      <ZoneLegend parcels={list} />
 
       {/* ----------------------------------------------------- parcel card */}
       <AnimatePresence>

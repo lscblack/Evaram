@@ -43,6 +43,7 @@ import { SectionHeading } from '@/components/ui/SectionHeading'
 import { SpecificationPanel } from '@/components/ui/SpecificationPanel'
 import type { ApiCategory, ApiPropertyCard, ApiPropertyDetail } from '@/types/api'
 import { api, mediaUrl } from '@/lib/api'
+import { ZoneChip } from '@/components/ui/ZoneChip'
 import { useBlock, useQuery } from '@/lib/queries'
 import { buildDetailGroups, parseVideoLink } from '@/lib/propertyDetails'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
@@ -477,7 +478,11 @@ export default function PropertyDetailPage() {
                       </div>
                     }
                   >
-                    <ParcelContext slug={property.slug} title={property.title} />
+                    <ParcelContext
+                      slug={property.slug}
+                      title={property.title}
+                      zone={property.master_plan_zone}
+                    />
                   </Suspense>
                 </motion.div>
               )}
@@ -529,7 +534,7 @@ export default function PropertyDetailPage() {
                         { label: 'Cell', value: parcel.cell },
                         { label: 'Village', value: parcel.village },
                         { label: 'Land use', value: property.land_use ?? parcel.land_use },
-                        { label: 'Master plan zone', value: property.master_plan_zone },
+                        { label: 'Master plan zone', value: property.master_plan_zone, zone: true },
                         { label: 'Zone allows', value: property.master_plan_note },
                         {
                           label: 'Parcel size',
@@ -549,7 +554,11 @@ export default function PropertyDetailPage() {
                               {row.label}
                             </dt>
                             <dd className="mt-1.5 text-[0.9375rem] font-medium text-ink">
-                              {String(row.value)}
+                              {'zone' in row && row.zone ? (
+                                <ZoneChip value={String(row.value)} />
+                              ) : (
+                                String(row.value)
+                              )}
                             </dd>
                           </div>
                         ))}

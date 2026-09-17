@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { bearing, compassPoint, formatDistance } from '@/lib/geoMeasure'
 import { currentPosition, formatDuration, routeBetween, type Route } from '@/lib/routing'
 import { streetViewUrl } from '@/lib/mapStyles'
+import { zoneCode } from '@/data/masterPlan'
 import type { NearbyFacility, ParcelContext as Context } from '@/types/api'
 import type { FeatureCollection } from 'geojson'
 
@@ -40,7 +41,16 @@ const label = (kind: string) =>
  * distances rather than an agent's description. Distances come from
  * OpenStreetMap and are computed from the parcel boundary, not from a pin.
  */
-export function ParcelContext({ slug, title }: { slug: string; title: string }) {
+export function ParcelContext({
+  slug,
+  title,
+  zone,
+}: {
+  slug: string
+  title: string
+  /** The listing's Master Plan zone, which sets the outline's colour. */
+  zone?: string | null
+}) {
   const mapRef = useRef<ParcelMapHandle>(null)
   const [context, setContext] = useState<Context | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,10 +88,12 @@ export function ParcelContext({ slug, title }: { slug: string; title: string }) 
           issue_count: context.boundary.issues.length,
           is_verified: true, allow_directions: Boolean(context.allow_directions),
           latitude: context.latitude, longitude: context.longitude!,
+          master_plan_zone: zone ?? null,
+          zone_code: zoneCode(zone),
         },
       },
     ]
-  }, [context, slug, title])
+  }, [context, slug, title, zone])
 
   const facilityLayer = useMemo<FeatureCollection | null>(() => {
     if (!context?.facilities.length) return null

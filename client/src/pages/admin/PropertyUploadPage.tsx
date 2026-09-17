@@ -14,6 +14,7 @@ import { MediaUploader, type StagedFile } from '@/components/admin/MediaUploader
 import { DynamicField, type FieldValue, type FormValues } from '@/components/ui/DynamicField'
 import { MoneyInput } from '@/components/ui/MoneyInput'
 import { FORMAT_NAMES, parseBoundary } from '@/lib/boundary'
+import { ZONE_GROUPS, zoneColor, zoneValue } from '@/data/masterPlan'
 import { ringArea } from '@/lib/geoMeasure'
 import { api, mediaUrl } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
@@ -67,21 +68,6 @@ const RIGHT_TYPES = [
   'Customary (not yet registered)',
 ]
 
-/** Common Master Plan designations — free text, so an unusual zone still fits. */
-const MASTER_PLAN_ZONES = [
-  'R1 — low density residential',
-  'R2 — medium density residential',
-  'R3 — high density residential',
-  'C1 — local commercial',
-  'C2 — city commercial',
-  'MU — mixed use',
-  'I1 — light industry',
-  'I2 — heavy industry',
-  'PF — public facility',
-  'AG — agriculture',
-  'GR — green / recreation',
-  'WL — wetland (no build)',
-]
 
 /**
  * The property upload form — staff only.
@@ -815,6 +801,7 @@ export default function PropertyUploadPage() {
                     latitude={geo.latitude ? Number(geo.latitude) : null}
                     longitude={geo.longitude ? Number(geo.longitude) : null}
                     areaSqm={boundaryArea}
+                    zone={parcel.master_plan_zone}
                   />
                 </Suspense>
               </div>
@@ -884,20 +871,32 @@ export default function PropertyUploadPage() {
 
               <Field
                 label="Master plan zone"
-                hint="The zoning the district Master Plan gives this parcel."
+                hint="The zoning the district Master Plan gives this parcel. The outline takes the zone's colour on every map."
               >
-                <input
-                  className={FIELD}
-                  list="master-plan-zones"
-                  value={parcel.master_plan_zone}
-                  onChange={(e) => setParcel((p) => ({ ...p, master_plan_zone: e.target.value }))}
-                  placeholder="R1 — low density residential"
-                />
-                <datalist id="master-plan-zones">
-                  {MASTER_PLAN_ZONES.map((zone) => (
-                    <option key={zone} value={zone} />
-                  ))}
-                </datalist>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    aria-hidden
+                    className="size-6 shrink-0 rounded-md border border-line"
+                    style={{ background: zoneColor(parcel.master_plan_zone) }}
+                  />
+                  <select
+                    className={FIELD}
+                    value={parcel.master_plan_zone}
+                    onChange={(e) => setParcel((p) => ({ ...p, master_plan_zone: e.target.value }))}
+                  >
+                    <option value="">Not on the plan yet</option>
+                    {ZONE_GROUPS.map(([group, zones]) => (
+                      <optgroup key={group} label={group}>
+                        {zones.map((z) => (
+                          <option key={z.code} value={zoneValue(z)}>
+                            {z.code} — {z.name}
+                            {z.buildable === 'no' ? ' · no building' : z.buildable === 'restricted' ? ' · restricted' : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
               </Field>
 
               <Field label="What the zone allows" hint="Density, storeys, permitted use.">
