@@ -12,6 +12,7 @@ import {
   type MapMouseEvent,
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '@/lib/mapWorker'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { ParcelProperties } from '@/types/api'
 import { BASEMAPS, DEFAULT_BASEMAP, RWANDA_CENTRE, TERRAIN_SOURCE, terrainSource } from '@/lib/mapStyles'

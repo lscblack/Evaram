@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FullscreenControl, LngLatBounds, MapLibreMap, NavigationControl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '@/lib/mapWorker'
 import { Map as MapIcon, MapPinOff } from 'lucide-react'
 import { BASEMAPS, DEFAULT_BASEMAP } from '@/lib/mapStyles'
 import { formatAreaShort } from '@/lib/geoMeasure'
