@@ -45,6 +45,9 @@ from app.schemas.auth import (
 )
 from app.schemas.common import Message, Page
 from app.schemas.content import (
+    ConsultationTypeCreate,
+    ConsultationTypeOut,
+    ConsultationTypeUpdate,
     MarketStatCreate,
     MarketStatOut,
     MarketStatUpdate,
@@ -1220,6 +1223,133 @@ async def change_application_status(
     )
     await db.commit()
     return Message(detail=f"Application marked {payload.status}")
+
+
+# =========================================================== consultation types
+@router.get(
+    "/consultation-types",
+    response_model=list[ConsultationTypeOut],
+    summary="Every consultation offered, including hidden ones",
+)
+async def list_consultation_types(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> list[ConsultationTypeOut]:
+    rows = (
+        await db.scalars(
+            select(ConsultationType).order_by(ConsultationType.display_order, ConsultationType.title)
+        )
+    ).all()
+    return [ConsultationTypeOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/consultation-types",
+    response_model=ConsultationTypeOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a consultation",
+)
+async def create_consultation_type(
+    request: Request,
+    payload: ConsultationTypeCreate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> ConsultationTypeOut:
+    if await db.scalar(select(ConsultationType.id).where(ConsultationType.slug == payload.slug)):
+        raise HTTPException(status.HTTP_409_CONFLICT, f"A consultation with slug {payload.slug!r} exists")
+
+    row = ConsultationType(**payload.model_dump())
+    db.add(row)
+    await db.flush()
+    await record(
+        db, actor=actor, action="consultation_type.create", entity_type="consultation_type",
+        entity_id=row.id, summary=f"Added consultation {row.title!r}", request=request,
+    )
+    await db.commit()
+    await db.refresh(row)
+    await cache.invalidate("public:")
+    return ConsultationTypeOut.model_validate(row)
+
+
+@router.patch(
+    "/consultation-types/{type_id}",
+    response_model=ConsultationTypeOut,
+    summary="Edit a consultation — its price, length, modes or hours",
+)
+async def update_consultation_type(
+    request: Request,
+    type_id: uuid.UUID,
+    payload: ConsultationTypeUpdate,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> ConsultationTypeOut:
+    row = await db.scalar(select(ConsultationType).where(ConsultationType.id == type_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Consultation not found")
+
+    changes = payload.model_dump(exclude_unset=True)
+    if "slug" in changes and changes["slug"] != row.slug:
+        clash = await db.scalar(
+            select(ConsultationType.id).where(
+                ConsultationType.slug == changes["slug"], ConsultationType.id != row.id
+            )
+        )
+        if clash:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Another consultation already uses that slug")
+
+    before = {k: getattr(row, k) for k in changes}
+    for key, value in changes.items():
+        setattr(row, key, value)
+
+    await record(
+        db, actor=actor, action="consultation_type.update", entity_type="consultation_type",
+        entity_id=row.id, summary=f"Edited consultation {row.title!r}",
+        changes=diff(before, changes), request=request,
+    )
+    await db.commit()
+    await db.refresh(row)
+    await cache.invalidate("public:")
+    return ConsultationTypeOut.model_validate(row)
+
+
+@router.delete(
+    "/consultation-types/{type_id}",
+    response_model=Message,
+    summary="Delete a consultation",
+)
+async def delete_consultation_type(
+    request: Request,
+    type_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_super_admin),
+) -> Message:
+    """Super admin only, and refused while bookings still point at it.
+
+    Hiding is the normal way to stop offering one — past bookings keep their
+    type, and the row can be switched back on. Deletion is for rows created by
+    mistake, before anyone booked them.
+    """
+    row = await db.scalar(select(ConsultationType).where(ConsultationType.id == type_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Consultation not found")
+    booked = await db.scalar(
+        select(func.count()).select_from(Booking).where(Booking.consultation_type_id == row.id)
+    )
+    if booked:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{booked} booking(s) refer to this consultation — hide it instead of deleting it",
+        )
+
+    title = row.title
+    await db.delete(row)
+    await record(
+        db, actor=actor, action="consultation_type.delete", entity_type="consultation_type",
+        entity_id=type_id, summary=f"Deleted consultation {title!r}", request=request,
+    )
+    await db.commit()
+    await cache.invalidate("public:")
+    return Message(detail=f"Deleted {title}")
 
 
 # ================================================================ service lines

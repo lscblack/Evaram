@@ -627,6 +627,62 @@ class ServiceLineUpdate(BaseModel):
     is_active: bool | None = None
 
 
+# ------------------------------------------------------- consultation type CRUD
+class ConsultationTypeCreate(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=160)
+    description: str | None = None
+    duration_minutes: int = Field(default=30, ge=5, le=480)
+    #: Free text on purpose: "Free", "RWF 25,000", "From RWF 50,000" all occur.
+    price_label: str = Field(default="Free", min_length=1, max_length=80)
+    icon: str | None = Field(default=None, max_length=64)
+    modes: list[str] | None = None
+    #: Weekday numbers as JavaScript counts them, 0 = Sunday.
+    available_days: list[int] | None = None
+    #: `HH:MM`, 24-hour, in the office's own time.
+    slots: list[str] | None = None
+    translations: dict | None = None
+    display_order: int = 0
+    is_active: bool = True
+
+    @model_validator(mode="after")
+    def _check_schedule(self) -> "ConsultationTypeCreate":
+        _validate_schedule(self.available_days, self.slots)
+        return self
+
+
+class ConsultationTypeUpdate(BaseModel):
+    """Every field optional — a PATCH only touches what it names."""
+
+    slug: str | None = Field(default=None, min_length=1, max_length=64)
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    description: str | None = None
+    duration_minutes: int | None = Field(default=None, ge=5, le=480)
+    price_label: str | None = Field(default=None, min_length=1, max_length=80)
+    icon: str | None = Field(default=None, max_length=64)
+    modes: list[str] | None = None
+    available_days: list[int] | None = None
+    slots: list[str] | None = None
+    translations: dict | None = None
+    display_order: int | None = None
+    is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def _check_schedule(self) -> "ConsultationTypeUpdate":
+        _validate_schedule(self.available_days, self.slots)
+        return self
+
+
+def _validate_schedule(days: list[int] | None, slots: list[str] | None) -> None:
+    if days is not None and any(d < 0 or d > 6 for d in days):
+        raise ValueError("Weekdays run from 0 (Sunday) to 6 (Saturday)")
+    if slots is not None:
+        for slot in slots:
+            hh, _, mm = slot.partition(":")
+            if not (hh.isdigit() and mm.isdigit() and 0 <= int(hh) < 24 and 0 <= int(mm) < 60):
+                raise ValueError(f"Time slots are written HH:MM — {slot!r} is not")
+
+
 # ------------------------------------------------------------ market stat CRUD
 class MarketStatCreate(BaseModel):
     key: str = Field(min_length=1, max_length=64)

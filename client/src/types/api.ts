@@ -505,6 +505,8 @@ export interface ApiConsultationType {
   available_days: number[] | null
   slots: string[] | null
   display_order: number
+  /** Hidden rows still come back from the admin list. */
+  is_active?: boolean
   /** Per-locale field overrides; see lib/localize.ts. */
   translations?: Record<string, Record<string, unknown>> | null
 }

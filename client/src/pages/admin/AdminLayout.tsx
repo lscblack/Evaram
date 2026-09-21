@@ -3,6 +3,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Briefcase,
+  CalendarClock,
   HandCoins,
   Building2,
   FileText,
@@ -58,6 +59,7 @@ const NAV: { group: string; items: NavEntry[] }[] = [
     items: [
       { to: '/admin/content', label: 'Page copy', icon: FileText, minimum: 'admin' },
       { to: '/admin/services', label: 'Services', icon: Briefcase, minimum: 'admin' },
+      { to: '/admin/consultations', label: 'Consultations', icon: CalendarClock, minimum: 'admin' },
       { to: '/admin/insights', label: 'Insights', icon: Newspaper, minimum: 'admin' },
       {
         to: '/admin/testimonials',
