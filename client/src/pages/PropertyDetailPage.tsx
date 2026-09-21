@@ -44,6 +44,7 @@ import { SectionHeading } from '@/components/ui/SectionHeading'
 import { SpecificationPanel } from '@/components/ui/SpecificationPanel'
 import type { ApiCategory, ApiPropertyCard, ApiPropertyDetail } from '@/types/api'
 import { api, mediaUrl } from '@/lib/api'
+import { outlineMedia } from '@/lib/plotShape'
 import { ZoneChip } from '@/components/ui/ZoneChip'
 import { useBlock, useQuery } from '@/lib/queries'
 import { buildDetailGroups, parseVideoLink } from '@/lib/propertyDetails'
@@ -114,7 +115,10 @@ export default function PropertyDetailPage() {
   const agent = property.agent
   const video = parseVideoLink(property.video_link)
   const parcel = property.parcel_information
-  const images = property.media.filter((m) => m.kind === 'image' || m.kind === 'drone')
+  const photos = property.media.filter((m) => m.kind === 'image' || m.kind === 'drone')
+  // No photographs yet: the surveyed outline stands in, flat and in 3D, so
+  // the gallery has something true to show rather than an empty frame.
+  const images = photos.length ? photos : outlineMedia(property)
   const hasTour = Boolean(property.vr_tour_url || property.video_360_url)
   const tileCount = Math.min(images.length, video || hasTour ? 3 : 4)
 
@@ -192,7 +196,7 @@ export default function PropertyDetailPage() {
     '@type': 'Product',
     name: property.title,
     description: property.summary,
-    image: images.map((i) => i.url),
+    image: photos.map((i) => i.url),
     sku: property.reference_number,
     offers: {
       '@type': 'Offer',
@@ -222,7 +226,7 @@ export default function PropertyDetailPage() {
         title={property.title}
         description={property.summary ?? ''}
         path={`/properties/${property.slug}`}
-        image={images[0]?.url}
+        image={photos[0]?.url}
         type="product"
         keywords={[
           property.district ?? '',
@@ -489,30 +493,6 @@ export default function PropertyDetailPage() {
                 )}
               </motion.div>
 
-              {/* virtual tour · 360 video · surveyed outline */}
-              <motion.div {...revealProps} variants={fadeUp} className="mt-12">
-                <ImmersiveViewer property={property} />
-              </motion.div>
-
-              {/* where it is, and what is around it */}
-              {property.show_on_map && (
-                <motion.div {...revealProps} variants={fadeUp} className="mt-12">
-                  <Suspense
-                    fallback={
-                      <div className="grid h-64 place-items-center rounded-3xl border border-line bg-surface text-[0.875rem] text-ink-muted">
-                        Loading the map…
-                      </div>
-                    }
-                  >
-                    <ParcelContext
-                      slug={property.slug}
-                      title={property.title}
-                      zone={property.master_plan_zone}
-                    />
-                  </Suspense>
-                </motion.div>
-              )}
-
               {/* parcel information */}
               {parcel && (
                 <motion.div {...revealProps} variants={fadeUp} className="mt-12">
@@ -624,6 +604,30 @@ export default function PropertyDetailPage() {
                       result with you in writing.
                     </p>
                   </div>
+                </motion.div>
+              )}
+
+              {/* virtual tour · 360 video · surveyed outline */}
+              <motion.div {...revealProps} variants={fadeUp} className="mt-12">
+                <ImmersiveViewer property={property} />
+              </motion.div>
+
+              {/* where it is, and what is around it */}
+              {property.show_on_map && (
+                <motion.div {...revealProps} variants={fadeUp} className="mt-12">
+                  <Suspense
+                    fallback={
+                      <div className="grid h-64 place-items-center rounded-3xl border border-line bg-surface text-[0.875rem] text-ink-muted">
+                        Loading the map…
+                      </div>
+                    }
+                  >
+                    <ParcelContext
+                      slug={property.slug}
+                      title={property.title}
+                      zone={property.master_plan_zone}
+                    />
+                  </Suspense>
                 </motion.div>
               )}
 

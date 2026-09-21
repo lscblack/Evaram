@@ -1,4 +1,4 @@
-import type { StyleSpecification } from 'maplibre-gl'
+import type { RasterDEMSourceSpecification, StyleSpecification } from 'maplibre-gl'
 
 /**
  * Basemaps the parcel map can switch between.
@@ -110,6 +110,27 @@ export const BASEMAPS: BaseMap[] = [
  * answers first.
  */
 export const DEFAULT_BASEMAP = BASEMAPS.find((b) => b.id === 'hybrid') ?? BASEMAPS[0]
+
+/**
+ * Elevation, for the 3D view.
+ *
+ * AWS's open terrain tiles in Mapzen's Terrarium encoding — keyless, global,
+ * and good to roughly 30 m in Rwanda, which is enough to show which way a plot
+ * falls and what it looks down on. Added to whichever basemap is active rather
+ * than baked into each style, so it survives a basemap swap.
+ */
+export const TERRAIN_SOURCE = 'terrain-dem'
+
+export function terrainSource(): RasterDEMSourceSpecification {
+  return {
+    type: 'raster-dem',
+    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    encoding: 'terrarium',
+    tileSize: 256,
+    maxzoom: 15,
+    attribution: 'Terrain: Mapzen, USGS, SRTM',
+  }
+}
 
 /** Kigali, for when there is nothing to fit the view to. */
 export const RWANDA_CENTRE: [number, number] = [30.0619, -1.9441]

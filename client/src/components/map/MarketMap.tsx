@@ -4,6 +4,7 @@ import {
   History, Layers, List, Loader2, Ruler, Search, SlidersHorizontal, TrendingUp, X,
 } from 'lucide-react'
 import { ParcelMap, type ParcelMapHandle, priceLabel } from './ParcelMap'
+import { parcelCover } from '@/lib/plotShape'
 import { ParcelCard } from './ParcelCard'
 import { ParcelPopup } from './ParcelPopup'
 import { CompareTray } from './CompareTray'
@@ -100,6 +101,7 @@ export function MarketMap({
             feature.properties.currency,
           )
           feature.properties.zone_code = zoneCode(feature.properties.master_plan_zone)
+          feature.properties.cover_url = parcelCover(feature)
         }
         setCollection(data)
         setRelaxed(data.relaxed?.length ? data.relaxed : undefined)
@@ -217,6 +219,7 @@ export function MarketMap({
           feature.properties.currency,
         )
         feature.properties.zone_code = zoneCode(feature.properties.master_plan_zone)
+        feature.properties.cover_url = parcelCover(feature)
       }
       setCollection(found)
       setListOpen(true)

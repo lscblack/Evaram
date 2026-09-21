@@ -7,6 +7,7 @@ import { useSiteConfig, useSite } from '@/lib/siteConfig'
 import type { ApiCategory, ApiPropertyCard, CategorySummary } from '@/types/api'
 import { EASE } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
+import { coverOf } from '@/lib/plotShape'
 import { cn, formatCompactCurrency } from '@/lib/utils'
 
 /**
@@ -171,7 +172,7 @@ export function Hero() {
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={property.id}
-                    src={property.cover_url ?? undefined}
+                    src={coverOf(property)}
                     alt={property.title}
                     initial={{ opacity: 0, scale: 1.06 }}
                     animate={{ opacity: 1, scale: 1 }}

@@ -14,10 +14,10 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { Feature, FeatureCollection } from 'geojson'
 import type { ParcelProperties } from '@/types/api'
-import { BASEMAPS, DEFAULT_BASEMAP, RWANDA_CENTRE } from '@/lib/mapStyles'
+import { BASEMAPS, DEFAULT_BASEMAP, RWANDA_CENTRE, TERRAIN_SOURCE, terrainSource } from '@/lib/mapStyles'
 import { ZONE_COLOR_EXPRESSION } from '@/data/masterPlan'
 import { usePriceMarkers } from './PriceMarkers'
-import { Map } from 'lucide-react'
+import { Map, Mountain, Orbit } from 'lucide-react'
 import { formatDistance, pathLength } from '@/lib/geoMeasure'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +65,27 @@ const MEASURE = 'measure'
 const ROUTE = 'route'
 const SOLD = 'sold'
 const ACTIVITY = 'activity'
+const HILLSHADE_SOURCE = 'hillshade-dem'
+
+/** The 3D camera: tilted enough that a slab has sides, turned so that north
+ *  is not straight up — a plot seen from a corner reads as a place. */
+const PITCH_3D = 60
+const BEARING_3D = -30
+/** Orbit speed, degrees per millisecond: one full turn in about 24 seconds. */
+const ORBIT_RATE = 0.015
+
+/**
+ * How tall a parcel stands in 3D, in metres.
+ *
+ * Proportional to the plot rather than fixed: a fixed 3 m is a visible kerb
+ * on a 400 m² plot and a hairline on a hectare. Scaling with the square root
+ * of the area keeps the slab's sides visible whatever the size, and the
+ * highlighted parcel stands taller than its neighbours.
+ */
+function slabHeight(activeId: string | null | undefined): unknown[] {
+  const base = ['max', 2, ['*', ['sqrt', ['coalesce', ['get', 'size'], 400]], 0.15]]
+  return ['*', base, ['case', ['==', ['get', 'id'], activeId ?? '__none__'], 1.6, 1]]
+}
 
 /** Price shown on the polygon itself, short enough to fit. */
 function priceLabel(price: number | null, currency: string): string {
@@ -116,6 +137,13 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
   const [basemap, setBasemap] = useState(DEFAULT_BASEMAP.id)
   const [measurePath, setMeasurePath] = useState<[number, number][]>([])
   const [layersOpen, setLayersOpen] = useState(false)
+  // 3D: terrain under the imagery, the parcels stood up as slabs, and the
+  // camera tilted. Orbit turns the camera around the framed parcels so the
+  // shape is seen from every side without the viewer having to drag.
+  const [threeD, setThreeD] = useState(false)
+  const [orbiting, setOrbiting] = useState(false)
+  // The tilt-and-turn hint is shown until the viewer takes hold of the map.
+  const [touched, setTouched] = useState(false)
 
   // Callbacks live in a ref so re-rendering the parent does not tear down and
   // rebuild every map handler — MapLibre listeners are not cheap to churn.
@@ -133,6 +161,8 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
       style: DEFAULT_BASEMAP.build(),
       center: RWANDA_CENTRE,
       zoom: 11,
+      // Steeper than the default 60 so the 3D view can look along the ground.
+      maxPitch: 75,
       attributionControl: { compact: true },
     })
     map.current = instance
@@ -250,7 +280,93 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
       ['get', 'id'],
       ['literal', selectedIds.length ? selectedIds : ['__none__']],
     ])
+    instance.setPaintProperty('parcel-extrusion', 'fill-extrusion-height', slabHeight(activeId) as never)
   }, [activeId, selectedIds, ready])
+
+  /* ------------------------------------------------------------------ 3D */
+  // Re-applied on every `ready`, because a basemap swap drops the terrain
+  // along with every layer and the view would silently fall flat.
+  useEffect(() => {
+    const instance = map.current
+    if (!instance || !ready) return
+    const visibility = threeD ? 'visible' : 'none'
+    for (const id of ['terrain-hillshade', 'parcel-extrusion']) {
+      if (instance.getLayer(id)) instance.setLayoutProperty(id, 'visibility', visibility)
+    }
+    instance.setTerrain(threeD ? { source: TERRAIN_SOURCE, exaggeration: 1.2 } : null)
+  }, [threeD, ready])
+
+  useEffect(() => {
+    if (!threeD) setOrbiting(false)
+  }, [threeD])
+
+  const toggle3D = useCallback(() => {
+    const instance = map.current
+    if (!instance) return
+    setTouched(false)
+    if (threeD) {
+      setThreeD(false)
+      setOrbiting(false)
+      instance.easeTo({ pitch: 0, bearing: 0, duration: 800 })
+      return
+    }
+    // Tilt first, terrain after. Enabling terrain and moving the camera in
+    // the same tick leaves MapLibre's transform in a state it never recovers
+    // from — the view turns into smeared tiles on white — so the terrain is
+    // only switched on once the tilt has finished.
+    instance.once('moveend', () => setThreeD(true))
+    instance.easeTo({ pitch: PITCH_3D, bearing: BEARING_3D, duration: 1000 })
+  }, [threeD])
+
+  useEffect(() => {
+    const instance = map.current
+    if (!instance || !threeD || touched) return
+    const touch = () => setTouched(true)
+    instance.on('mousedown', touch)
+    instance.on('touchstart', touch)
+    return () => {
+      instance.off('mousedown', touch)
+      instance.off('touchstart', touch)
+    }
+  }, [threeD, touched])
+
+  useEffect(() => {
+    const instance = map.current
+    if (!instance || !orbiting) return
+
+    // Centre on the parcels first — the camera turns about the map's centre,
+    // and an orbit around empty ground beside the plot shows nothing.
+    const bounds = boundsOf(parcels)
+    if (bounds) {
+      instance.easeTo({
+        center: bounds.getCenter(),
+        pitch: Math.max(instance.getPitch(), PITCH_3D),
+        duration: 600,
+      })
+    }
+
+    let frame = 0
+    let last = performance.now()
+    const spin = (now: number) => {
+      instance.setBearing(instance.getBearing() + (now - last) * ORBIT_RATE)
+      last = now
+      frame = requestAnimationFrame(spin)
+    }
+    frame = requestAnimationFrame(spin)
+
+    // The moment the viewer takes hold of the map, the map is theirs.
+    const stop = () => setOrbiting(false)
+    instance.on('mousedown', stop)
+    instance.on('touchstart', stop)
+    instance.on('wheel', stop)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      instance.off('mousedown', stop)
+      instance.off('touchstart', stop)
+      instance.off('wheel', stop)
+    }
+  }, [orbiting, parcels])
 
   /* ---------------------------------------------------------- measuring */
   useEffect(() => {
@@ -341,18 +457,8 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
       // first instance would be applied to a map that no longer exists.
       const run = () => {
         const instance = map.current
-        if (!instance) return
-        const bounds = new LngLatBounds()
-        for (const parcel of wanted) {
-          // Fit the whole outline where there is one — framing a parcel by its
-          // centre point alone tells you nothing about how big it is.
-          const ring = (parcel.geometry as unknown as { type: string; coordinates: number[][][] })
-          if (ring?.type === 'Polygon') {
-            for (const [lng, lat] of ring.coordinates[0]) bounds.extend([lng, lat])
-          } else {
-            bounds.extend([parcel.properties.longitude, parcel.properties.latitude])
-          }
-        }
+        const bounds = boundsOf(wanted)
+        if (!instance || !bounds) return
         instance.fitBounds(bounds as LngLatBoundsLike, {
           padding: { top: 70, bottom: 70, left: 70, right: 70 },
           // One parcel is fitted close enough that its outline is clearly
@@ -402,45 +508,87 @@ export const ParcelMap = forwardRef<ParcelMapHandle, Props>(function ParcelMap(
       {/* Collapsed to a single button. Four always-visible options need a
           corner of their own, and every corner is already spoken for — by the
           toolbar, the results rail, the parcel card and MapLibre's own zoom. */}
-      <div className="absolute top-3 right-3 z-20">
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
         <button
           type="button"
-          onClick={() => setLayersOpen((v) => !v)}
-          aria-expanded={layersOpen}
-          aria-label="Change the base map"
-          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface/95 px-3 py-2 text-[0.75rem] font-semibold text-ink-soft shadow-soft backdrop-blur transition-colors hover:text-ink"
+          onClick={toggle3D}
+          aria-pressed={threeD}
+          title={threeD ? 'Back to the flat map' : 'Tilt the map and see the plot in 3D'}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-[0.75rem] font-semibold shadow-soft backdrop-blur transition-colors',
+            threeD
+              ? 'border-ink bg-ink text-canvas'
+              : 'border-line bg-surface/95 text-ink-soft hover:text-ink',
+          )}
         >
-          <Map className="size-3.5" strokeWidth={2.2} />
-          {BASEMAPS.find((b) => b.id === basemap)?.label ?? 'Map'}
+          <Mountain className="size-3.5" strokeWidth={2.2} />
+          3D
         </button>
 
-        {layersOpen && (
-          <div className="absolute right-0 mt-1.5 w-44 overflow-hidden rounded-2xl border border-line bg-surface shadow-lift">
-            {BASEMAPS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => {
-                  changeBasemap(option.id)
-                  setLayersOpen(false)
-                }}
-                aria-pressed={basemap === option.id}
-                className={cn(
-                  'block w-full px-3 py-2 text-left transition-colors',
-                  basemap === option.id ? 'bg-canvas-alt' : 'hover:bg-canvas-alt',
-                )}
-              >
-                <span className="block text-[0.8125rem] font-semibold text-ink">
-                  {option.label}
-                </span>
-                <span className="block text-[0.6875rem] leading-tight text-ink-muted">
-                  {option.hint}
-                </span>
-              </button>
-            ))}
-          </div>
+        {threeD && (
+          <button
+            type="button"
+            onClick={() => setOrbiting((v) => !v)}
+            aria-pressed={orbiting}
+            title={orbiting ? 'Stop turning' : 'Turn around the plot'}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-[0.75rem] font-semibold shadow-soft backdrop-blur transition-colors',
+              orbiting
+                ? 'border-gold-500 bg-gold-500 text-white'
+                : 'border-line bg-surface/95 text-ink-soft hover:text-ink',
+            )}
+          >
+            <Orbit className={cn('size-3.5', orbiting && 'animate-spin [animation-duration:6s]')} strokeWidth={2.2} />
+            Orbit
+          </button>
         )}
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setLayersOpen((v) => !v)}
+            aria-expanded={layersOpen}
+            aria-label="Change the base map"
+            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface/95 px-3 py-2 text-[0.75rem] font-semibold text-ink-soft shadow-soft backdrop-blur transition-colors hover:text-ink"
+          >
+            <Map className="size-3.5" strokeWidth={2.2} />
+            {BASEMAPS.find((b) => b.id === basemap)?.label ?? 'Map'}
+          </button>
+  
+          {layersOpen && (
+            <div className="absolute right-0 mt-1.5 w-44 overflow-hidden rounded-2xl border border-line bg-surface shadow-lift">
+              {BASEMAPS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    changeBasemap(option.id)
+                    setLayersOpen(false)
+                  }}
+                  aria-pressed={basemap === option.id}
+                  className={cn(
+                    'block w-full px-3 py-2 text-left transition-colors',
+                    basemap === option.id ? 'bg-canvas-alt' : 'hover:bg-canvas-alt',
+                  )}
+                >
+                  <span className="block text-[0.8125rem] font-semibold text-ink">
+                    {option.label}
+                  </span>
+                  <span className="block text-[0.6875rem] leading-tight text-ink-muted">
+                    {option.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {threeD && !touched && !measuring && (
+        <p className="pointer-events-none absolute bottom-16 left-1/2 z-10 -translate-x-1/2 rounded-full border border-line bg-surface/95 px-4 py-2 text-center text-[0.75rem] font-medium whitespace-nowrap text-ink-soft shadow-lift backdrop-blur">
+          Drag with the right mouse button, or two fingers, to tilt and turn
+        </p>
+      )}
 
       {measuring && (
         <div className="absolute bottom-16 left-1/2 z-10 -translate-x-1/2 rounded-2xl border border-line bg-surface/95 px-4 py-2.5 text-center shadow-lift backdrop-blur">
@@ -482,8 +630,27 @@ function addLayers(instance: MapLibreMap) {
   for (const id of [PARCELS, FACILITIES, MEASURE, ROUTE, SOLD, ACTIVITY]) {
     if (!instance.getSource(id)) instance.addSource(id, { type: 'geojson', data: empty })
   }
+  // Two DEM sources for one set of tiles: MapLibre renders a hillshade and a
+  // terrain mesh from the same source at lower quality, and says so.
+  for (const id of [TERRAIN_SOURCE, HILLSHADE_SOURCE]) {
+    if (!instance.getSource(id)) instance.addSource(id, terrainSource())
+  }
 
   if (instance.getLayer('parcel-fill')) return
+
+  // --- relief, under everything; only shown in 3D, where the imagery is
+  //     draped over the terrain and the shading makes the slopes legible
+  instance.addLayer({
+    id: 'terrain-hillshade',
+    type: 'hillshade',
+    source: HILLSHADE_SOURCE,
+    layout: { visibility: 'none' },
+    paint: {
+      'hillshade-exaggeration': 0.35,
+      'hillshade-shadow-color': '#03172c',
+      'hillshade-highlight-color': '#ffffff',
+    },
+  })
 
   // --- the route, under everything so parcels stay clickable
   instance.addLayer({
@@ -553,6 +720,24 @@ function addLayers(instance: MapLibreMap) {
     source: PARCELS,
     filter: ['==', ['get', 'id'], '__none__'],
     paint: { 'line-color': '#c98a2b', 'line-width': 4 },
+  })
+
+  // --- the parcel stood up as a slab, for the 3D view. The flat fill and
+  //     outline stay underneath, so nothing changes about what the shape
+  //     means — it just gains sides that can be seen from any angle.
+  instance.addLayer({
+    id: 'parcel-extrusion',
+    type: 'fill-extrusion',
+    source: PARCELS,
+    filter: ['==', ['geometry-type'], 'Polygon'],
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-extrusion-color': ZONE_COLOR_EXPRESSION as never,
+      'fill-extrusion-height': slabHeight(null) as never,
+      'fill-extrusion-base': 0,
+      'fill-extrusion-opacity': 0.78,
+      'fill-extrusion-vertical-gradient': true,
+    },
   })
 
   // --- listings with no surveyed outline, drawn as points so the difference
@@ -677,6 +862,26 @@ function addLayers(instance: MapLibreMap) {
       'circle-stroke-width': 2,
     },
   })
+}
+
+/**
+ * The box around a set of parcels, or null when there is nothing to frame.
+ *
+ * Uses the whole outline where there is one — framing a parcel by its centre
+ * point alone tells you nothing about how big it is.
+ */
+function boundsOf(parcels: ParcelFeature[]): LngLatBounds | null {
+  if (!parcels.length) return null
+  const bounds = new LngLatBounds()
+  for (const parcel of parcels) {
+    const ring = parcel.geometry as unknown as { type: string; coordinates: number[][][] }
+    if (ring?.type === 'Polygon') {
+      for (const [lng, lat] of ring.coordinates[0]) bounds.extend([lng, lat])
+    } else {
+      bounds.extend([parcel.properties.longitude, parcel.properties.latitude])
+    }
+  }
+  return bounds
 }
 
 export { priceLabel }

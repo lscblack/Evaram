@@ -104,6 +104,10 @@ class PropertyCard(ORMModel):
     tags: list[str] | None = None
     cover_url: str | None = None
     second_image_url: str | None = None
+    #: The surveyed outline, `[[lat, lng], …]`. On the card so that a listing
+    #: with no photographs yet can still show its shape where a photo would go.
+    boundary_points: list | None = None
+    master_plan_zone: str | None = None
     has_vr_tour: bool = False
     has_360_video: bool = False
     created_at: datetime
@@ -122,12 +126,10 @@ class PropertyDetail(PropertyCard):
     longitude: float | None = None
     gis_coordinates: str | None = None
     boundary_geojson: dict | None = None
-    boundary_points: list | None = None
     boundary_area_sqm: float | None = None
     parcel_id: str | None = None
     land_use: str | None = None
     right_type: str | None = None
-    master_plan_zone: str | None = None
     master_plan_note: str | None = None
     master_plan_doc_url: str | None = None
     amount_paid: float | None = None

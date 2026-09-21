@@ -20,6 +20,7 @@ import { api, qs } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { FilterBuilder, toQuery, type FilterRule } from '@/components/admin/FilterBuilder'
 import { invalidate, useQuery } from '@/lib/queries'
+import { coverOf } from '@/lib/plotShape'
 import { cn, formatCompactCurrency } from '@/lib/utils'
 import type { ApiAdminPropertyCard, Page } from '@/types/api'
 
@@ -375,9 +376,9 @@ export default function PropertiesAdminPage() {
                   </Td>
                   <Td>
                     <div className="flex items-center gap-3">
-                      {row.cover_url ? (
+                      {coverOf(row) ? (
                         <img
-                          src={row.cover_url}
+                          src={coverOf(row)}
                           alt=""
                           aria-hidden
                           loading="lazy"

@@ -32,6 +32,7 @@ import type {
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { useSite } from '@/lib/siteConfig'
+import { coverOf } from '@/lib/plotShape'
 import { cn, toDateKey } from '@/lib/utils'
 
 
@@ -580,7 +581,7 @@ export default function ConsultationPage() {
                     {linkedProperty && (
                       <div className="mt-6 flex items-center gap-3 rounded-2xl bg-canvas-alt p-3">
                         <img
-                          src={linkedProperty.cover_url ?? undefined}
+                          src={coverOf(linkedProperty)}
                           alt=""
                           aria-hidden
                           loading="lazy"

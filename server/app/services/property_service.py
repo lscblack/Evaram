@@ -148,6 +148,10 @@ def to_card(row: Any) -> PropertyCard:
         tags=prop.tags,
         cover_url=images[0].url if images else None,
         second_image_url=images[1].url if len(images) > 1 else None,
+        # Withholding the map means withholding the outline too: a shape drawn
+        # to the metre places a parcel as surely as a pin does.
+        boundary_points=prop.boundary_points if prop.show_on_map else None,
+        master_plan_zone=prop.master_plan_zone,
         has_vr_tour=bool(prop.vr_tour_url),
         has_360_video=bool(prop.video_360_url),
         created_at=prop.created_at,
@@ -158,7 +162,7 @@ def to_admin_card(row: Any) -> PropertyCardAdmin:
     """The public card plus the fields only staff may see."""
     prop = row[0]
     return PropertyCardAdmin(
-        **to_card(row).model_dump(),
+        **{**to_card(row).model_dump(), "boundary_points": prop.boundary_points},
         upi=prop.upi,
         show_on_public=prop.show_on_public,
         show_owner_info=prop.show_owner_info,

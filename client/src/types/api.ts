@@ -132,6 +132,10 @@ export interface ApiPropertyCard {
   tags: string[] | null
   cover_url: string | null
   second_image_url: string | null
+  /** The surveyed outline, `[[lat, lng], …]` — drawn where a photo would go
+   *  when the listing has none yet. See lib/plotShape.ts. */
+  boundary_points: number[][] | null
+  master_plan_zone: string | null
   has_vr_tour: boolean
   has_360_video: boolean
   created_at: string
@@ -230,12 +234,10 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   longitude: number | null
   gis_coordinates: string | null
   boundary_geojson: Record<string, unknown> | null
-  boundary_points: number[][] | null
   boundary_area_sqm: number | null
   parcel_id: string | null
   land_use: string | null
   right_type: string | null
-  master_plan_zone: string | null
   master_plan_note: string | null
   master_plan_doc_url: string | null
   amount_paid: number | null

@@ -13,6 +13,7 @@ import {
 import type { ApiPropertyCard } from '@/types/api'
 import { cn, formatArea, formatCompactCurrency } from '@/lib/utils'
 import { fadeUp } from '@/lib/motion'
+import { coverOf } from '@/lib/plotShape'
 
 const STATUS_STYLES: Record<string, string> = {
   available: 'bg-emerald-500 text-white',
@@ -32,7 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 /** Horizontal variant used by the Properties page list view. */
 export function PropertyRow({ property }: { property: ApiPropertyCard }) {
-  const cover = property.cover_url
+  const cover = coverOf(property)
   const { bedrooms, bathrooms } = property
 
   const price =

@@ -6,6 +6,7 @@ import type { ApiPropertyCard } from '@/types/api'
 import { cn, formatArea, formatCompactCurrency } from '@/lib/utils'
 import { fadeUp } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
+import { coverOf, secondOf } from '@/lib/plotShape'
 
 const STATUS: Record<string, { dot: string; key: string }> = {
   available: { dot: 'bg-emerald-500', key: 'prop.available' },
@@ -32,8 +33,10 @@ export function PropertyCard({
   const t = useT()
   const [saved, setSaved] = useState(false)
 
-  const cover = property.cover_url
-  const second = property.second_image_url ?? property.cover_url
+  // A listing with no photographs yet shows its surveyed outline instead —
+  // flat on the card, tilted into 3D on hover.
+  const cover = coverOf(property)
+  const second = secondOf(property)
   const status = STATUS[property.status] ?? STATUS.available
 
   const { bedrooms, bathrooms, built_area: builtArea } = property
