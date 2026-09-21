@@ -46,6 +46,7 @@ import type { ApiCategory, ApiPropertyCard, ApiPropertyDetail } from '@/types/ap
 import { api, mediaUrl } from '@/lib/api'
 import { outlineMedia } from '@/lib/plotShape'
 import { ZoneChip } from '@/components/ui/ZoneChip'
+import { ZoneSplit } from '@/components/ui/ZoneSplit'
 import { useBlock, useQuery } from '@/lib/queries'
 import { buildDetailGroups, parseVideoLink } from '@/lib/propertyDetails'
 import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
@@ -114,7 +115,20 @@ export default function PropertyDetailPage() {
 
   const agent = property.agent
   const video = parseVideoLink(property.video_link)
-  const parcel = property.parcel_information
+  // The register's own extract where one was attached; otherwise the block is
+  // built from the listing's fields, so a parcel filed through the form shows
+  // its zone, tenure and land use the same way a seeded one does.
+  const parcel = property.parcel_information ?? {}
+  const hasParcelInfo = Boolean(
+    property.parcel_information ||
+      property.land_use ||
+      property.master_plan_zone ||
+      property.right_type ||
+      property.parcel_id ||
+      property.gis_coordinates ||
+      property.province ||
+      property.cell,
+  )
   const photos = property.media.filter((m) => m.kind === 'image' || m.kind === 'drone')
   // No photographs yet: the surveyed outline stands in, flat and in 3D, so
   // the gallery has something true to show rather than an empty frame.
@@ -494,7 +508,7 @@ export default function PropertyDetailPage() {
               </motion.div>
 
               {/* parcel information */}
-              {parcel && (
+              {hasParcelInfo && (
                 <motion.div {...revealProps} variants={fadeUp} className="mt-12">
                   <div className="overflow-hidden rounded-3xl border border-line bg-surface">
                     <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-navy-950 px-6 py-5 text-white sm:px-8">
@@ -534,19 +548,25 @@ export default function PropertyDetailPage() {
                       </div>
 
                       {[
-                        { label: 'Province', value: parcel.province },
-                        { label: 'District', value: parcel.district },
-                        { label: 'Sector', value: parcel.sector },
-                        { label: 'Cell', value: parcel.cell },
-                        { label: 'Village', value: parcel.village },
+                        { label: 'Province', value: parcel.province ?? property.province },
+                        { label: 'District', value: parcel.district ?? property.district },
+                        { label: 'Sector', value: parcel.sector ?? property.sector },
+                        { label: 'Cell', value: parcel.cell ?? property.cell },
+                        { label: 'Village', value: parcel.village ?? property.village },
                         { label: 'Land use', value: property.land_use ?? parcel.land_use },
-                        { label: 'Master plan zone', value: property.master_plan_zone, zone: true },
+                        {
+                          label: property.master_plan_zones?.length ? 'Master plan zones' : 'Master plan zone',
+                          value: property.master_plan_zone,
+                          zone: true,
+                        },
                         { label: 'Zone allows', value: property.master_plan_note },
                         {
                           label: 'Parcel size',
                           value: parcel.parcel_size
                             ? formatArea(Number(parcel.parcel_size))
-                            : undefined,
+                            : property.size
+                              ? formatArea(property.size)
+                              : undefined,
                         },
                         { label: 'Tenure', value: property.right_type ?? parcel.tenure },
                         { label: 'Lease period', value: parcel.lease_period },
@@ -554,20 +574,32 @@ export default function PropertyDetailPage() {
                         { label: 'GIS coordinates', value: property.gis_coordinates },
                       ]
                         .filter((row) => row.value)
-                        .map((row) => (
-                          <div key={row.label}>
-                            <dt className="text-[0.75rem] font-semibold tracking-wide text-ink-muted uppercase">
-                              {row.label}
-                            </dt>
-                            <dd className="mt-1.5 text-[0.9375rem] font-medium text-ink">
-                              {'zone' in row && row.zone ? (
-                                <ZoneChip value={String(row.value)} />
-                              ) : (
-                                String(row.value)
-                              )}
-                            </dd>
-                          </div>
-                        ))}
+                        .map((row) => {
+                          // A divided parcel shows every share to scale; the
+                          // split takes the row's full width so the bar means
+                          // something.
+                          const split = Boolean('zone' in row && row.zone && property.master_plan_zones?.length)
+                          return (
+                            <div key={row.label} className={cn(split && 'sm:col-span-2 lg:col-span-3')}>
+                              <dt className="text-[0.75rem] font-semibold tracking-wide text-ink-muted uppercase">
+                                {row.label}
+                              </dt>
+                              <dd className="mt-1.5 text-[0.9375rem] font-medium text-ink">
+                                {split ? (
+                                  <ZoneSplit
+                                    zones={property.master_plan_zones!}
+                                    totalSqm={property.size}
+                                    className="max-w-xl"
+                                  />
+                                ) : 'zone' in row && row.zone ? (
+                                  <ZoneChip value={String(row.value)} />
+                                ) : (
+                                  String(row.value)
+                                )}
+                              </dd>
+                            </div>
+                          )
+                        })}
                     </dl>
 
                     {property.master_plan_doc_url && (
@@ -594,15 +626,18 @@ export default function PropertyDetailPage() {
                       </div>
                     )}
 
-                    <p className="flex items-start gap-2.5 border-t border-line bg-canvas px-6 py-4 text-[0.8125rem] leading-relaxed text-ink-muted sm:px-8">
-                      <ShieldCheck
-                        className="mt-0.5 size-4 shrink-0 text-emerald-600"
-                        strokeWidth={2.2}
-                      />
-                      This parcel was checked against its UPI at the National Land Authority before
-                      listing. We re-run the search within 30 days of any transaction and share the
-                      result with you in writing.
-                    </p>
+                    {/* The assurance is only made once it is true. */}
+                    {(property.is_verified || parcel.verified_on) && (
+                      <p className="flex items-start gap-2.5 border-t border-line bg-canvas px-6 py-4 text-[0.8125rem] leading-relaxed text-ink-muted sm:px-8">
+                        <ShieldCheck
+                          className="mt-0.5 size-4 shrink-0 text-emerald-600"
+                          strokeWidth={2.2}
+                        />
+                        This parcel was checked against its UPI at the National Land Authority before
+                        listing. We re-run the search within 30 days of any transaction and share the
+                        result with you in writing.
+                      </p>
+                    )}
                   </div>
                 </motion.div>
               )}

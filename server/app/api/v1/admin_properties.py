@@ -318,7 +318,7 @@ async def get_one(
         gis_coordinates=prop.gis_coordinates, boundary_geojson=prop.boundary_geojson,
         boundary_area_sqm=prop.boundary_area_sqm,
         parcel_id=prop.parcel_id, land_use=prop.land_use, right_type=prop.right_type,
-        master_plan_note=prop.master_plan_note,
+        master_plan_zones=prop.master_plan_zones, master_plan_note=prop.master_plan_note,
         master_plan_doc_url=prop.master_plan_doc_url,
         allow_directions=prop.allow_directions,
         viewing_allowed=prop.viewing_allowed,

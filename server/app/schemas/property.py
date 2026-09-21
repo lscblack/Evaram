@@ -68,6 +68,14 @@ class PropertyAgent(ORMModel):
     languages: list[str] | None = None
 
 
+class MasterPlanShare(BaseModel):
+    """One zone's share of a parcel that the Master Plan divides."""
+
+    #: The stored zone value, e.g. `R1B — Rural residential zone`.
+    zone: str = Field(min_length=1, max_length=160)
+    area_sqm: float | None = Field(default=None, ge=0)
+
+
 class PropertyCard(ORMModel):
     """The public listing shape — deliberately narrow.
 
@@ -132,6 +140,7 @@ class PropertyDetail(PropertyCard):
     parcel_id: str | None = None
     land_use: str | None = None
     right_type: str | None = None
+    master_plan_zones: list[MasterPlanShare] | None = None
     master_plan_note: str | None = None
     master_plan_doc_url: str | None = None
     amount_paid: float | None = None
@@ -245,6 +254,7 @@ class PropertyBase(BaseModel):
     land_use: str | None = None
     right_type: str | None = None
     master_plan_zone: str | None = None
+    master_plan_zones: list[MasterPlanShare] | None = Field(default=None, max_length=12)
     master_plan_note: str | None = None
     master_plan_doc_url: str | None = None
     bedrooms: int | None = Field(default=None, ge=0, le=200)
@@ -364,6 +374,7 @@ class PropertyUpdate(BaseModel):
     land_use: str | None = None
     right_type: str | None = None
     master_plan_zone: str | None = None
+    master_plan_zones: list[MasterPlanShare] | None = Field(default=None, max_length=12)
     master_plan_note: str | None = None
     master_plan_doc_url: str | None = None
     bedrooms: int | None = None

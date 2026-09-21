@@ -37,7 +37,8 @@ export interface ParcelImport {
   planned: PlannedZone[]
   /** The dominant planned zone, as the form stores it. */
   masterPlanZone: string | null
-  masterPlanNote: string | null
+  /** Every planned zone with its share, as the form stores them. */
+  zones: { zone: string; area_sqm: number | null }[]
   /** Matched to the form's type-of-right list where possible. */
   rightType: string | null
   leaseYearsRemaining: number | null
@@ -174,11 +175,10 @@ function readOne(raw: unknown): ParcelImport {
     null
   const zone = dominant ? zoneFor(dominant.code) : null
   const masterPlanZone = zone ? zoneValue(zone) : null
-  const masterPlanNote = planned.length
-    ? planned
-        .map((z) => `${z.code} ${z.name}${z.areaSqm != null ? ` · ${Math.round(z.areaSqm)} sqm` : ''}`)
-        .join('; ')
-    : null
+  const zones = planned.flatMap((z) => {
+    const known = zoneFor(z.code)
+    return known ? [{ zone: zoneValue(known), area_sqm: z.areaSqm }] : []
+  })
 
   const currentUse = str(landUse.current)
   const rightRaw = str(tenure.type)
@@ -235,7 +235,7 @@ function readOne(raw: unknown): ParcelImport {
     landUse: matchHint(currentUse, LAND_USE_HINTS, LAND_USES),
     planned,
     masterPlanZone,
-    masterPlanNote,
+    zones,
     rightType: matchHint(rightRaw, RIGHT_HINTS),
     leaseYearsRemaining: leaseYears,
     boundaryWkt,

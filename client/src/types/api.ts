@@ -227,6 +227,12 @@ export interface ApiSaleRecordDetail extends ApiSaleRecord {
   snapshot: Record<string, unknown> | null
 }
 
+export interface MasterPlanShare {
+  /** The stored zone value, e.g. `R1B — Rural residential zone`. */
+  zone: string
+  area_sqm: number | null
+}
+
 export interface ApiPropertyDetail extends ApiPropertyCard {
   description: string | null
   province: string | null
@@ -240,6 +246,8 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   parcel_id: string | null
   land_use: string | null
   right_type: string | null
+  /** How the Master Plan divides the parcel, largest share first. */
+  master_plan_zones: MasterPlanShare[] | null
   master_plan_note: string | null
   master_plan_doc_url: string | null
   amount_paid: number | null

@@ -171,6 +171,10 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
     #: `land_use`: a parcel farmed today may be zoned for housing tomorrow, and
     #: that gap is what a buyer is actually pricing.
     master_plan_zone: Mapped[str | None] = mapped_column(String(160))
+    #: How the plan divides the parcel when it straddles zones — a list of
+    #: `{"zone": "<stored zone value>", "area_sqm": 492}` shares, largest
+    #: first. `master_plan_zone` above is the largest buildable share of it.
+    master_plan_zones: Mapped[list | None] = mapped_column(JSONB)
     #: Permitted use, density, storeys — whatever the zone allows in practice.
     master_plan_note: Mapped[str | None] = mapped_column(Text)
     #: Optional extract or screenshot backing the zone above. Buyers take the

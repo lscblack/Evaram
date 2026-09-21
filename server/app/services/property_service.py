@@ -186,7 +186,27 @@ async def count_for(db: AsyncSession, stmt: Select) -> int:
 
 def refresh_derived(prop: Property) -> None:
     """Keeps the denormalised search haystack in step with the record."""
+    settle_zone_split(prop)
     prop.search_text = prop.build_search_text()
+
+
+def settle_zone_split(prop: Property) -> None:
+    """Order the zone shares and make sure the main zone is one of them.
+
+    The listing is filed under the largest share that is not a road reserve —
+    a `T` zone says what the council will take, not what a buyer may build —
+    unless the agent has chosen one of the shares by hand.
+    """
+    shares = prop.master_plan_zones or []
+    if not shares:
+        return
+    shares = sorted(shares, key=lambda s: -(s.get("area_sqm") or 0))
+    prop.master_plan_zones = shares
+    zones = [s["zone"] for s in shares]
+    if prop.master_plan_zone in zones:
+        return
+    buildable = [z for z in zones if not z.strip().upper().startswith("T")]
+    prop.master_plan_zone = (buildable or zones)[0]
 
 
 async def bump_view_count(db: AsyncSession, property_id: uuid.UUID) -> None:

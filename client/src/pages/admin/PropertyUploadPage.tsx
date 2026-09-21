@@ -1,6 +1,6 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Check, History, ImagePlus, Save, SkipForward, Sparkles, Wand2 } from 'lucide-react'
+import { Check, History, ImagePlus, Plus, Save, SkipForward, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import {
   Badge,
   ErrorNote,
@@ -15,7 +15,8 @@ import { DynamicField, type FieldValue, type FormValues } from '@/components/ui/
 import { MoneyInput } from '@/components/ui/MoneyInput'
 import { FORMAT_NAMES, parseBoundary } from '@/lib/boundary'
 import { parseParcelExport, type ParcelImport, type ParcelImportResult } from '@/lib/parcelImport'
-import { ZONE_GROUPS, zoneColor, zoneValue } from '@/data/masterPlan'
+import { ZONE_GROUPS, zoneColor, zoneFor, zoneValue } from '@/data/masterPlan'
+import { ZoneSplit } from '@/components/ui/ZoneSplit'
 import { ringArea } from '@/lib/geoMeasure'
 import { api, mediaUrl } from '@/lib/api'
 import { invalidate, useQuery } from '@/lib/queries'
@@ -191,6 +192,31 @@ export default function PropertyUploadPage() {
     master_plan_zone: '',
     master_plan_note: '',
   })
+  /**
+   * How the plan divides the parcel, when it straddles zones. Each row is a
+   * zone and its share in sqm; the main zone above is kept to the largest
+   * buildable share unless the agent picks another of them.
+   */
+  const [zoneRows, setZoneRows] = useState<{ zone: string; area: string }[]>([])
+  const zoneShares = useMemo(
+    () =>
+      zoneRows
+        .filter((r) => r.zone)
+        .map((r) => ({ zone: r.zone, area_sqm: r.area ? Number(r.area) : null })),
+    [zoneRows],
+  )
+  const zoneSum = zoneShares.reduce((sum, z) => sum + (z.area_sqm ?? 0), 0)
+
+  const setZoneRowsAndMain = (rows: { zone: string; area: string }[]) => {
+    setZoneRows(rows)
+    const filled = rows.filter((r) => r.zone)
+    if (!filled.length) return
+    const largest = [...filled].sort((a, b) => Number(b.area || 0) - Number(a.area || 0))
+    const main = largest.find((r) => !(zoneFor(r.zone)?.code ?? '').startsWith('T')) ?? largest[0]
+    setParcel((s) =>
+      filled.some((r) => r.zone === s.master_plan_zone) ? s : { ...s, master_plan_zone: main.zone },
+    )
+  }
   /** Optional master-plan extract. Staged until the listing has an id. */
   const [agentId, setAgentId] = useState('')
   /** Viewing terms. The fee is pre-filled from settings so it is one figure to
@@ -232,6 +258,37 @@ export default function PropertyUploadPage() {
   const [wanted, setWanted] = useState<Partial<
     Record<'district' | 'sector' | 'cell' | 'village', string>
   > | null>(null)
+  /** Localities the export named that never turned up in the lists. */
+  const [unmatched, setUnmatched] = useState<string[]>([])
+
+  // A level that is still unresolved after the lists have had time to load
+  // is a genuine miss — the name is not in the register the dropdowns use.
+  // Said out loud, so the agent picks it by hand rather than assuming it
+  // was filled.
+  const coreRef = useRef(core)
+  coreRef.current = core
+  useEffect(() => {
+    if (!wanted) return
+    const id = window.setTimeout(() => {
+      setWanted((current) => {
+        if (!current) return null
+        const missing = (['district', 'sector', 'cell', 'village'] as const)
+          .filter((level) => current[level] && !coreRef.current[level])
+          .map((level) => `${level} “${current[level]}”`)
+        if (missing.length) {
+          setUnmatched(missing)
+          setNotice(
+            allDistricts.length
+              ? `Filled from the export, but the ${missing.join(', ')} could not be found in the locality list — choose ${missing.length > 1 ? 'them' : 'it'} by hand.`
+              : 'Filled from the export, but the district list has not loaded — is the API running? Choose the location by hand or reload the page.',
+          )
+        }
+        return null
+      })
+    }, 6000)
+    return () => window.clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wanted])
 
   useEffect(() => {
     if (!wanted) return
@@ -270,6 +327,7 @@ export default function PropertyUploadPage() {
       cell: '',
       village: '',
     }))
+    setUnmatched([])
     setWanted({
       district: parcel.district ?? undefined,
       sector: parcel.sector ?? undefined,
@@ -282,11 +340,14 @@ export default function PropertyUploadPage() {
       boundary: parcel.boundaryWkt ?? '',
     })
     setParcel((s) => ({
+      ...s,
       land_use: parcel.landUse ?? s.land_use,
       right_type: parcel.rightType ?? s.right_type,
       master_plan_zone: parcel.masterPlanZone ?? s.master_plan_zone,
-      master_plan_note: parcel.masterPlanNote ?? s.master_plan_note,
     }))
+    setZoneRows(
+      parcel.zones.map((z) => ({ zone: z.zone, area: z.area_sqm != null ? String(z.area_sqm) : '' })),
+    )
   }
 
   /** Clear what belongs to one parcel, keeping what a batch shares — the
@@ -311,6 +372,7 @@ export default function PropertyUploadPage() {
     setMinBid('')
     setGeo({ latitude: '', longitude: '', boundary: '' })
     setParcel({ land_use: '', right_type: '', master_plan_zone: '', master_plan_note: '' })
+    setZoneRows([])
     setPhotos([])
     setProof(null)
     setProofUrl(null)
@@ -408,6 +470,12 @@ export default function PropertyUploadPage() {
       master_plan_zone: p.master_plan_zone ?? '',
       master_plan_note: p.master_plan_note ?? '',
     })
+    setZoneRows(
+      (p.master_plan_zones ?? []).map((z) => ({
+        zone: z.zone,
+        area: z.area_sqm != null ? String(z.area_sqm) : '',
+      })),
+    )
     setProofUrl(p.master_plan_doc_url)
     setOutlineAsCover(p.outline_as_cover ?? true)
     setAgentId(p.agent?.id ?? '')
@@ -568,6 +636,7 @@ export default function PropertyUploadPage() {
         land_use: parcel.land_use || null,
         right_type: parcel.right_type || null,
         master_plan_zone: parcel.master_plan_zone || null,
+        master_plan_zones: zoneShares.length ? zoneShares : null,
         master_plan_note: parcel.master_plan_note || null,
         master_plan_doc_url: proofUrl,
         outline_as_cover: outlineAsCover,
@@ -963,6 +1032,11 @@ export default function PropertyUploadPage() {
                 </Field>
               </div>
 
+              {unmatched.length > 0 && (
+                <p className="text-[0.75rem] text-amber-700 sm:col-span-2">
+                  Not found in the locality list: {unmatched.join(', ')}. Pick {unmatched.length > 1 ? 'them' : 'it'} below.
+                </p>
+              )}
               <Field label="District">
                 <select
                   className={FIELD}
@@ -1265,6 +1339,105 @@ export default function PropertyUploadPage() {
                   placeholder="Up to G+3, residential"
                 />
               </Field>
+
+              {/* A parcel that straddles zones is listed by its largest share
+                  but sold as the whole — so every share is recorded, with its
+                  size, and the buyer sees the split rather than one name. */}
+              <div className="sm:col-span-2">
+                <Field
+                  label="How the plan divides the parcel"
+                  hint="One row per zone the plan puts the parcel in, with that zone's share in sqm. Filled from a parcel export automatically; the main zone above follows the largest buildable share."
+                >
+                  <div className="space-y-2">
+                    {zoneRows.map((row, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span
+                          aria-hidden
+                          className="size-6 shrink-0 rounded-md border border-line"
+                          style={{ background: zoneColor(row.zone) }}
+                        />
+                        <select
+                          className={cn(FIELD, 'min-w-0 flex-1')}
+                          value={row.zone}
+                          onChange={(e) =>
+                            setZoneRowsAndMain(
+                              zoneRows.map((r, j) => (j === i ? { ...r, zone: e.target.value } : r)),
+                            )
+                          }
+                        >
+                          <option value="">Choose a zone…</option>
+                          {ZONE_GROUPS.map(([group, zones]) => (
+                            <optgroup key={group} label={group}>
+                              {zones.map((z) => (
+                                <option key={z.code} value={zoneValue(z)}>
+                                  {z.code} — {z.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                        <div className="relative w-32 shrink-0">
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="decimal"
+                            className={cn(FIELD, 'pr-11 tabular-nums')}
+                            value={row.area}
+                            placeholder="0"
+                            aria-label="Share in square metres"
+                            onChange={(e) =>
+                              setZoneRowsAndMain(
+                                zoneRows.map((r, j) => (j === i ? { ...r, area: e.target.value } : r)),
+                              )
+                            }
+                          />
+                          <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-[0.75rem] text-ink-muted">
+                            sqm
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setZoneRowsAndMain(zoneRows.filter((_, j) => j !== i))}
+                          aria-label="Remove this zone"
+                          className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-canvas-alt hover:text-red-600"
+                        >
+                          <Trash2 className="size-4" strokeWidth={2} />
+                        </button>
+                      </div>
+                    ))}
+
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setZoneRows([...zoneRows, { zone: '', area: '' }])}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[0.8125rem] font-semibold text-ink-soft transition-colors hover:text-ink"
+                      >
+                        <Plus className="size-3.5" strokeWidth={2.4} />
+                        {zoneRows.length ? 'Add another zone' : 'Split the parcel across zones'}
+                      </button>
+                      {zoneShares.length > 0 && zoneSum > 0 && (
+                        <p
+                          className={cn(
+                            'text-[0.75rem] tabular-nums',
+                            core.size && Math.abs(zoneSum - Number(core.size)) / Number(core.size) > 0.05
+                              ? 'text-amber-700'
+                              : 'text-ink-muted',
+                          )}
+                        >
+                          Shares total {Math.round(zoneSum).toLocaleString('en-RW')} sqm
+                          {core.size ? ` of a ${Number(core.size).toLocaleString('en-RW')} sqm plot` : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    {zoneShares.length > 0 && (
+                      <div className="rounded-xl border border-line bg-canvas-alt px-3.5 py-3">
+                        <ZoneSplit zones={zoneShares} totalSqm={core.size ? Number(core.size) : null} compact />
+                      </div>
+                    )}
+                  </div>
+                </Field>
+              </div>
 
               <div className="sm:col-span-2">
                 <Field

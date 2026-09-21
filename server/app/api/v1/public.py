@@ -495,6 +495,7 @@ async def property_detail(
         boundary_area_sqm=prop.boundary_area_sqm,
         parcel_id=prop.parcel_id,
         land_use=prop.land_use,
+        master_plan_zones=prop.master_plan_zones,
         master_plan_note=prop.master_plan_note,
         master_plan_doc_url=prop.master_plan_doc_url,
         allow_directions=prop.allow_directions,
