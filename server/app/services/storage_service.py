@@ -118,6 +118,10 @@ async def save_upload(
 def delete(url: str) -> None:
     """Best effort — a missing file must never block deleting its record."""
     prefix = settings.MEDIA_URL.rstrip("/") + "/"
+    # A URL saved back from the site may carry the API origin in front of the
+    # path; only the path decides whether the file is ours.
+    if "://" in url:
+        url = "/" + url.split("://", 1)[1].split("/", 1)[-1] if "/" in url.split("://", 1)[1] else url
     if not url.startswith(prefix):
         return
     target = (_root() / url[len(prefix) :]).resolve()
@@ -127,3 +131,20 @@ def delete(url: str) -> None:
     except ValueError:
         return
     target.unlink(missing_ok=True)
+
+
+def single_upload(file: UploadFile | None, files: list[UploadFile] | None) -> UploadFile:
+    """The one file an endpoint was sent, whichever field name it came under.
+
+    The web client posts every upload as `files` (it has one helper for single
+    and multi-file uploads alike); older callers and the API docs use `file`.
+    An endpoint that wants exactly one picture accepts both, and says clearly
+    when it was sent none.
+    """
+    picked = file or (files[0] if files else None)
+    if picked is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Some fields need attention",
+        )
+    return picked

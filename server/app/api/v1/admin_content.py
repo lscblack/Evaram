@@ -541,7 +541,8 @@ async def agent_options(
 
 @router.post("/uploads", summary="Store an image and hand back its URL")
 async def upload_image(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    files: list[UploadFile] | None = File(None),
     kind: str = Form("avatar"),
     actor: User = Depends(require_admin),
 ) -> dict:
@@ -553,7 +554,7 @@ async def upload_image(
     """
     if kind not in ("avatar", "brand", "content"):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown upload kind")
-    return await storage_service.save_upload(file, kind=kind)
+    return await storage_service.save_upload(storage_service.single_upload(file, files), kind=kind)
 
 
 @router.post("/users", response_model=UserAdminOut, status_code=status.HTTP_201_CREATED)

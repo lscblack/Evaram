@@ -40,9 +40,14 @@ Photos, profile pictures and document scans are written to `MEDIA_ROOT`
 URL is **relative** — `/media/property/2026-09/<hash>.jpg` — so the same value
 works wherever the site is hosted.
 
-That means the host serving the front end must route `/media/` to the API,
-exactly as it routes `/api/`. In development Vite does this with a proxy
-(`client/vite.config.ts`). In production, add the equivalent to nginx:
+Where the site and the API share a host, those paths work as they are; in
+development Vite proxies `/media/` to the API (`client/vite.config.ts`). Where
+they are on **different hosts** — `www.evaramu.rw` and `api.evaramu.rw` — the
+front end resolves every `/media/…` path in an API response against
+`VITE_API_URL` on the way in (`client/src/lib/api.ts`), and the API serves
+media with `Cross-Origin-Resource-Policy: cross-origin` so the browser will
+show it. No nginx rule is needed for that; if you would rather keep the paths
+same-origin, the equivalent is:
 
 ```nginx
 location /media/ {
@@ -50,9 +55,6 @@ location /media/ {
     proxy_set_header Host $host;
 }
 ```
-
-Without it, uploaded images 404 on the public site while the API itself is
-perfectly healthy — the browser asks the wrong server for them.
 
 ## Accounts
 

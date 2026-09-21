@@ -31,6 +31,44 @@ export function mediaUrl(path: string | null | undefined): string | undefined {
   return `${BASE}${path.startsWith('/') ? path : `/${path}`}`
 }
 
+/**
+ * Whether media paths need the API origin in front of them.
+ *
+ * True when the site and the API are on different hosts — `www.` and `api.`
+ * in production — where a bare `/media/…` would be asked of the site's host,
+ * which has no such files. On one host (and in dev, behind the proxy) the
+ * paths work as they are and are left alone.
+ */
+const SPLIT_HOSTS = (() => {
+  try {
+    return typeof window !== 'undefined' && new URL(BASE).origin !== window.location.origin
+  } catch {
+    return false
+  }
+})()
+
+/**
+ * Resolve every `/media/…` path in a response against the API origin.
+ *
+ * Done once, here, on the way in: media paths appear in thirty places across
+ * the app, and a photograph that renders on one host and breaks on another
+ * is not a bug worth fixing thirty times.
+ */
+function absolutiseMedia<T>(data: T): T {
+  if (!SPLIT_HOSTS || data == null) return data
+  const walk = (value: unknown): unknown => {
+    if (typeof value === 'string') return value.startsWith('/media/') ? `${BASE}${value}` : value
+    if (Array.isArray(value)) return value.map(walk)
+    if (value && typeof value === 'object') {
+      const out: Record<string, unknown> = {}
+      for (const [key, inner] of Object.entries(value as Record<string, unknown>)) out[key] = walk(inner)
+      return out
+    }
+    return value
+  }
+  return walk(data) as T
+}
+
 const ACCESS_KEY = 'evaramu-access'
 const REFRESH_KEY = 'evaramu-refresh'
 
@@ -228,7 +266,7 @@ async function request<T>(
     )
   }
 
-  return data as T
+  return absolutiseMedia(data as T)
 }
 
 /* ------------------------------------------------------------------ surface */
@@ -274,7 +312,7 @@ export const api = {
         (data as { code?: string })?.code,
       )
     }
-    return data as T
+    return absolutiseMedia(data as T)
   },
   post: <T>(path: string, body?: unknown, options?: Options) =>
     request<T>('POST', path, body, options),

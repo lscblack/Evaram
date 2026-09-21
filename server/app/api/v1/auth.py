@@ -205,7 +205,8 @@ async def update_me(
 @limiter.limit("12/hour")
 async def upload_my_photo(
     request: Request,
-    file: UploadFile = File(..., description="A square-ish image works best"),
+    file: UploadFile | None = File(None, description="A square-ish image works best"),
+    files: list[UploadFile] | None = File(None, description="The same, as the web client sends it"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserPublic:
@@ -215,7 +216,7 @@ async def upload_my_photo(
     personal data, and leaving old ones on disk means the person cannot really
     remove their face from our servers.
     """
-    stored = await storage_service.save_upload(file, kind="avatar")
+    stored = await storage_service.save_upload(storage_service.single_upload(file, files), kind="avatar")
     previous = user.photo_url
     user.photo_url = stored["url"]
 
