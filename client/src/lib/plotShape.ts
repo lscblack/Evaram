@@ -294,22 +294,28 @@ export function plotShapeUrl(points: number[][], options: PlotShapeOptions = {})
   return url
 }
 
+type CardLike = Pick<ApiPropertyCard, 'cover_url' | 'boundary_points'> & {
+  master_plan_zone?: string | null
+  outline_as_cover?: boolean
+}
+
+/** The agent can switch the outline-as-picture off per listing. */
+const outlineAllowed = (card: { outline_as_cover?: boolean }) => card.outline_as_cover !== false
+
 /** What a listing card shows where its photograph would go. */
-export function coverOf(card: Pick<ApiPropertyCard, 'cover_url' | 'boundary_points'> & { master_plan_zone?: string | null }): string | undefined {
+export function coverOf(card: CardLike): string | undefined {
   if (card.cover_url) return card.cover_url
-  if (hasShape(card.boundary_points)) {
+  if (outlineAllowed(card) && hasShape(card.boundary_points)) {
     return plotShapeUrl(card.boundary_points, { view: 'plan', zone: card.master_plan_zone })
   }
   return undefined
 }
 
 /** The card's hover frame: the second photograph, or the shape in 3D. */
-export function secondOf(
-  card: Pick<ApiPropertyCard, 'cover_url' | 'second_image_url' | 'boundary_points'> & { master_plan_zone?: string | null },
-): string | undefined {
+export function secondOf(card: CardLike & Pick<ApiPropertyCard, 'second_image_url'>): string | undefined {
   if (card.second_image_url) return card.second_image_url
   if (card.cover_url) return card.cover_url
-  if (hasShape(card.boundary_points)) {
+  if (outlineAllowed(card) && hasShape(card.boundary_points)) {
     return plotShapeUrl(card.boundary_points, { view: 'oblique', zone: card.master_plan_zone })
   }
   return undefined
@@ -323,10 +329,10 @@ export function secondOf(
  */
 export function parcelCover(feature: {
   geometry: { type: string; coordinates: unknown }
-  properties: { cover_url: string | null; master_plan_zone: string | null; size?: number | null }
+  properties: { cover_url: string | null; master_plan_zone: string | null; outline_as_cover?: boolean }
 }): string | null {
   if (feature.properties.cover_url) return feature.properties.cover_url
-  if (feature.geometry?.type !== 'Polygon') return null
+  if (!outlineAllowed(feature.properties) || feature.geometry?.type !== 'Polygon') return null
   const points = openRing(ringToPoints((feature.geometry.coordinates as number[][][])[0]))
   if (!hasShape(points)) return null
   return plotShapeUrl(points, { view: 'plan', zone: feature.properties.master_plan_zone })
@@ -338,9 +344,9 @@ export function parcelCover(feature: {
  * lightbox need no special case.
  */
 export function outlineMedia(
-  property: Pick<ApiPropertyDetail, 'boundary_points' | 'master_plan_zone' | 'boundary_area_sqm'>,
+  property: Pick<ApiPropertyDetail, 'boundary_points' | 'master_plan_zone' | 'boundary_area_sqm' | 'outline_as_cover'>,
 ): ApiMedia[] {
-  if (!hasShape(property.boundary_points)) return []
+  if (!outlineAllowed(property) || !hasShape(property.boundary_points)) return []
   const base = { zone: property.master_plan_zone, areaSqm: property.boundary_area_sqm }
   const entry = (view: PlotView, caption: string, order: number): ApiMedia => ({
     id: `outline-${view}`,

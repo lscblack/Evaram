@@ -286,6 +286,12 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
     allow_directions: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false"), nullable=False
     )
+    #: Whether the surveyed outline stands in for the cover photograph while
+    #: the listing has none. On by default — a plot's shape is the honest
+    #: picture of it — but an agent can insist on a blank frame instead.
+    outline_as_cover: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true"), nullable=False
+    )
 
     # ---------------- viewings ----------------
     #: Whether a buyer may book a viewing at all. Some sellers only open a

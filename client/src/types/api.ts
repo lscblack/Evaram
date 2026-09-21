@@ -136,6 +136,8 @@ export interface ApiPropertyCard {
    *  when the listing has none yet. See lib/plotShape.ts. */
   boundary_points: number[][] | null
   master_plan_zone: string | null
+  /** Whether that outline may stand in for the cover photograph. */
+  outline_as_cover: boolean
   has_vr_tour: boolean
   has_360_video: boolean
   created_at: string
@@ -805,6 +807,7 @@ export interface ParcelProperties {
   issue_count: number
   allow_directions: boolean
   master_plan_zone: string | null
+  outline_as_cover?: boolean
   /** Present on `/map/nearby` results only. */
   distance_m?: number
   /** Added client-side for the map's price labels. */

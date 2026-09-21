@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { History, ImagePlus, Save, Sparkles } from 'lucide-react'
+import { Check, History, ImagePlus, Save, SkipForward, Sparkles, Wand2 } from 'lucide-react'
 import {
   Badge,
   ErrorNote,
@@ -14,6 +14,7 @@ import { MediaUploader, type StagedFile } from '@/components/admin/MediaUploader
 import { DynamicField, type FieldValue, type FormValues } from '@/components/ui/DynamicField'
 import { MoneyInput } from '@/components/ui/MoneyInput'
 import { FORMAT_NAMES, parseBoundary } from '@/lib/boundary'
+import { parseParcelExport, type ParcelImport, type ParcelImportResult } from '@/lib/parcelImport'
 import { ZONE_GROUPS, zoneColor, zoneValue } from '@/data/masterPlan'
 import { ringArea } from '@/lib/geoMeasure'
 import { api, mediaUrl } from '@/lib/api'
@@ -211,6 +212,150 @@ export default function PropertyUploadPage() {
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Whether the surveyed outline stands in for the cover photo while there is none. */
+  const [outlineAsCover, setOutlineAsCover] = useState(true)
+
+  /* ---- auto-fill from a parcel export ---- */
+  const [importText, setImportText] = useState('')
+  const [imported, setImported] = useState<ParcelImportResult | null>(null)
+  /** Several parcels pasted at once: filled and saved one at a time, in order. */
+  const [batch, setBatch] = useState<ParcelImport[]>([])
+  const [batchIndex, setBatchIndex] = useState(0)
+  const [notice, setNotice] = useState<string | null>(null)
+  /**
+   * Locality names from an export, waiting for the option lists.
+   *
+   * The registry writes `NGERUKA`; the dropdowns hold `Ngeruka`, and cells and
+   * villages are only fetched once their parent is chosen. So the names are
+   * held here and matched, level by level, as each list arrives.
+   */
+  const [wanted, setWanted] = useState<Partial<
+    Record<'district' | 'sector' | 'cell' | 'village', string>
+  > | null>(null)
+
+  useEffect(() => {
+    if (!wanted) return
+    const find = (list: string[], name?: string) =>
+      name ? list.find((n) => n.toLowerCase() === name.toLowerCase()) : undefined
+    const levels: ['district' | 'sector' | 'cell' | 'village', string[]][] = [
+      ['district', allDistricts.map((d) => d.name)],
+      ['sector', sectorOptions],
+      ['cell', cellOptions],
+      ['village', villageOptions],
+    ]
+    for (const [level, options] of levels) {
+      if (!wanted[level] || core[level]) continue
+      // A miss is not final: the list in hand may still be the previous
+      // parent's, since a query keeps its old answer until the new one lands.
+      // So a miss waits for the next list; a genuine miss simply leaves the
+      // level for the agent, and any hand-picked locality ends the search.
+      const match = find(options, wanted[level])
+      if (match) setCore((c) => ({ ...c, [level]: match }))
+      return
+    }
+    setWanted(null)
+  }, [wanted, allDistricts, sectorOptions, cellOptions, villageOptions, core])
+
+  /** Put one exported parcel into the form. Typed values win over the export. */
+  const fillFrom = (parcel: ParcelImport) => {
+    setCore((c) => ({
+      ...c,
+      upi: parcel.upi || c.upi,
+      title: c.title || parcel.title,
+      summary: c.summary || parcel.summary,
+      location: parcel.fullAddress ?? c.location,
+      size: parcel.areaSqm != null ? String(parcel.areaSqm) : c.size,
+      district: '',
+      sector: '',
+      cell: '',
+      village: '',
+    }))
+    setWanted({
+      district: parcel.district ?? undefined,
+      sector: parcel.sector ?? undefined,
+      cell: parcel.cell ?? undefined,
+      village: parcel.village ?? undefined,
+    })
+    setGeo({
+      latitude: parcel.latitude != null ? String(parcel.latitude) : '',
+      longitude: parcel.longitude != null ? String(parcel.longitude) : '',
+      boundary: parcel.boundaryWkt ?? '',
+    })
+    setParcel((s) => ({
+      land_use: parcel.landUse ?? s.land_use,
+      right_type: parcel.rightType ?? s.right_type,
+      master_plan_zone: parcel.masterPlanZone ?? s.master_plan_zone,
+      master_plan_note: parcel.masterPlanNote ?? s.master_plan_note,
+    }))
+  }
+
+  /** Clear what belongs to one parcel, keeping what a batch shares — the
+   *  category, the seller, the commission rate, the consultant, the
+   *  visibility. Prices are per parcel and go too. */
+  const clearParcelFields = () => {
+    setCore((c) => ({
+      ...c,
+      reference_number: '',
+      upi: '',
+      title: '',
+      summary: '',
+      district: '',
+      sector: '',
+      cell: '',
+      village: '',
+      location: '',
+      size: '',
+      price: '',
+    }))
+    setDeal((d) => ({ ...d, owner_price: '', commission_amount: '' }))
+    setMinBid('')
+    setGeo({ latitude: '', longitude: '', boundary: '' })
+    setParcel({ land_use: '', right_type: '', master_plan_zone: '', master_plan_note: '' })
+    setPhotos([])
+    setProof(null)
+    setProofUrl(null)
+  }
+
+  const checkImport = () => setImported(parseParcelExport(importText))
+
+  const startImport = () => {
+    const parcels = imported?.parcels ?? []
+    if (!parcels.length) return
+    if (parcels.length > 1) {
+      setBatch(parcels)
+      setBatchIndex(0)
+    }
+    fillFrom(parcels[0])
+    setNotice(
+      parcels.length > 1
+        ? `Filled parcel 1 of ${parcels.length}. Add the reference number and price, save, and the next one loads.`
+        : 'Filled from the export. Check the district, sector and zone, then add the reference number and price.',
+    )
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  /** Move a batch on, with or without having saved the current parcel. */
+  const advanceBatch = (savedRef: string | null, savedId: string | null) => {
+    const next = batchIndex + 1
+    if (next < batch.length) {
+      setBatchIndex(next)
+      clearParcelFields()
+      fillFrom(batch[next])
+      setNotice(
+        `${savedRef ? `Saved ${savedRef}. ` : 'Skipped. '}Now parcel ${next + 1} of ${batch.length}` +
+          ` — ${batch[next].upi || 'no UPI'}${batch[next].fullAddress ? `, ${batch[next].fullAddress}` : ''}.`,
+      )
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    setBatch([])
+    setBatchIndex(0)
+    if (savedId) navigate(`/admin/properties?highlight=${savedId}`)
+    else {
+      clearParcelFields()
+      setNotice('That was the last parcel in the list.')
+    }
+  }
 
   /**
    * Fill the form from the listing being edited.
@@ -264,6 +409,7 @@ export default function PropertyUploadPage() {
       master_plan_note: p.master_plan_note ?? '',
     })
     setProofUrl(p.master_plan_doc_url)
+    setOutlineAsCover(p.outline_as_cover ?? true)
     setAgentId(p.agent?.id ?? '')
     setVisit({
       viewing_allowed: p.viewing_allowed ?? true,
@@ -424,6 +570,7 @@ export default function PropertyUploadPage() {
         master_plan_zone: parcel.master_plan_zone || null,
         master_plan_note: parcel.master_plan_note || null,
         master_plan_doc_url: proofUrl,
+        outline_as_cover: outlineAsCover,
         agent_id: agentId || null,
         viewing_allowed: visit.viewing_allowed,
         visiting_fee:
@@ -462,7 +609,10 @@ export default function PropertyUploadPage() {
 
       invalidate('/admin/properties')
       invalidate('/public/properties')
-      navigate(`/admin/properties?highlight=${saved.id}`)
+      // A batch carries on to the next parcel; the list is only shown once
+      // the last one is saved.
+      if (batch.length) advanceBatch(core.reference_number, saved.id)
+      else navigate(`/admin/properties?highlight=${saved.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That listing was not saved.')
     } finally {
@@ -473,6 +623,30 @@ export default function PropertyUploadPage() {
   if (loading && categories.length === 0) return <Loading label="Reading the taxonomy…" />
   if (editingId && loadingExisting && !existing) return <Loading label="Opening the listing…" />
 
+  const current = batch[batchIndex]
+  const saveLabel = busy
+    ? 'Saving…'
+    : editingId
+      ? 'Save changes'
+      : batch.length
+        ? batchIndex + 1 < batch.length
+          ? `Save & next (${batchIndex + 1} of ${batch.length})`
+          : `Save last parcel (${batch.length} of ${batch.length})`
+        : 'Save listing'
+
+  // The same button top and bottom: the form is long, and having to scroll
+  // back up to save it is the kind of thing that gets a listing abandoned.
+  const saveButton = (
+    <button
+      type="submit"
+      disabled={busy || !subcategory || !core.reference_number || !core.title}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+    >
+      <Save className="size-3.5" strokeWidth={2.2} />
+      {saveLabel}
+    </button>
+  )
+
   return (
     <form onSubmit={submit}>
       <PageHeader
@@ -482,16 +656,7 @@ export default function PropertyUploadPage() {
             ? 'Changes are audited. An agent editing a live listing sends it back for review.'
             : 'Staff-entered so the reference number and UPI can be trusted.'
         }
-        action={
-          <button
-            type="submit"
-            disabled={busy || !subcategory || !core.reference_number || !core.title}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            <Save className="size-3.5" strokeWidth={2.2} />
-            {busy ? 'Saving…' : editingId ? 'Save changes' : 'Save listing'}
-          </button>
-        }
+        action={saveButton}
       />
 
       {error && (
@@ -499,9 +664,186 @@ export default function PropertyUploadPage() {
           <ErrorNote message={error} />
         </div>
       )}
+      {notice && !error && (
+        <p className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[0.875rem] text-emerald-800">
+          {notice}
+        </p>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
+          {/* ---- auto-fill from the registry export ---- */}
+          {!editingId && (
+            <Panel
+              title="Auto-fill from a parcel export"
+              action={
+                batch.length ? (
+                  <Badge tone="warn">
+                    Parcel {batchIndex + 1} of {batch.length}
+                  </Badge>
+                ) : undefined
+              }
+            >
+              {current ? (
+                <div className="p-5">
+                  <ol className="flex flex-wrap items-center gap-2">
+                    {batch.map((item, i) => (
+                      <li
+                        key={`${item.upi}-${i}`}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[0.75rem]',
+                          i < batchIndex
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : i === batchIndex
+                              ? 'border-gold-500 bg-gold-50 font-semibold text-gold-800'
+                              : 'border-line text-ink-muted',
+                        )}
+                      >
+                        {i < batchIndex && <Check className="size-3" strokeWidth={2.6} />}
+                        {item.upi || `Parcel ${i + 1}`}
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="mt-3 text-[0.8125rem] leading-relaxed text-ink-soft">
+                    Now filling <strong className="font-mono text-ink">{current.upi || `parcel ${batchIndex + 1}`}</strong>
+                    {current.fullAddress ? ` — ${current.fullAddress}` : ''}. Add the reference number,
+                    price and anything the export does not carry, then save; the next parcel loads on
+                    its own.
+                  </p>
+                  {current.warnings.map((w) => (
+                    <p key={w} className="mt-1.5 text-[0.75rem] text-amber-700">
+                      {w}
+                    </p>
+                  ))}
+                  <div className="mt-3.5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearParcelFields()
+                        fillFrom(current)
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[0.8125rem] font-semibold text-ink-soft hover:text-ink"
+                    >
+                      <Wand2 className="size-3.5" strokeWidth={2.2} />
+                      Fill again
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => advanceBatch(null, null)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[0.8125rem] font-semibold text-ink-soft hover:text-ink"
+                    >
+                      <SkipForward className="size-3.5" strokeWidth={2.2} />
+                      Skip this parcel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3.5 p-5">
+                  <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
+                    Paste the JSON the parcel lookup exported — one parcel, or a list of them. Check
+                    it, then fill the form. A list is filled and saved one parcel at a time; what a
+                    batch shares — category, seller, commission, consultant — is typed once.
+                  </p>
+                  <textarea
+                    rows={6}
+                    className={cn(FIELD, 'h-auto py-2.5 font-mono text-[0.8125rem]')}
+                    value={importText}
+                    onChange={(e) => {
+                      setImportText(e.target.value)
+                      setImported(null)
+                    }}
+                    placeholder={'{ "upi": "5/07/08/01/3633", "location": { … }, "boundary": { "wkt": "POLYGON ((…))" } }'}
+                    spellCheck={false}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={checkImport}
+                      disabled={!importText.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
+                    >
+                      <Check className="size-3.5" strokeWidth={2.4} />
+                      Check
+                    </button>
+                    {imported?.parcels.length ? (
+                      <button
+                        type="button"
+                        onClick={startImport}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-[0.8125rem] font-semibold text-white transition-opacity hover:opacity-90"
+                      >
+                        <Wand2 className="size-3.5" strokeWidth={2.2} />
+                        {imported.parcels.length > 1
+                          ? `Auto-fill parcel 1 of ${imported.parcels.length}`
+                          : 'Auto-fill the form'}
+                      </button>
+                    ) : null}
+                    {importText && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImportText('')
+                          setImported(null)
+                        }}
+                        className="text-[0.8125rem] font-medium text-ink-muted hover:text-ink"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {imported?.error && <ErrorNote message={imported.error} />}
+
+                  {imported?.parcels.length ? (
+                    <ul className="space-y-2">
+                      {imported.parcels.map((item, i) => (
+                        <li
+                          key={`${item.upi}-${i}`}
+                          className="rounded-xl border border-line bg-canvas-alt px-3.5 py-2.5 text-[0.8125rem]"
+                        >
+                          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="font-mono font-semibold text-ink">
+                              {item.upi || 'No UPI'}
+                            </span>
+                            {item.fullAddress && <span className="text-ink-soft">{item.fullAddress}</span>}
+                            {item.areaSqm != null && (
+                              <span className="text-ink-muted">
+                                · {Math.round(item.areaSqm).toLocaleString('en-RW')} sqm
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.75rem] text-ink-muted">
+                            {item.masterPlanZone && (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span
+                                  aria-hidden
+                                  className="size-3 rounded-sm border border-line"
+                                  style={{ background: zoneColor(item.masterPlanZone) }}
+                                />
+                                {item.masterPlanZone}
+                              </span>
+                            )}
+                            <span>
+                              {item.boundaryCorners
+                                ? `${item.boundaryCorners}-corner boundary`
+                                : 'no boundary'}
+                            </span>
+                            {item.rightType && <span>· {item.rightType}</span>}
+                            {item.landUse && <span>· {item.landUse.toLowerCase()} today</span>}
+                          </p>
+                          {item.warnings.map((w) => (
+                            <p key={w} className="mt-1 text-[0.75rem] text-amber-700">
+                              {w}
+                            </p>
+                          ))}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              )}
+            </Panel>
+          )}
+
           {/* ---- what is it ---- */}
           <Panel title="Category">
             <div className="grid gap-3.5 p-5 sm:grid-cols-2">
@@ -625,12 +967,13 @@ export default function PropertyUploadPage() {
                 <select
                   className={FIELD}
                   value={core.district}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setWanted(null)
                     // A sector belongs to exactly one district, so changing the
                     // district has to clear it — otherwise the listing is filed
                     // in a sector that does not exist there.
                     setCore((c) => ({ ...c, district: e.target.value, sector: '' }))
-                  }
+                  }}
                 >
                   <option value="">Choose…</option>
                   {districtGroups.map(([province, names]) => (
@@ -649,9 +992,10 @@ export default function PropertyUploadPage() {
                   className={cn(FIELD, !core.district && 'cursor-not-allowed opacity-55')}
                   disabled={!core.district}
                   value={core.sector}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setWanted(null)
                     setCore((c) => ({ ...c, sector: e.target.value, cell: '', village: '' }))
-                  }
+                  }}
                 >
                   <option value="">
                     {core.district ? 'Choose…' : 'Choose a district first'}
@@ -669,7 +1013,10 @@ export default function PropertyUploadPage() {
                   className={cn(FIELD, !core.sector && 'cursor-not-allowed opacity-55')}
                   disabled={!core.sector}
                   value={core.cell}
-                  onChange={(e) => setCore((c) => ({ ...c, cell: e.target.value, village: '' }))}
+                  onChange={(e) => {
+                    setWanted(null)
+                    setCore((c) => ({ ...c, cell: e.target.value, village: '' }))
+                  }}
                 >
                   <option value="">{core.sector ? 'Choose…' : 'Choose a sector first'}</option>
                   {cellOptions.map((cellName) => (
@@ -685,7 +1032,10 @@ export default function PropertyUploadPage() {
                   className={cn(FIELD, !core.cell && 'cursor-not-allowed opacity-55')}
                   disabled={!core.cell}
                   value={core.village}
-                  onChange={(e) => setCore((c) => ({ ...c, village: e.target.value }))}
+                  onChange={(e) => {
+                    setWanted(null)
+                    setCore((c) => ({ ...c, village: e.target.value }))
+                  }}
                 >
                   <option value="">{core.cell ? 'Choose…' : 'Choose a cell first'}</option>
                   {villageOptions.map((villageName) => (
@@ -831,6 +1181,12 @@ export default function PropertyUploadPage() {
                     onChange={(v) => setFlags((f) => ({ ...f, allow_directions: v }))}
                   />
                 )}
+                <Toggle
+                  label="Use the parcel outline as the listing picture until photographs are added"
+                  hint="The shape above is drawn where the cover photo would go, on cards and on the listing page. Off leaves an empty frame instead."
+                  checked={outlineAsCover}
+                  onChange={setOutlineAsCover}
+                />
               </div>
             </div>
           </Panel>
@@ -1284,6 +1640,15 @@ export default function PropertyUploadPage() {
             </div>
           </Panel>
         </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5">
+        {(!subcategory || !core.reference_number || !core.title) && (
+          <p className="text-[0.75rem] text-ink-muted">
+            Needs a category, a reference number and a title before it can be saved.
+          </p>
+        )}
+        {saveButton}
       </div>
     </form>
   )

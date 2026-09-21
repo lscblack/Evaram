@@ -108,6 +108,8 @@ class PropertyCard(ORMModel):
     #: with no photographs yet can still show its shape where a photo would go.
     boundary_points: list | None = None
     master_plan_zone: str | None = None
+    #: Whether that outline may be drawn where the photograph would go.
+    outline_as_cover: bool = True
     has_vr_tour: bool = False
     has_360_video: bool = False
     created_at: datetime
@@ -204,6 +206,11 @@ class PropertyDetailAdmin(PropertyDetail):
 
 
 # ---------------------------------------------------------------- write
+#: `NUMERIC(16, 2)` holds fourteen integer digits; a figure past that is a
+#: typo, and is refused here rather than surfacing as a database error.
+MAX_MONEY = 10**14 - 1
+
+
 class PropertyBase(BaseModel):
     reference_number: str = Field(min_length=2, max_length=40)
     upi: str | None = Field(default=None, max_length=64)
@@ -245,8 +252,8 @@ class PropertyBase(BaseModel):
 
     intent: ListingIntent = ListingIntent.SALE
     currency: str = "RWF"
-    price: float | None = Field(default=None, ge=0)
-    rent_amount: float | None = Field(default=None, ge=0)
+    price: float | None = Field(default=None, ge=0, le=MAX_MONEY)
+    rent_amount: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     amount_paid: float | None = Field(default=None, ge=0)
     is_negotiable: bool = True
     projected_yield: float | None = None
@@ -275,11 +282,12 @@ class PropertyBase(BaseModel):
     show_on_map: bool = True
     #: Publishing turn-by-turn directions to vacant land is opt-in.
     allow_directions: bool = False
+    outline_as_cover: bool = True
     viewing_allowed: bool = True
     visiting_fee: float | None = Field(default=None, ge=0)
     visiting_fee_negotiable: bool = False
     allow_bidding: bool = False
-    min_bid: float | None = Field(default=None, ge=0)
+    min_bid: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     bidding_closes_at: datetime | None = None
     seo_title: str | None = None
     seo_description: str | None = None
@@ -293,10 +301,10 @@ class PropertyBase(BaseModel):
     #: Set the seller's net figure and a commission, and `price` is derived so
     #: the public number and the paperwork can never disagree.
     seller_client_id: uuid.UUID | None = None
-    owner_price: float | None = Field(default=None, ge=0)
+    owner_price: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     commission_basis: Literal["percent", "fixed"] | None = None
     commission_rate: float | None = Field(default=None, ge=0, le=100)
-    commission_amount: float | None = Field(default=None, ge=0)
+    commission_amount: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     commission_in_price: bool = True
 
 
@@ -308,10 +316,10 @@ class PropertyUpdate(BaseModel):
     """Every field optional — PATCH semantics."""
 
     seller_client_id: uuid.UUID | None = None
-    owner_price: float | None = Field(default=None, ge=0)
+    owner_price: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     commission_basis: Literal["percent", "fixed"] | None = None
     commission_rate: float | None = Field(default=None, ge=0, le=100)
-    commission_amount: float | None = Field(default=None, ge=0)
+    commission_amount: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     commission_in_price: bool | None = None
 
     model_config = {"extra": "forbid"}
@@ -322,11 +330,12 @@ class PropertyUpdate(BaseModel):
     show_owner_info: bool | None = None
     show_on_map: bool | None = None
     allow_directions: bool | None = None
+    outline_as_cover: bool | None = None
     viewing_allowed: bool | None = None
     visiting_fee: float | None = Field(default=None, ge=0)
     visiting_fee_negotiable: bool | None = None
     allow_bidding: bool | None = None
-    min_bid: float | None = None
+    min_bid: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     bidding_closes_at: datetime | None = None
     title: str | None = None
     title_rw: str | None = None
@@ -361,8 +370,8 @@ class PropertyUpdate(BaseModel):
     bathrooms: int | None = None
     intent: ListingIntent | None = None
     currency: str | None = None
-    price: float | None = None
-    rent_amount: float | None = None
+    price: float | None = Field(default=None, ge=0, le=MAX_MONEY)
+    rent_amount: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     amount_paid: float | None = None
     is_negotiable: bool | None = None
     projected_yield: float | None = None
@@ -433,7 +442,7 @@ class ListingSubmission(BaseModel):
     sector: str | None = Field(default=None, max_length=80)
     location: str | None = Field(default=None, max_length=240)
     intent: ListingIntent = ListingIntent.SALE
-    price: float | None = Field(default=None, ge=0)
+    price: float | None = Field(default=None, ge=0, le=MAX_MONEY)
     size: float | None = Field(default=None, ge=0)
     owner_name: str = Field(min_length=2, max_length=160)
     owner_contact: str = Field(min_length=4, max_length=120)

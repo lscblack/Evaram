@@ -78,6 +78,7 @@ def _feature(row: Any) -> dict:
             "issue_count": len(row.boundary_issues or []),
             "allow_directions": row.allow_directions,
             "master_plan_zone": row.master_plan_zone,
+            "outline_as_cover": row.outline_as_cover,
         },
     }
 
@@ -124,6 +125,7 @@ def _selection() -> Any:
         Property.boundary_issues,
         Property.allow_directions,
         Property.master_plan_zone,
+        Property.outline_as_cover,
         func.ST_Y(Property.centre_geom).label("lat"),
         func.ST_X(Property.centre_geom).label("lng"),
         # `ST_AsGeoJSON` returns text; the cast makes asyncpg hand back a dict

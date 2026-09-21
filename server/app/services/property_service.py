@@ -152,6 +152,7 @@ def to_card(row: Any) -> PropertyCard:
         # to the metre places a parcel as surely as a pin does.
         boundary_points=prop.boundary_points if prop.show_on_map else None,
         master_plan_zone=prop.master_plan_zone,
+        outline_as_cover=prop.outline_as_cover,
         has_vr_tour=bool(prop.vr_tour_url),
         has_360_video=bool(prop.video_360_url),
         created_at=prop.created_at,
