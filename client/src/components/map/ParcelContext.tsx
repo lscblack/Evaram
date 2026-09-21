@@ -45,15 +45,27 @@ export function ParcelContext({
   slug,
   title,
   zone,
+  boundary,
+  latitude,
+  longitude,
 }: {
   slug: string
   title: string
   /** The listing's Master Plan zone, which sets the outline's colour. */
   zone?: string | null
+  /** The listing's own outline and pin, so the shape is drawn even when the
+   *  surroundings cannot be fetched — the page already knows where it is. */
+  boundary?: { type: string; coordinates: unknown } | null
+  latitude?: number | null
+  longitude?: number | null
 }) {
   const mapRef = useRef<ParcelMapHandle>(null)
   const [context, setContext] = useState<Context | null>(null)
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState<string | null>(null)
+  // How many times the surroundings have been re-requested while they were
+  // being fetched. Bounded, so a fetch that never finishes stops being asked.
+  const [attempt, setAttempt] = useState(0)
   const [route, setRoute] = useState<Route | null>(null)
   const [routing, setRouting] = useState(false)
   const [routeError, setRouteError] = useState<string | null>(null)
@@ -62,38 +74,69 @@ export function ParcelContext({
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
+    if (attempt === 0) setLoading(true)
     api
       .get<Context>(`/public/map/context/${slug}`)
-      .then((data) => !cancelled && setContext(data))
-      .catch(() => !cancelled && setContext(null))
+      .then((data) => {
+        if (cancelled) return
+        setContext(data)
+        setFailed(null)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        if (attempt === 0) setContext(null)
+        setFailed(err instanceof Error ? err.message : 'The surroundings could not be loaded.')
+      })
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [slug])
+  }, [slug, attempt])
+
+  // While the server is fetching the surroundings from OpenStreetMap, ask
+  // again every half minute, a few times — enough for a first fetch, not
+  // enough to keep a tab polling forever.
+  useEffect(() => {
+    if (!context?.mapping || attempt >= 4) return
+    const id = window.setTimeout(() => setAttempt((n) => n + 1), 30_000)
+    return () => window.clearTimeout(id)
+  }, [context?.mapping, attempt])
+
+  /** Where the parcel is: from the surroundings call, else from the listing itself. */
+  const geometry = context?.boundary.geometry ?? boundary ?? null
+  const ringCentre = useMemo(() => {
+    if (geometry?.type !== 'Polygon') return null
+    const ring = (geometry.coordinates as number[][][])[0] ?? []
+    if (!ring.length) return null
+    const lng = ring.reduce((s, p) => s + p[0], 0) / ring.length
+    const lat = ring.reduce((s, p) => s + p[1], 0) / ring.length
+    return { lat, lng }
+  }, [geometry])
+  const lat = context?.latitude ?? latitude ?? ringCentre?.lat ?? null
+  const lng = context?.longitude ?? longitude ?? ringCentre?.lng ?? null
+  const withheld = context?.location_withheld ?? false
 
   const parcels = useMemo(() => {
-    if (!context || context.location_withheld || context.latitude == null) return []
+    if (withheld || lat == null || lng == null) return []
     return [
       {
         type: 'Feature' as const,
         geometry:
-          context.boundary.geometry ??
-          { type: 'Point', coordinates: [context.longitude, context.latitude] },
+          (geometry?.type === 'Polygon' ? geometry : null) ??
+          { type: 'Point', coordinates: [lng, lat] },
         properties: {
           id: slug, slug, reference_number: '', title,
           district: null, price: null, currency: 'RWF', size: null,
-          cover_url: null, has_outline: Boolean(context.boundary.geometry),
-          issue_count: context.boundary.issues.length,
-          is_verified: true, allow_directions: Boolean(context.allow_directions),
-          latitude: context.latitude, longitude: context.longitude!,
+          cover_url: null, has_outline: geometry?.type === 'Polygon',
+          issue_count: context?.boundary.issues.length ?? 0,
+          is_verified: true, allow_directions: Boolean(context?.allow_directions),
+          latitude: lat, longitude: lng,
           master_plan_zone: zone ?? null,
           zone_code: zoneCode(zone),
         },
       },
     ]
-  }, [context, slug, title, zone])
+  }, [withheld, lat, lng, geometry, context, slug, title, zone])
 
   const facilityLayer = useMemo<FeatureCollection | null>(() => {
     if (!context?.facilities.length) return null
@@ -112,7 +155,7 @@ export function ParcelContext({
   }, [parcels])
 
   const getDirections = async () => {
-    if (!context?.latitude || !context.longitude) return
+    if (lat == null || lng == null) return
     setRouting(true)
     setRouteError(null)
     try {
@@ -121,7 +164,7 @@ export function ParcelContext({
         setRouteError('We could not read your location. Allow location access and try again.')
         return
       }
-      const found = await routeBetween(from, [context.longitude, context.latitude])
+      const found = await routeBetween(from, [lng, lat])
       if (!found) {
         setRouteError('No driving route could be worked out to this plot.')
         return
@@ -142,9 +185,10 @@ export function ParcelContext({
     )
   }
 
-  if (!context) return null
+  // No surroundings and nothing of our own to draw: nothing to show.
+  if (!context && !geometry && (latitude == null || longitude == null)) return null
 
-  if (context.location_withheld) {
+  if (withheld) {
     return (
       <div className="rounded-3xl border border-line bg-surface p-6">
         <h2 className="font-display text-lg font-semibold text-ink">Location</h2>
@@ -156,10 +200,13 @@ export function ParcelContext({
     )
   }
 
-  const errors = context.boundary.issues.filter((i) => i.severity === 'error')
-  const warnings = context.boundary.issues.filter((i) => i.severity !== 'error')
-  const shown = showAll ? context.facilities : context.facilities.slice(0, 10)
-  const origin: [number, number] = [context.longitude!, context.latitude!]
+  const issues = context?.boundary.issues ?? []
+  const errors = issues.filter((i) => i.severity === 'error')
+  const warnings = issues.filter((i) => i.severity !== 'error')
+  const facilities = context?.facilities ?? []
+  const overlaps = context?.overlaps ?? []
+  const shown = showAll ? facilities : facilities.slice(0, 10)
+  const origin: [number, number] = [lng ?? 0, lat ?? 0]
 
   return (
     <section className="overflow-hidden rounded-3xl border border-line bg-surface">
@@ -182,16 +229,25 @@ export function ParcelContext({
           >
             {measuring ? 'Measuring' : 'Measure'}
           </button>
+          {lat != null && lng != null && (
           <a
-            href={streetViewUrl(context.latitude!, context.longitude!)}
+            href={streetViewUrl(lat, lng)}
             target="_blank"
             rel="noreferrer"
             className="rounded-full border border-white/25 px-3 py-1.5 text-[0.75rem] font-semibold text-white/85 transition-colors hover:border-white/50"
           >
             Street view
           </a>
+          )}
         </div>
       </div>
+
+      {lat == null && (
+        <p className="border-b border-line bg-amber-500/8 px-6 py-3 text-[0.8125rem] text-amber-800 sm:px-8">
+          This parcel's position has not been recorded yet — the map cannot place it until a
+          boundary or a pin is added to the listing.
+        </p>
+      )}
 
       {/* ---------------------------------------------------------- map */}
       <div className="h-[22rem] w-full sm:h-[26rem]">
@@ -207,12 +263,12 @@ export function ParcelContext({
       </div>
 
       {/* ------------------------------------------------------ warnings */}
-      {(errors.length > 0 || warnings.length > 0 || context.overlaps.length > 0) && (
+      {(errors.length > 0 || warnings.length > 0 || overlaps.length > 0) && (
         <div className="space-y-2 border-b border-line px-6 py-5 sm:px-8">
           <h3 className="text-[0.75rem] font-bold tracking-wide text-ink-muted uppercase">
             About this boundary
           </h3>
-          {context.overlaps.map((other) => (
+          {overlaps.map((other) => (
             <p
               key={other.id}
               className="flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-500/8 px-3.5 py-2.5 text-[0.8125rem] leading-relaxed text-red-800"
@@ -239,7 +295,7 @@ export function ParcelContext({
               <span>{issue.message}</span>
             </p>
           ))}
-          {context.boundary.area_sqm && (
+          {context?.boundary.area_sqm && (
             <p className="pt-1 text-[0.75rem] text-ink-muted">
               The outline above measures{' '}
               <strong className="font-semibold text-ink">
@@ -257,8 +313,22 @@ export function ParcelContext({
           Measured distances
         </h3>
         {shown.length === 0 ? (
-          <p className="mt-3 text-[0.875rem] text-ink-muted">
-            We have not mapped the infrastructure around this plot yet.
+          <p className="mt-3 flex items-start gap-2 text-[0.875rem] text-ink-muted">
+            {context?.mapping ? (
+              <>
+                <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-ink-faint" strokeWidth={2.2} />
+                <span>
+                  Mapping the roads, schools, clinics and water around this plot from
+                  OpenStreetMap — it takes a moment, and this page will update by itself.
+                </span>
+              </>
+            ) : failed ? (
+              <span>The surroundings could not be loaded right now: {failed}</span>
+            ) : lat == null ? (
+              <span>Distances can be measured once the parcel has a position.</span>
+            ) : (
+              <span>We have not mapped the infrastructure around this plot yet.</span>
+            )}
           </p>
         ) : (
           <>
@@ -267,13 +337,13 @@ export function ParcelContext({
                 <FacilityRow key={facility.id} facility={facility} origin={origin} />
               ))}
             </ul>
-            {context.facilities.length > 10 && (
+            {facilities.length > 10 && (
               <button
                 type="button"
                 onClick={() => setShowAll((v) => !v)}
                 className="mt-3 text-[0.8125rem] font-semibold text-gold-600 hover:underline"
               >
-                {showAll ? 'Show less' : `Show all ${context.facilities.length}`}
+                {showAll ? 'Show less' : `Show all ${facilities.length}`}
               </button>
             )}
           </>
@@ -281,7 +351,7 @@ export function ParcelContext({
 
         {/* ------------------------------------------------------ route */}
         <div className="mt-6 border-t border-line pt-5">
-          {context.allow_directions ? (
+          {context?.allow_directions ? (
             <>
               <button
                 type="button"

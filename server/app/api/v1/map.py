@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from geoalchemy2 import Geography
 from sqlalchemy import and_, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB as _JSONB
@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.facility import CONSTRAINT_KINDS, Facility
 from app.models.property import MediaKind, Property, PropertyMedia, PropertySaleRecord
-from app.services import property_service, spatial_service
+from app.services import geometry_service, osm_import, property_service, spatial_service
 
 router = APIRouter(prefix="/public/map", tags=["map"])
 
@@ -429,6 +429,7 @@ async def _visible_parcel(db: AsyncSession, slug: str) -> Property:
 @router.get("/context/{slug}", summary="What surrounds one parcel, and what is odd about it")
 async def parcel_context(
     slug: str,
+    background: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     radius_m: Annotated[int, Query(ge=200, le=20_000)] = 5_000,
 ) -> dict:
@@ -447,11 +448,29 @@ async def parcel_context(
 
     facilities = await spatial_service.nearby_facilities(db, prop, radius_m=radius_m)
 
+    # A pin is derived from the outline when the record has none — a parcel
+    # with a surveyed boundary is never "unplaced", whatever the pin column says.
+    latitude, longitude = prop.latitude, prop.longitude
+    if (latitude is None or longitude is None) and prop.boundary_points:
+        centre = geometry_service.centroid(prop.boundary_points)
+        if centre:
+            latitude, longitude = centre
+
+    # Nothing known nearby means nobody has fetched this area yet, not that it
+    # is empty. The fetch starts now, in the background, and the response says
+    # so — the page can ask again in a moment.
+    mapping = False
+    if not facilities and latitude is not None and longitude is not None:
+        mapping = not await osm_import.has_coverage(latitude, longitude)
+        if mapping:
+            background.add_task(osm_import.ensure_coverage, latitude, longitude)
+
     return {
         "slug": prop.slug,
         "location_withheld": False,
-        "latitude": prop.latitude,
-        "longitude": prop.longitude,
+        "latitude": latitude,
+        "longitude": longitude,
+        "mapping": mapping,
         "allow_directions": prop.allow_directions,
         "boundary": {
             "geometry": prop.boundary_geojson,

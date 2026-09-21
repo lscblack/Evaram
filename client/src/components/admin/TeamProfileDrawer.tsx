@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Save, X } from 'lucide-react'
+import { Camera, Save, UserRound, X } from 'lucide-react'
 import { ErrorNote, FIELD, Field } from '@/components/admin/ui'
-import { api } from '@/lib/api'
+import { api, mediaUrl } from '@/lib/api'
 import { EASE, SPRING_SOFT } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { AdminUser } from '@/types/api'
@@ -44,6 +44,8 @@ export function TeamProfileDrawer({
     display_order: '',
     is_public: false,
   })
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -191,25 +193,78 @@ export function TeamProfileDrawer({
                 </Field>
               </div>
 
-              <Field label="Photo URL" hint="Shown on the team card and the profile.">
+              {/* A photo from their phone, or a link to one that already
+                  exists — either lands in the same field. */}
+              <div className="flex items-center gap-4">
+                <span className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-2xl border border-line bg-canvas-alt">
+                  {draft.photo_url ? (
+                    <img
+                      src={mediaUrl(draft.photo_url)}
+                      alt=""
+                      className="size-full object-cover"
+                      onError={(e) => {
+                        // A broken URL should read as broken, not as a missing element.
+                        e.currentTarget.style.opacity = '0.25'
+                      }}
+                    />
+                  ) : (
+                    <UserRound className="size-8 text-ink-faint" strokeWidth={1.5} />
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-[0.8125rem] font-semibold text-ink-soft transition-colors hover:border-line-strong hover:text-ink">
+                    <Camera className="size-3.5" strokeWidth={2.2} />
+                    {photoBusy ? 'Uploading…' : draft.photo_url ? 'Change photo' : 'Upload a photo'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/avif"
+                      className="sr-only"
+                      disabled={photoBusy}
+                      onChange={async (e) => {
+                        const picked = e.target.files?.[0]
+                        e.target.value = ''
+                        if (!picked) return
+                        setPhotoBusy(true)
+                        setPhotoError(null)
+                        try {
+                          const stored = await api.upload<{ url: string }>(
+                            '/admin/uploads',
+                            [picked],
+                            { kind: 'avatar' },
+                          )
+                          set('photo_url')(stored.url)
+                        } catch (err) {
+                          setPhotoError(err instanceof Error ? err.message : 'That photo was not uploaded.')
+                        } finally {
+                          setPhotoBusy(false)
+                        }
+                      }}
+                    />
+                  </label>
+                  {draft.photo_url && (
+                    <button
+                      type="button"
+                      onClick={() => set('photo_url')('')}
+                      className="ml-2 text-[0.75rem] font-semibold text-ink-muted hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <p className="mt-1 text-[0.6875rem] text-ink-faint">
+                    JPEG, PNG, WebP or AVIF. Shown on the team card and the profile.
+                  </p>
+                  {photoError && <p className="mt-1 text-[0.75rem] text-red-600">{photoError}</p>}
+                </div>
+              </div>
+
+              <Field label="Photo URL" hint="Or paste a link to a picture that is already online.">
                 <input
                   className={FIELD}
                   value={draft.photo_url}
                   onChange={(e) => set('photo_url')(e.target.value)}
+                  placeholder="https://…"
                 />
               </Field>
-
-              {draft.photo_url && (
-                <img
-                  src={draft.photo_url}
-                  alt=""
-                  className="size-24 rounded-2xl border border-line object-cover"
-                  onError={(e) => {
-                    // A broken URL should read as broken, not as a missing element.
-                    e.currentTarget.style.opacity = '0.25'
-                  }}
-                />
-              )}
 
               <Field label="Bio" hint="First person, a few sentences. It appears under their name.">
                 <textarea

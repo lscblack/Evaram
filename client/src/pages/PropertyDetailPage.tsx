@@ -661,6 +661,9 @@ export default function PropertyDetailPage() {
                       slug={property.slug}
                       title={property.title}
                       zone={property.master_plan_zone}
+                      boundary={property.boundary_geojson as { type: string; coordinates: unknown } | null}
+                      latitude={property.latitude}
+                      longitude={property.longitude}
                     />
                   </Suspense>
                 </motion.div>

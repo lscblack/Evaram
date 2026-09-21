@@ -20,8 +20,16 @@ docker run -d --name evaramu-db \
 
 .venv/bin/alembic upgrade head        # schema
 .venv/bin/python -m app.seeds.run     # data (idempotent; --reset to rebuild)
+.venv/bin/python -m app.services.locality_import   # districts, sectors, cells, villages
 .venv/bin/python -m uvicorn app.main:app --reload --port 8000
 ```
+
+The locality import is a separate step on purpose: it downloads Rwanda's
+administrative boundaries from geoBoundaries (a few minutes, needs outbound
+internet) and is not part of the seeds. **Every environment needs it once** —
+without it the `localities` table is empty, the District dropdowns have
+nothing in them, and the upload form's auto-fill cannot place a parcel.
+Idempotent; re-run only when the boundaries change.
 
 Interactive docs at `/docs`, health at `/health`.
 

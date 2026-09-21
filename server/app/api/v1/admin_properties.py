@@ -5,6 +5,7 @@ from typing import Literal
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -60,7 +61,13 @@ from app.schemas.property import (
     PropertyUpdate,
     PropertyVerify,
 )
-from app.services import bidding_service, property_service, spatial_service, storage_service
+from app.services import (
+    bidding_service,
+    osm_import,
+    property_service,
+    spatial_service,
+    storage_service,
+)
 from app.services.filtering import PROPERTY_FILTERS, apply_filters, describe
 from app.services.audit import diff, record
 
@@ -384,6 +391,7 @@ async def _resolve_agent(
 async def create_property(
     request: Request,
     payload: PropertyCreate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_agent),
 ) -> PropertyDetailAdmin:
@@ -444,6 +452,9 @@ async def create_property(
     )
     await db.commit()
     await _invalidate()
+    # The surroundings are fetched from OpenStreetMap the moment a parcel is
+    # placed, so its distances are there by the time anyone opens the page.
+    background.add_task(osm_import.ensure_coverage, prop.latitude, prop.longitude)
     return await get_one(prop.id, db, actor)
 
 
@@ -452,6 +463,7 @@ async def update_property(
     request: Request,
     property_id: uuid.UUID,
     payload: PropertyUpdate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_agent),
 ) -> PropertyDetailAdmin:
@@ -511,6 +523,7 @@ async def update_property(
     )
     await db.commit()
     await _invalidate()
+    background.add_task(osm_import.ensure_coverage, prop.latitude, prop.longitude)
     return await get_one(property_id, db, actor)
 
 

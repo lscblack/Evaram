@@ -876,6 +876,8 @@ export interface ParcelContext {
   location_withheld: boolean
   latitude?: number | null
   longitude?: number | null
+  /** The surroundings are being fetched right now — ask again shortly. */
+  mapping?: boolean
   allow_directions?: boolean
   boundary: {
     geometry: { type: string; coordinates: number[][][] } | null

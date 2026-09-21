@@ -19,7 +19,8 @@ import logging
 from typing import Any
 
 import httpx
-from sqlalchemy import func, select, text
+from geoalchemy2 import Geography
+from sqlalchemy import cast, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.database import SessionLocal
@@ -209,6 +210,69 @@ async def import_bbox(south: float, west: float, north: float, east: float,
     elements = await fetch(south, west, north, east)
     logger.info("%d elements returned", len(elements))
     return await store(elements, district)
+
+
+#: How far around a listing the surroundings are fetched, and how many
+#: facilities within that distance count as "already covered".
+COVERAGE_KM = 3.0
+COVERAGE_MIN = 5
+
+#: Areas being fetched right now, so two page loads for neighbouring parcels
+#: do not both ask Overpass for the same square kilometres.
+_in_flight: set[str] = set()
+
+
+def _coverage_key(lat: float, lng: float) -> str:
+    # About a 1 km grid: near enough that neighbours share a fetch.
+    return f"{round(lat, 2)},{round(lng, 2)}"
+
+
+async def has_coverage(lat: float, lng: float, radius_km: float = COVERAGE_KM) -> bool:
+    """Whether we already know what is around this point."""
+    here = cast(func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326), Geography)
+    async with SessionLocal() as db:
+        count = await db.scalar(
+            select(func.count())
+            .select_from(Facility)
+            .where(
+                Facility.is_active.is_(True),
+                func.ST_DWithin(cast(Facility.geom, Geography), here, radius_km * 1000),
+            )
+        )
+    return (count or 0) >= COVERAGE_MIN
+
+
+async def ensure_coverage(lat: float | None, lng: float | None, radius_km: float = COVERAGE_KM) -> bool:
+    """Fetch the surroundings of one point from OpenStreetMap if we have none.
+
+    Called in the background when a listing is saved and when its page is
+    opened, so a parcel in a district nobody has imported still gets its
+    distances — a minute after it is first looked at rather than never.
+    Returns whether a fetch was made.
+    """
+    if lat is None or lng is None:
+        return False
+    key = _coverage_key(lat, lng)
+    if key in _in_flight:
+        return False
+    try:
+        if await has_coverage(lat, lng, radius_km):
+            return False
+    except Exception:  # noqa: BLE001 — a coverage check must never break a page
+        logger.exception("coverage check failed")
+        return False
+
+    _in_flight.add(key)
+    try:
+        pad = radius_km / 111.0
+        logger.info("fetching surroundings around %.4f, %.4f", lat, lng)
+        await import_bbox(lat - pad, lng - pad, lat + pad, lng + pad)
+        return True
+    except Exception:  # noqa: BLE001
+        logger.exception("Overpass fetch around %.4f, %.4f failed", lat, lng)
+        return False
+    finally:
+        _in_flight.discard(key)
 
 
 async def import_around_listings(pad_km: float = 5.0) -> dict[str, int]:
