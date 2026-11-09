@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy import func, or_, select
@@ -37,6 +37,8 @@ from evaramu.modules.billing.schemas import (
     AllocationIn,
     AllocationOut,
     ApproveIn,
+    CoverageMonth,
+    CoverageOut,
     GenerateIn,
     GenerateOut,
     InvoiceDetail,
@@ -124,6 +126,7 @@ def payments_out(db: Session, rows: list[Payment], *, with_duplicates: bool = Fa
             allocated_amount=p.allocated_amount if p.status == PaymentStatus.APPROVED.value else Decimal("0"),
             unapplied_amount=p.unapplied_amount if p.status == PaymentStatus.APPROVED.value else Decimal("0"),
             allocations=[_alloc_out(a, p) for a in p.allocations], possible_duplicate_of=dups,
+            months_covered=p.months_covered,
         ))
     return out
 
@@ -378,6 +381,25 @@ def list_payments(
 _alloc_adapter = TypeAdapter(list[AllocationIn])
 
 
+@router.get("/payments/coverage", response_model=CoverageOut, dependencies=[Depends(require("payments.record"))])
+def payment_coverage(db: DB, agreement_id: int, months: Annotated[int, Query(ge=1, le=service.MAX_MONTHS)] = 1):
+    """Which months a payment covering ``months`` months would pay, and how much that is."""
+    ag = db.execute(select(RentalAgreement).where(RentalAgreement.id == agreement_id)).unique().scalar_one_or_none()
+    if ag is None:
+        raise NotFound("Rental agreement not found")
+    plan = service.coverage_plan(db, ag, months)
+    return CoverageOut(
+        agreement_id=ag.id, currency=ag.currency, requested=months, available=len(plan),
+        total=sum((e["amount_due"] for e in plan), Decimal("0")),
+        months=[CoverageMonth(
+            period=f"{e['year']:04d}-{e['month']:02d}",
+            label=date(e["year"], e["month"], 1).strftime("%B %Y"),
+            amount_due=e["amount_due"],
+            invoice_number=e["invoice"].invoice_number if e["invoice"] else None,
+        ) for e in plan],
+    )
+
+
 @router.post("/payments", response_model=PaymentOut, status_code=201)
 def record_payment(
     request: Request, db: DB,
@@ -392,6 +414,8 @@ def record_payment(
     allocations: Annotated[str, Form(description='JSON: [{"invoice_id": 1, "amount": "1000"}]')] = "[]",
     evidence: Annotated[UploadFile | None, File(description="Optional receipt / screenshot (image or PDF)")] = None,
     auto_approve: Annotated[bool, Form(description="Approve immediately (needs payments.approve)")] = False,
+    months_covered: Annotated[int | None, Form(ge=1, le=service.MAX_MONTHS,
+                                               description="Pay this many unpaid months of rent, oldest first")] = None,
 ):
     if auto_approve and "payments.approve" not in actor.permission_codes:
         raise Forbidden("You can record this payment, but approving it needs the payments approval permission.")
@@ -403,7 +427,7 @@ def record_payment(
         "agreement_id": agreement_id, "amount": amount, "payment_date": payment_date,
         "method_code": method_code, "currency": currency.value if currency else None,
         "transaction_reference": transaction_reference, "notes": notes,
-        "allocations": [a.model_dump() for a in allocs],
+        "allocations": [a.model_dump() for a in allocs], "months_covered": months_covered,
     }
     if evidence is not None and evidence.filename:
         limit = get_settings().MAX_UPLOAD_MB * 1024 * 1024

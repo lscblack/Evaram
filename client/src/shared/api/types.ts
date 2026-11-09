@@ -42,6 +42,8 @@ export type DepositOut = S['DepositOut']
 export type InvoiceOut = S['InvoiceOut']
 export type InvoiceDetail = S['InvoiceDetail']
 export type PaymentOut = S['PaymentOut']
+export type CoverageOut = S['CoverageOut']
+export type DeletePreview = S['DeletePreview']
 export type PaymentMethodOut = S['PaymentMethodOut']
 export type GenerateOut = S['GenerateOut']
 

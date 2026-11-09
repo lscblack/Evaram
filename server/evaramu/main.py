@@ -25,6 +25,7 @@ from evaramu.modules.identity.router import auth_router, roles_router, users_rou
 from evaramu.modules.properties.router import router as properties_router
 from evaramu.modules.public.router import router as public_router
 from evaramu.modules.reports.router import router as reports_router
+from evaramu.modules.system.deletion import router as deletion_router
 from evaramu.modules.system.router import router as system_router
 from evaramu.modules.tenants.router import router as tenants_router
 
@@ -93,7 +94,7 @@ def create_app() -> FastAPI:
 
     api = s.API_PREFIX
     for r in (auth_router, users_router, roles_router, properties_router, tenants_router, agreements_router, documents_router,
-              billing_router, reports_router, system_router, public_router):
+              billing_router, reports_router, system_router, deletion_router, public_router):
         app.include_router(r, prefix=api)
 
     # Public property photographs (re-encoded WebP only). Payment evidence

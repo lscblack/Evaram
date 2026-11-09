@@ -17,6 +17,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { DuplicateWarning } from './components'
 import { PaymentReviewDialogs, type ReviewMode } from './PaymentReview'
+import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 
 export default function PaymentDetailPage() {
   const { id } = useParams()
@@ -60,6 +61,7 @@ export default function PaymentDetailPage() {
                 Reverse
               </Button>
             ) : null}
+            <DeleteRecordButton kind="payment" id={p.id} name={p.payment_number} redirectTo="/admin/finance/payments" />
           </Can>
         }
       />
@@ -78,6 +80,7 @@ export default function PaymentDetailPage() {
                   { label: 'Agreement', value: <Link className="text-brand-700 hover:underline" to={`/admin/agreements/${p.agreement_id}`}>{p.agreement_number}</Link> },
                   { label: 'Unit', value: `${p.unit_code} · ${p.property_name}` },
                   { label: 'Currency', value: p.currency },
+                  ...(p.months_covered ? [{ label: 'Covers', value: `${p.months_covered} months of rent` }] : []),
                   { label: 'Transaction reference', value: p.transaction_reference ? <span className="break-all font-mono">{p.transaction_reference}</span> : '—' },
                   {
                     label: 'Evidence',

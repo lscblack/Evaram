@@ -29,6 +29,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { addDays, ExpiryHint, moneyError, moneyInput, period } from './shared'
 import { openPrint } from './documents/DocumentPage'
+import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 
 type Modal = null | 'edit' | 'activate' | 'cancel' | 'renew' | 'terminate' | 'moveout' | 'deposit'
 
@@ -111,6 +112,7 @@ export default function AgreementDetailPage() {
                 </ButtonLink>
               </Can>
             ) : null}
+            <DeleteRecordButton kind="agreement" id={a.id} name={`agreement ${a.agreement_number}`} redirectTo="/admin/agreements" />
           </>
         }
       />

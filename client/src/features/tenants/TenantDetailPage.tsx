@@ -17,6 +17,7 @@ import { Avatar, CurrencyAmounts, Tabs } from '@/shared/ui/Misc'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { TenantFormDialog } from './TenantFormDialog'
+import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 
 type Tab = 'agreements' | 'invoices' | 'payments'
 
@@ -82,8 +83,11 @@ export default function TenantDetailPage() {
                   Archive
                 </Button>
               </Can>
+              <DeleteRecordButton kind="tenant" id={t.id} name={t.full_name} redirectTo="/admin/tenants" />
             </>
-          ) : null
+          ) : (
+            <DeleteRecordButton kind="tenant" id={t.id} name={t.full_name} redirectTo="/admin/tenants" />
+          )
         }
       />
 

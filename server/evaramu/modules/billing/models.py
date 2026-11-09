@@ -184,6 +184,7 @@ class Payment(TimestampMixin, Base):
         enum_check("status", PaymentStatus),
         enum_check("currency", Currency),
         CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint("months_covered IS NULL OR months_covered BETWEEN 1 AND 24", name="months_covered_range"),
         # A provider reference can back only one live (pending/approved) payment.
         Index(
             "uq_payments_live_reference",
@@ -206,6 +207,9 @@ class Payment(TimestampMixin, Base):
     method_code: Mapped[str] = mapped_column(ForeignKey("payment_methods.code", ondelete="RESTRICT"))
     transaction_reference: Mapped[str] = mapped_column(String(120), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
+    #: Rent paid ahead for this many months: on approval the next unpaid months'
+    #: rent invoices are created if needed and paid oldest first.
+    months_covered: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16), default=PaymentStatus.PENDING.value)
     evidence_key: Mapped[str | None] = mapped_column(String(255))
     evidence_name: Mapped[str | None] = mapped_column(String(255))

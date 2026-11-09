@@ -20,6 +20,7 @@ import { PhotoManager } from './PhotoManager'
 import { HistoryTimeline } from './shared'
 import { unitColumns, UnitMobileRow } from './unitList'
 import { UnitFormDialog } from './UnitFormDialog'
+import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 
 type Tab = 'units' | 'photos' | 'details' | 'history'
 
@@ -80,8 +81,11 @@ export default function PropertyDetailPage() {
               <Button icon={Plus} onClick={() => setAddUnit(true)}>
                 Add unit
               </Button>
+              <DeleteRecordButton kind="property" id={p.id} name={p.name} redirectTo="/admin/properties" />
             </>
-          ) : null
+          ) : (
+            <DeleteRecordButton kind="property" id={p.id} name={p.name} redirectTo="/admin/properties" />
+          )
         }
       />
 

@@ -29,6 +29,7 @@ PERMISSIONS: dict[str, tuple[str, str]] = {
     "roles.manage": ("Administration", "Manage roles and permissions"),
     "settings.manage": ("Administration", "Change system settings"),
     "audit.view": ("Administration", "View the audit log"),
+    "records.delete": ("Administration", "Permanently delete records and everything linked to them"),
 }
 
 ADMIN_ROLE = "Administrator"

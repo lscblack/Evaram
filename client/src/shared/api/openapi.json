@@ -4715,6 +4715,66 @@
     }
    }
   },
+  "/api/v1/payments/coverage": {
+   "get": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Payment Coverage",
+    "description": "Which months a payment covering ``months`` months would pay, and how much that is.",
+    "operationId": "payment_coverage_api_v1_payments_coverage_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "agreement_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Agreement Id"
+      }
+     },
+     {
+      "name": "months",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 24,
+       "minimum": 1,
+       "default": 1,
+       "title": "Months"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CoverageOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/payments/{payment_id}": {
    "get": {
     "tags": [
@@ -6776,6 +6836,134 @@
     ]
    }
   },
+  "/api/v1/records/{kind}/{record_id}/delete-preview": {
+   "get": {
+    "tags": [
+     "deletion"
+    ],
+    "summary": "Delete Preview",
+    "operationId": "delete_preview_api_v1_records__kind___record_id__delete_preview_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "kind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "payment",
+        "invoice",
+        "agreement",
+        "tenant",
+        "unit",
+        "property"
+       ],
+       "type": "string",
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "record_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Record Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DeletePreview"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/records/{kind}/{record_id}": {
+   "delete": {
+    "tags": [
+     "deletion"
+    ],
+    "summary": "Delete Record",
+    "operationId": "delete_record_api_v1_records__kind___record_id__delete",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "kind",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "payment",
+        "invoice",
+        "agreement",
+        "tenant",
+        "unit",
+        "property"
+       ],
+       "type": "string",
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "record_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Record Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DeletePreview"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/public/exchange-rate": {
    "get": {
     "tags": [
@@ -8129,6 +8317,20 @@
       "title": "Auto Approve",
       "description": "Approve immediately (needs payments.approve)",
       "default": false
+     },
+     "months_covered": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 24.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Months Covered",
+      "description": "Pay this many unpaid months of rent, oldest first"
      }
     },
     "type": "object",
@@ -8216,6 +8418,82 @@
     ],
     "title": "CodeVerify"
    },
+   "CoverageMonth": {
+    "properties": {
+     "period": {
+      "type": "string",
+      "title": "Period"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "amount_due": {
+      "type": "string",
+      "title": "Amount Due"
+     },
+     "invoice_number": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Invoice Number"
+     }
+    },
+    "type": "object",
+    "required": [
+     "period",
+     "label",
+     "amount_due",
+     "invoice_number"
+    ],
+    "title": "CoverageMonth"
+   },
+   "CoverageOut": {
+    "properties": {
+     "agreement_id": {
+      "type": "integer",
+      "title": "Agreement Id"
+     },
+     "currency": {
+      "type": "string",
+      "title": "Currency"
+     },
+     "requested": {
+      "type": "integer",
+      "title": "Requested"
+     },
+     "available": {
+      "type": "integer",
+      "title": "Available"
+     },
+     "total": {
+      "type": "string",
+      "title": "Total"
+     },
+     "months": {
+      "items": {
+       "$ref": "#/components/schemas/CoverageMonth"
+      },
+      "type": "array",
+      "title": "Months"
+     }
+    },
+    "type": "object",
+    "required": [
+     "agreement_id",
+     "currency",
+     "requested",
+     "available",
+     "total",
+     "months"
+    ],
+    "title": "CoverageOut"
+   },
    "Currency": {
     "type": "string",
     "enum": [
@@ -8274,6 +8552,58 @@
      "property_name"
     ],
     "title": "CurrentTenancy"
+   },
+   "DeletePreview": {
+    "properties": {
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "removes": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Removes"
+     },
+     "approved_money_removed": {
+      "items": {
+       "$ref": "#/components/schemas/MoneyLine"
+      },
+      "type": "array",
+      "title": "Approved Money Removed"
+     },
+     "invoices_reopened": {
+      "type": "integer",
+      "title": "Invoices Reopened"
+     },
+     "payments_to_credit": {
+      "type": "integer",
+      "title": "Payments To Credit"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind",
+     "label",
+     "removes",
+     "approved_money_removed",
+     "invoices_reopened",
+     "payments_to_credit",
+     "warnings"
+    ],
+    "title": "DeletePreview"
    },
    "DemoCleared": {
     "properties": {
@@ -9927,6 +10257,24 @@
     ],
     "title": "Message"
    },
+   "MoneyLine": {
+    "properties": {
+     "currency": {
+      "type": "string",
+      "title": "Currency"
+     },
+     "amount": {
+      "type": "string",
+      "title": "Amount"
+     }
+    },
+    "type": "object",
+    "required": [
+     "currency",
+     "amount"
+    ],
+    "title": "MoneyLine"
+   },
    "MoveOutIn": {
     "properties": {
      "move_out_date": {
@@ -10767,6 +11115,17 @@
       "type": "array",
       "title": "Possible Duplicate Of",
       "default": []
+     },
+     "months_covered": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Months Covered"
      }
     },
     "type": "object",

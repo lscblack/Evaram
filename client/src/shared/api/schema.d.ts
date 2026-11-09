@@ -1178,6 +1178,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Payment Coverage
+         * @description Which months a payment covering ``months`` months would pay, and how much that is.
+         */
+        get: operations["payment_coverage_api_v1_payments_coverage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payments/{payment_id}": {
         parameters: {
             query?: never;
@@ -1664,6 +1684,40 @@ export interface paths {
         post: operations["load_demo_api_v1_system_demo_data_post"];
         /** Clear Demo */
         delete: operations["clear_demo_api_v1_system_demo_data_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{kind}/{record_id}/delete-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Delete Preview */
+        get: operations["delete_preview_api_v1_records__kind___record_id__delete_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{kind}/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Record */
+        delete: operations["delete_record_api_v1_records__kind___record_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2170,6 +2224,11 @@ export interface components {
              * @default false
              */
             auto_approve: boolean;
+            /**
+             * Months Covered
+             * @description Pay this many unpaid months of rent, oldest first
+             */
+            months_covered?: number | null;
         };
         /** Body_upload_images_api_v1_properties__property_id__images_post */
         Body_upload_images_api_v1_properties__property_id__images_post: {
@@ -2204,6 +2263,32 @@ export interface components {
             /** Code */
             code: string;
         };
+        /** CoverageMonth */
+        CoverageMonth: {
+            /** Period */
+            period: string;
+            /** Label */
+            label: string;
+            /** Amount Due */
+            amount_due: string;
+            /** Invoice Number */
+            invoice_number: string | null;
+        };
+        /** CoverageOut */
+        CoverageOut: {
+            /** Agreement Id */
+            agreement_id: number;
+            /** Currency */
+            currency: string;
+            /** Requested */
+            requested: number;
+            /** Available */
+            available: number;
+            /** Total */
+            total: string;
+            /** Months */
+            months: components["schemas"]["CoverageMonth"][];
+        };
         /**
          * Currency
          * @enum {string}
@@ -2228,6 +2313,25 @@ export interface components {
             unit_code: string;
             /** Property Name */
             property_name: string;
+        };
+        /** DeletePreview */
+        DeletePreview: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Removes */
+            removes: {
+                [key: string]: number;
+            };
+            /** Approved Money Removed */
+            approved_money_removed: components["schemas"]["MoneyLine"][];
+            /** Invoices Reopened */
+            invoices_reopened: number;
+            /** Payments To Credit */
+            payments_to_credit: number;
+            /** Warnings */
+            warnings: string[];
         };
         /** DemoCleared */
         DemoCleared: {
@@ -2839,6 +2943,13 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** MoneyLine */
+        MoneyLine: {
+            /** Currency */
+            currency: string;
+            /** Amount */
+            amount: string;
+        };
         /** MoveOutIn */
         MoveOutIn: {
             /**
@@ -3165,6 +3276,8 @@ export interface components {
              * @default []
              */
             possible_duplicate_of: string[];
+            /** Months Covered */
+            months_covered?: number | null;
         };
         /**
          * PaymentStatus
@@ -7160,6 +7273,38 @@ export interface operations {
             };
         };
     };
+    payment_coverage_api_v1_payments_coverage_get: {
+        parameters: {
+            query: {
+                agreement_id: number;
+                months?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_payment_api_v1_payments__payment_id__get: {
         parameters: {
             query?: never;
@@ -8085,6 +8230,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DemoCleared"];
+                };
+            };
+        };
+    };
+    delete_preview_api_v1_records__kind___record_id__delete_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "payment" | "invoice" | "agreement" | "tenant" | "unit" | "property";
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_record_api_v1_records__kind___record_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "payment" | "invoice" | "agreement" | "tenant" | "unit" | "property";
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

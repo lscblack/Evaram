@@ -21,6 +21,7 @@ import { HistoryTimeline, ListedIndicator } from './shared'
 import { StatusDialog, usePublishToggle } from './UnitActions'
 import { UnitFormDialog } from './UnitFormDialog'
 import { unitColumns, UnitMobileRow } from './unitList'
+import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 
 type Tab = 'details' | 'photos' | 'history'
 
@@ -176,6 +177,7 @@ function UnitView({
                 ) : null}
               </>
             ) : null}
+            <DeleteRecordButton kind="unit" id={unit.id} name={`unit ${unit.code}`} redirectTo={`/admin/properties/${p.id}`} />
           </>
         }
       />

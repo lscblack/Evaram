@@ -125,5 +125,13 @@ def evidence_path(key: str) -> Path:
     return path
 
 
+def delete_evidence(*keys: str) -> None:
+    root = get_settings().PRIVATE_ROOT.resolve()
+    for key in keys:
+        path = (root / key).resolve()
+        if root in path.parents and path.is_file():
+            path.unlink()
+
+
 def media_url(key: str | None) -> str | None:
     return f"/media/{key}" if key else None

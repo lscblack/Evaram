@@ -20,6 +20,7 @@ import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { amountError, periodLabel } from './components'
 import { InvoicePdfButton, WhatsAppInvoiceButton } from './InvoiceShare'
 import { RecordPaymentDialog } from './RecordPaymentDialog'
+import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 
 export default function InvoiceDetailPage() {
   const { id } = useParams()
@@ -77,6 +78,7 @@ export default function InvoiceDetailPage() {
                   </Button>
                 </Can>
               ) : null}
+              <DeleteRecordButton kind="invoice" id={inv.id} name={inv.invoice_number} redirectTo="/admin/finance/invoices" />
             </>
           }
         />

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BadgeCheck, Info, Paperclip } from 'lucide-react'
+import { BadgeCheck, CalendarRange, Info, Paperclip } from 'lucide-react'
 import { api, ApiError } from '@/shared/api/client'
-import type { AgreementOut, InvoiceOut, Page, PaymentOut } from '@/shared/api/types'
+import type { AgreementOut, CoverageOut, InvoiceOut, Page, PaymentOut } from '@/shared/api/types'
 import { formatDate, formatMoney, todayISO } from '@/shared/lib/format'
 import { useApiMutation } from '@/shared/lib/useApiMutation'
 import { useAuth } from '@/shared/auth/AuthProvider'
@@ -33,6 +33,8 @@ export function RecordPaymentDialog({
   const [file, setFile] = useState<File | null>(null)
   const [alloc, setAlloc] = useState<Record<number, string>>({})
   const [touched, setTouched] = useState(false)
+  const [months, setMonths] = useState(1)
+  const [autoAmount, setAutoAmount] = useState<string | null>(null)
   const methods = usePaymentMethods()
 
   // Reset when the dialog closes (not on open: the agreement picker may
@@ -47,6 +49,8 @@ export function RecordPaymentDialog({
       setFile(null)
       setAlloc({})
       setTouched(false)
+      setMonths(1)
+      setAutoAmount(null)
     }
   }, [open])
   useEffect(() => {
@@ -58,6 +62,21 @@ export function RecordPaymentDialog({
     queryFn: () => api.get<Page<InvoiceOut>>('/invoices', { agreement_id: agreement!.id, open_only: true, page_size: 50 }),
     enabled: !!agreement,
   })
+
+  // Several months at once: the server lists the next unpaid months and their rent.
+  const coverage = useQuery({
+    queryKey: ['payments', 'coverage', agreement?.id, months],
+    queryFn: () => api.get<CoverageOut>('/payments/coverage', { agreement_id: agreement!.id, months }),
+    enabled: !!agreement && months > 1,
+  })
+  const coverageTotal = months > 1 ? coverage.data?.total.replace(/\.00$/, '') : undefined
+  useEffect(() => {
+    // Fill the amount with the months' total unless the user typed their own.
+    if (!coverageTotal) return
+    setAmount((a) => (a === '' || a === autoAmount ? coverageTotal : a))
+    setAutoAmount(coverageTotal)
+  }, [coverageTotal])
+  const monthsShort = months > 1 && coverage.data ? coverage.data.available < months : false
 
   // Prefill allocation for the invoice the dialog was opened from.
   useEffect(() => {
@@ -71,7 +90,7 @@ export function RecordPaymentDialog({
 
   const currency = agreement?.currency ?? 'RWF'
   const amountErr = amountError(amount, currency)
-  const allocEntries = Object.entries(alloc).filter(([, v]) => v.trim() !== '')
+  const allocEntries = months > 1 ? [] : Object.entries(alloc).filter(([, v]) => v.trim() !== '')
   const allocErrs = useMemo(() => {
     const errs: Record<string, string> = {}
     for (const [id, v] of allocEntries) {
@@ -105,6 +124,7 @@ export function RecordPaymentDialog({
       fd.set('allocations', JSON.stringify(allocEntries.map(([id, v]) => ({ invoice_id: Number(id), amount: v.trim() }))))
       if (file) fd.set('evidence', file)
       if (approveNow) fd.set('auto_approve', 'true')
+      if (months > 1) fd.set('months_covered', String(months))
       return api.upload<PaymentOut>('/payments', fd)
     },
     {
@@ -125,7 +145,7 @@ export function RecordPaymentDialog({
 
   function submit() {
     setTouched(true)
-    if (!agreement || amountErr || dateErr || allocOver || Object.keys(allocErrs).length || !method) return
+    if (!agreement || amountErr || dateErr || allocOver || Object.keys(allocErrs).length || !method || monthsShort) return
     record.mutate(undefined)
   }
 
@@ -192,6 +212,60 @@ export function RecordPaymentDialog({
                 <Input value={reference} onChange={(e) => setReference(e.target.value)} aria-invalid={dupRef} />
               </Field>
             </FormGrid>
+            <Field label="Months this payment covers" hint="Paying ahead? Pick the number of months — their invoices are created and paid oldest first.">
+              <Select value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24].map((n) => (
+                  <option key={n} value={n}>
+                    {n === 1 ? '1 month (or choose invoices below)' : `${n} months`}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {months > 1 ? (
+              <div className="rounded-lg border border-slate-200">
+                <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm font-medium text-slate-700">
+                  <CalendarRange className="size-4 text-brand-600" /> Months paid by this payment
+                </div>
+                {coverage.isLoading ? (
+                  <p className="p-3 text-sm text-slate-500">Working out the months…</p>
+                ) : coverage.data ? (
+                  <>
+                    <ul className="divide-y divide-slate-100 text-sm" aria-label="Months covered">
+                      {coverage.data.months.map((m) => (
+                        <li key={m.period} className="flex items-center justify-between gap-3 px-3 py-2">
+                          <span className="text-slate-800">
+                            {m.label}
+                            <span className="ml-2 text-xs text-slate-500">{m.invoice_number ?? 'invoice created on approval'}</span>
+                          </span>
+                          <span className="font-medium tabular-nums text-slate-900">{formatMoney(m.amount_due, coverage.data!.currency)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                      <span className="font-medium text-slate-700">Total for {coverage.data.available} month(s)</span>
+                      <span className="font-semibold tabular-nums text-slate-900">{formatMoney(coverage.data.total, coverage.data.currency)}</span>
+                    </div>
+                    {monthsShort ? (
+                      <p className="border-t border-slate-200 px-3 py-2 text-sm text-red-600">
+                        Only {coverage.data.available} unpaid month(s) remain before this agreement ends.
+                      </p>
+                    ) : amount && Number(amount) < Number(coverage.data.total) ? (
+                      <p className="border-t border-slate-200 px-3 py-2 text-sm text-amber-700">
+                        The amount is less than the total: the oldest months are paid first, the last one partly.
+                      </p>
+                    ) : amount && Number(amount) > Number(coverage.data.total) ? (
+                      <p className="border-t border-slate-200 px-3 py-2 text-sm text-slate-600">
+                        The extra goes to other open invoices, or is kept as credit.
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="p-3">
+                    <FormError message={coverage.error ? 'Could not work out the months.' : null} />
+                  </div>
+                )}
+              </div>
+            ) : (
             <div>
               <p className="text-sm font-medium text-slate-700">Apply to invoices (optional)</p>
               <p className="mb-2 text-sm text-slate-500">Leave empty to apply automatically to the oldest open invoices{approveNow ? '' : ' when approved'}.</p>
@@ -226,6 +300,7 @@ export function RecordPaymentDialog({
               )}
               {allocOver ? <p className="mt-2 text-sm text-red-600">Allocations add up to more than the amount received.</p> : null}
             </div>
+            )}
             <Field label="Internal notes">
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
             </Field>

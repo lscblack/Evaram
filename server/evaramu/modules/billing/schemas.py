@@ -165,6 +165,23 @@ class PaymentOut(BaseModel):
     unapplied_amount: MoneyOut
     allocations: list[AllocationOut]
     possible_duplicate_of: list[str] = []
+    months_covered: int | None = None
+
+
+class CoverageMonth(BaseModel):
+    period: str               # YYYY-MM
+    label: str                # "November 2026"
+    amount_due: MoneyOut
+    invoice_number: str | None  # None: the invoice is created when the payment is approved
+
+
+class CoverageOut(BaseModel):
+    agreement_id: int
+    currency: str
+    requested: int
+    available: int
+    total: MoneyOut
+    months: list[CoverageMonth]
 
 
 class ApproveIn(BaseModel):

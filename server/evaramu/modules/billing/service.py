@@ -123,6 +123,42 @@ def _create_invoice(db: Session, ag: RentalAgreement, *, kind: str, period: tupl
     return inv
 
 
+def _rent_invoice_for(db: Session, ag: RentalAgreement, year: int, month: int) -> Invoice | None:
+    first, last = month_bounds(year, month)
+    return db.execute(select(Invoice).where(
+        Invoice.agreement_id == ag.id, Invoice.kind == InvoiceKind.RENT.value,
+        Invoice.period_start >= first, Invoice.period_start <= last, Invoice.status != InvoiceStatus.VOID.value,
+    ).order_by(Invoice.id)).unique().scalars().first()
+
+
+def _ensure_rent_invoice(db: Session, ag: RentalAgreement, year: int, month: int, *, actor: User | None,
+                         today: date) -> tuple[Invoice | None, bool]:
+    """The month's rent invoice for one agreement, created if missing.
+    Returns (invoice or None when the agreement does not cover the month, created)."""
+    covered = rent_for_period(ag, year, month)
+    if covered is None:
+        return None, False
+    start, end, amount = covered
+    existing = _rent_invoice_for(db, ag, year, month)
+    if existing:
+        return existing, False
+    first, last = month_bounds(year, month)
+    due = date(year, month, min(ag.due_day, calendar.monthrange(year, month)[1]))
+    label = f"Rent {first.strftime('%B %Y')} — {ag.unit.code}"
+    if (start, end) != (first, last):
+        label += f" ({start.day}–{end.day} {first.strftime('%b')}, prorated)"
+    try:
+        with db.begin_nested():
+            inv = _create_invoice(
+                db, ag, kind=InvoiceKind.RENT.value, period=(start, end), issue_date=start,
+                due_date=due, items=[(InvoiceItemKind.RENT.value, label, amount)], notes="",
+                actor=actor, today=today,
+            )
+    except IntegrityError:
+        return _rent_invoice_for(db, ag, year, month), False  # created concurrently
+    return inv, True
+
+
 def generate_rent_invoices(db: Session, year: int, month: int, *, actor: User | None,
                            today: date | None = None, agreement_id: int | None = None) -> dict:
     """Create the month's rent invoice for every active agreement that does not
@@ -139,37 +175,63 @@ def generate_rent_invoices(db: Session, year: int, month: int, *, actor: User | 
     created: list[Invoice] = []
     skipped = 0
     for ag in db.execute(stmt.order_by(RentalAgreement.id)).unique().scalars():
-        covered = rent_for_period(ag, year, month)
-        if covered is None:
+        inv, made = _ensure_rent_invoice(db, ag, year, month, actor=actor, today=today)
+        if made and inv is not None:
+            created.append(inv)
+        else:
             skipped += 1
-            continue
-        start, end, amount = covered
-        exists = db.execute(select(Invoice.id).where(
-            Invoice.agreement_id == ag.id, Invoice.kind == InvoiceKind.RENT.value,
-            Invoice.period_start == start, Invoice.status != InvoiceStatus.VOID.value,
-        )).first()
-        if exists:
-            skipped += 1
-            continue
-        due = date(year, month, min(ag.due_day, calendar.monthrange(year, month)[1]))
-        label = f"Rent {first.strftime('%B %Y')} — {ag.unit.code}"
-        if (start, end) != (first, last):
-            label += f" ({start.day}–{end.day} {first.strftime('%b')}, prorated)"
-        try:
-            with db.begin_nested():
-                inv = _create_invoice(
-                    db, ag, kind=InvoiceKind.RENT.value, period=(start, end), issue_date=start,
-                    due_date=due, items=[(InvoiceItemKind.RENT.value, label, amount)], notes="",
-                    actor=actor, today=today,
-                )
-        except IntegrityError:
-            skipped += 1  # created concurrently by another run
-            continue
-        created.append(inv)
     if created:
         audit(db, actor=actor, action="invoices.generated", entity_type="invoice", entity_id=None,
               summary=f"Generated {len(created)} rent invoice(s) for {first.strftime('%B %Y')}")
     return {"created": created, "skipped": skipped, "period": first.strftime("%Y-%m")}
+
+
+# ---------------------------------------------------------- months ahead ----
+
+MAX_MONTHS = 24
+
+
+def _next_month(y: int, m: int) -> tuple[int, int]:
+    return (y + 1, 1) if m == 12 else (y, m + 1)
+
+
+def coverage_plan(db: Session, ag: RentalAgreement, months: int, *, today: date | None = None) -> list[dict]:
+    """The next ``months`` unpaid months of rent, oldest first.
+
+    Starts at the oldest open rent invoice; without one, at the month after the
+    last rent invoice (or this month / the agreement's first month). Fully paid
+    months are skipped; months after the agreement ends are never included.
+    Each entry: year, month, invoice (or None: not created yet), amount_due."""
+    today = today or date.today()
+    rent = select(Invoice).where(Invoice.agreement_id == ag.id, Invoice.kind == InvoiceKind.RENT.value,
+                                 Invoice.status != InvoiceStatus.VOID.value)
+    oldest_open = db.execute(rent.where(Invoice.status.in_(ledger.OPEN_STATUSES), ledger.BALANCE > 0)
+                             .order_by(Invoice.period_start)).unique().scalars().first()
+    if oldest_open and oldest_open.period_start:
+        y, m = oldest_open.period_start.year, oldest_open.period_start.month
+    else:
+        latest = db.execute(rent.order_by(Invoice.period_start.desc())).unique().scalars().first()
+        if latest and latest.period_start:
+            y, m = _next_month(latest.period_start.year, latest.period_start.month)
+        else:
+            begin = max(ag.start_date, today.replace(day=1))
+            y, m = begin.year, begin.month
+    plan: list[dict] = []
+    for _ in range(months + 36):  # bounded walk past already-paid months
+        if len(plan) >= months:
+            break
+        covered = rent_for_period(ag, y, m)
+        if covered is None:
+            if date(y, m, 1) > ag.start_date:
+                break  # past the end of the agreement
+            y, m = _next_month(y, m)
+            continue
+        inv = _rent_invoice_for(db, ag, y, m)
+        due = inv.balance_due if inv else covered[2]
+        if due > 0:
+            plan.append({"year": y, "month": m, "invoice": inv, "amount_due": due})
+        y, m = _next_month(y, m)
+    return plan
 
 
 def create_manual_invoice(db: Session, ag: RentalAgreement, *, issue_date: date, due_date: date,
@@ -274,9 +336,19 @@ def record_payment(db: Session, data: dict, *, actor: User, request: Request | N
         payment_date=data["payment_date"], method_code=data["method_code"], transaction_reference=reference,
         notes=data.get("notes") or "", status=PaymentStatus.PENDING.value, recorded_by_id=actor.id,
         evidence_key=data.get("evidence_key"), evidence_name=data.get("evidence_name"),
-        rejection_reason="", reversal_reason="",
+        rejection_reason="", reversal_reason="", months_covered=data.get("months_covered") or None,
     )
     requested = data.get("allocations") or []
+    if payment.months_covered:
+        if requested:
+            raise DomainError("Choose either the months this payment covers or the invoices to apply it to, not both")
+        if not 1 <= payment.months_covered <= MAX_MONTHS:
+            raise DomainError(f"A payment can cover 1 to {MAX_MONTHS} months")
+        if ag.status != AgreementStatus.ACTIVE.value:
+            raise Conflict("Months ahead can only be paid on an active agreement")
+        available = len(coverage_plan(db, ag, payment.months_covered))
+        if available < payment.months_covered:
+            raise DomainError(f"Only {available} unpaid month(s) of rent remain on this agreement", code="months_unavailable")
     total = ZERO
     seen: set[int] = set()
     for alloc in requested:
@@ -343,6 +415,28 @@ def _allocate(db: Session, p: Payment, *, today: date, auto: bool) -> set[int]:
         remaining -= cap
         touched.add(inv.id)
     db.flush()
+    if p.months_covered and remaining > 0:
+        ag = p.agreement
+        for entry in coverage_plan(db, ag, p.months_covered, today=today):
+            if remaining <= 0:
+                break
+            inv, _made = _ensure_rent_invoice(db, ag, entry["year"], entry["month"], actor=None, today=today)
+            if inv is None:
+                continue
+            db.flush()
+            db.execute(select(Invoice.id).where(Invoice.id == inv.id).with_for_update())
+            existing = next((a for a in p.allocations if a.invoice_id == inv.id), None)
+            room = inv.balance_due - (existing.amount if existing else ZERO)
+            take = min(room, remaining)
+            if take <= 0:
+                continue
+            if existing:
+                existing.amount += take
+            else:
+                p.allocations.append(PaymentAllocation(invoice_id=inv.id, amount=take))
+            remaining -= take
+            touched.add(inv.id)
+        db.flush()
     if auto and remaining > 0:
         for inv in ledger.open_invoices(db, tenant_id=p.tenant_id, currency=p.currency,
                                         agreement_id=p.agreement_id, lock=True):
