@@ -72,3 +72,31 @@ test('delete a payment, then the whole tenant', async ({ page, request }) => {
   const unit = await api.get(`/units/${ag.unit_id}`)
   expect(unit.status).toBe('available')
 })
+
+test('edit an approved payment', async ({ page, request }) => {
+  const api = await Api.login(request)
+  const stamp = Date.now().toString().slice(-6)
+  const { ag } = await tenancy(api, stamp, '150000')
+  await api.post('/invoices/generate', { period: todayISO().slice(0, 7) })
+  const p = await api.multipart('/payments', {
+    agreement_id: String(ag.id), amount: '100000', payment_date: todayISO(), method_code: 'cash', auto_approve: 'true',
+  })
+
+  await loginUI(page)
+  await page.goto(`/admin/finance/payments/${p.id}`)
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  const dlg = page.getByRole('dialog', { name: `Edit ${p.payment_number}` })
+  await dlg.getByLabel(/^Amount received/).fill('150000')
+  await dlg.getByLabel(/^Transaction reference/).fill(`ED${stamp}`)
+  await dlg.getByRole('button', { name: 'Save changes' }).click()
+  await expect(dlg).toBeHidden()
+  await expect(page.getByText(`ED${stamp}`).first()).toBeVisible()
+  const invoices = await api.get(`/invoices?agreement_id=${ag.id}`)
+  expect(invoices.items[0].status).toBe('paid')
+})
+
+test('passkeys can be added from System settings', async ({ page }) => {
+  await loginUI(page)
+  await page.goto('/admin/settings')
+  await expect(page.getByRole('button', { name: 'Add a passkey' })).toBeVisible()
+})

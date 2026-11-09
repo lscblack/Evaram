@@ -234,3 +234,28 @@ def test_whatsapp_number_formats():
     assert whatsapp_number("+250 788 123 456") == "250788123456"
     assert whatsapp_number("0788123456") == "250788123456"
     assert whatsapp_number("250788123456") == "250788123456"
+
+
+def test_passkeys_follow_the_trusted_site_origin_when_public_site_url_is_wrong(client, monkeypatch):
+    """Production with PUBLIC_SITE_URL left at localhost still gets evaramu.rw passkeys."""
+    from evaramu.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "CORS_ORIGINS", "https://evaramu.rw,https://www.evaramu.rw")
+    make_user("pk@example.com", "Accountant")
+    h = {**login(client, "pk@example.com"), "Origin": "https://www.evaramu.rw"}
+    o = client.post("/api/v1/auth/passkeys/register/options", headers=h).json()
+    assert o["options"]["rp"]["id"] == "evaramu.rw"
+    auth = SoftAuthenticator()
+    r = client.post("/api/v1/auth/passkeys/register", headers=h, json={
+        "challenge_id": o["challenge_id"], "credential": auth.create(o["options"], origin="https://www.evaramu.rw"),
+        "name": "Phone"})
+    assert r.status_code == 201, r.text
+    # The same passkey signs in on the bare domain too.
+    lo = client.post("/api/v1/auth/passkeys/login/options", headers={"Origin": "https://evaramu.rw"}).json()
+    assert lo["options"]["rpId"] == "evaramu.rw"
+    ok = client.post("/api/v1/auth/passkeys/login", headers={"Origin": "https://evaramu.rw"}, json={
+        "challenge_id": lo["challenge_id"], "credential": auth.get(lo["options"], origin="https://evaramu.rw")})
+    assert ok.status_code == 200, ok.text
+    # An origin that is not trusted gets the configured RP, never its own.
+    evil = client.post("/api/v1/auth/passkeys/login/options", headers={"Origin": "https://evil.example"}).json()
+    assert evil["options"]["rpId"] == RP_ID

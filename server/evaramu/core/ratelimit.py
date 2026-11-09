@@ -14,6 +14,7 @@ from collections import defaultdict, deque
 
 from fastapi import Request
 
+from evaramu.core.config import get_settings
 from evaramu.core.errors import TooManyRequests
 
 
@@ -48,6 +49,6 @@ def client_ip(request: Request) -> str:
 
 def rate_limit(name: str, limit: int, window_seconds: int):
     def dependency(request: Request) -> None:
-        limiter.hit(f"{name}:{client_ip(request)}", limit, window_seconds)
+        limiter.hit(f"{name}:{client_ip(request)}", limit * get_settings().RATE_LIMIT_MULTIPLIER, window_seconds)
 
     return dependency

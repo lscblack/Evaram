@@ -12,6 +12,7 @@ import { ErrorState } from '@/shared/ui/EmptyState'
 import { Checkbox, Field, FormError, FormGrid, Input, Textarea } from '@/shared/ui/Form'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { SkeletonRows } from '@/shared/ui/Spinner'
+import { PasskeysCard } from './Passkeys'
 
 const GROUPS: { key: string; title: string; description: string }[] = [
   { key: 'company', title: 'Company', description: 'Shown on the public website.' },
@@ -70,6 +71,8 @@ export default function SettingsPage() {
       ) : (
         <div className="space-y-4">
           <FormError message={save.errorText} />
+          {/* Personal, but this is where people look for sign-in options; also on My account. */}
+          <PasskeysCard />
           {groups.map((g) =>
             grouped[g.key]?.length ? (
               <Card key={g.key}>

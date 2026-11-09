@@ -31,7 +31,8 @@ export DB_NAME="$E2E_DB" APP_ENV=development DEBUG=false \
   MEDIA_ROOT="$E2E_TMP/media" PRIVATE_ROOT="$E2E_TMP/private" \
   CORS_ORIGINS="http://localhost:$WEB_PORT" \
   PUBLIC_SITE_URL="http://localhost:$WEB_PORT" \
-  MAIL_BACKEND=file MAIL_OUTBOX_DIR="$E2E_TMP/outbox" MAIL_FROM="Evaramu <no-reply@example.com>"
+  MAIL_BACKEND=file MAIL_OUTBOX_DIR="$E2E_TMP/outbox" MAIL_FROM="Evaramu <no-reply@example.com>" \
+  RATE_LIMIT_MULTIPLIER=10
 (cd "$SERVER_DIR" && "$PY" -m alembic upgrade head >/dev/null 2>&1) || die "Migration failed"
 (cd "$SERVER_DIR" && EVARAMU_ADMIN_PASSWORD="$E2E_ADMIN_PASSWORD" "$PY" -m evaramu.cli create-admin \
    --email "$E2E_ADMIN_EMAIL" --name "E2E Administrator") || die "Could not create the test administrator"

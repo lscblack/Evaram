@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Check, Paperclip, Undo2, WalletCards, X } from 'lucide-react'
+import { Check, Paperclip, Pencil, Undo2, WalletCards, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage, openFile } from '@/shared/api/client'
 import type { PaymentOut } from '@/shared/api/types'
-import { Can } from '@/shared/auth/AuthProvider'
+import { Can, useAuth } from '@/shared/auth/AuthProvider'
 import { formatDate, formatDateTime } from '@/shared/lib/format'
 import { useApiMutation } from '@/shared/lib/useApiMutation'
 import { StatusBadge } from '@/shared/ui/Badge'
@@ -16,6 +16,7 @@ import { Money } from '@/shared/ui/Misc'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { DuplicateWarning } from './components'
+import { EditPaymentDialog } from './EditPaymentDialog'
 import { InvoicePdfButton, WhatsAppInvoiceButton } from './InvoiceShare'
 import { PaymentReviewDialogs, type ReviewMode } from './PaymentReview'
 import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
@@ -23,6 +24,8 @@ import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 export default function PaymentDetailPage() {
   const { id } = useParams()
   const [mode, setMode] = useState<ReviewMode>(null)
+  const [editing, setEditing] = useState(false)
+  const { can } = useAuth()
   const q = useQuery({ queryKey: ['payments', 'detail', id], queryFn: () => api.get<PaymentOut>(`/payments/${id}`) })
   const credit = useApiMutation(() => api.post<PaymentOut>(`/payments/${id}/apply-credit`), {
     success: 'Credit applied to open invoices',
@@ -33,6 +36,7 @@ export default function PaymentDetailPage() {
   if (q.error || !q.data) return <ErrorState error={q.error} onRetry={q.refetch} />
   const p = q.data
   const approved = p.status === 'approved'
+  const canEdit = (p.status === 'pending' && can('payments.record')) || (approved && can('payments.approve'))
 
   return (
     <>
@@ -52,6 +56,11 @@ export default function PaymentDetailPage() {
               />
               <WhatsAppInvoiceButton id={p.id} source={{ kind: 'payment', id: p.id }} />
             </>
+          ) : null}
+          {canEdit ? (
+            <Button variant="outline" icon={Pencil} onClick={() => setEditing(true)}>
+              Edit
+            </Button>
           ) : null}
           <Can perm="payments.approve">
             {p.status === 'pending' ? (
@@ -79,6 +88,7 @@ export default function PaymentDetailPage() {
           </>
         }
       />
+      {editing ? <EditPaymentDialog payment={p} onClose={() => setEditing(false)} /> : null}
       <DuplicateWarning numbers={p.possible_duplicate_of ?? []} className="mb-4" />
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">

@@ -1266,7 +1266,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Edit Payment
+         * @description Correct a payment. Pending: needs payments.record; approved: needs payments.approve.
+         */
+        patch: operations["edit_payment_api_v1_payments__payment_id__patch"];
         trace?: never;
     };
     "/api/v1/payments/{payment_id}/evidence": {
@@ -3338,6 +3342,21 @@ export interface components {
          * @enum {string}
          */
         PaymentStatus: "pending" | "approved" | "rejected" | "reversed";
+        /** PaymentUpdate */
+        PaymentUpdate: {
+            /** Amount */
+            amount?: number | string | null;
+            /** Payment Date */
+            payment_date?: string | null;
+            /** Method Code */
+            method_code?: string | null;
+            /** Transaction Reference */
+            transaction_reference?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Months Covered */
+            months_covered?: number | null;
+        };
         /** PermissionOut */
         PermissionOut: {
             /** Code */
@@ -7462,6 +7481,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_payment_api_v1_payments__payment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

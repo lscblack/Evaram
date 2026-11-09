@@ -200,3 +200,50 @@ def test_pending_payment_has_no_combined_invoice_yet(api):
     p = api.ok(pay_months(api, ag["id"], 300000, 2, approve=False), 201)
     r = api.get(f"/payments/{p['id']}/invoice-pdf")
     assert r.status_code == 409 and r.json()["code"] == "no_payment_invoice"
+
+
+# ---- editing payments ----------------------------------------------------------------------------
+
+def test_edit_approved_payment_amount_reapplies_it(api):
+    ag = rented(api)
+    inv = current_invoice(api, ag)
+    p = api.ok(api.pay(ag["id"], 100000, ref="ED-1"), 201)
+    api.ok(api.approve(p["id"]))
+    assert api.invoice(inv["id"])["amount_paid"] == "100000.00"
+    e = api.ok(api.patch(f"/payments/{p['id']}", {"amount": "150000", "transaction_reference": "ED-1B",
+                                                  "notes": "Typo in amount"}))
+    assert e["amount"] == "150000.00" and e["transaction_reference"] == "ED-1B" and e["status"] == "approved"
+    after = api.invoice(inv["id"])
+    assert after["amount_paid"] == "150000.00" and after["status"] == "paid"
+    # Lowering it again re-opens the invoice by the difference.
+    api.ok(api.patch(f"/payments/{p['id']}", {"amount": "50000"}))
+    assert api.invoice(inv["id"])["amount_paid"] == "50000.00"
+    logs = api.ok(api.get("/audit-logs", params={"entity_type": "payment"}))["items"]
+    assert any(x["action"] == "payment.edited" and "150000" in x["summary"] for x in logs)
+
+
+def test_edit_payment_to_cover_more_months(api):
+    ag = rented(api, start=MONTH_START.isoformat())
+    p = api.ok(pay_months(api, ag["id"], 150000, 1), 201)
+    e = api.ok(api.patch(f"/payments/{p['id']}", {"amount": "450000", "months_covered": 3}))
+    assert e["months_covered"] == 3 and e["unapplied_amount"] == "0.00"
+    invs = rent_invoices(api, ag)
+    assert all(invs[month_key(i)]["status"] == "paid" for i in range(3))
+
+
+def test_edit_rules(api, client):
+    ag = rented(api)
+    current_invoice(api, ag)
+    a = api.ok(api.pay(ag["id"], 1000, ref="ED-A"), 201)
+    b = api.ok(api.pay(ag["id"], 2000, ref="ED-B"), 201)
+    r = api.patch(f"/payments/{b['id']}", {"transaction_reference": "ed-a"})
+    assert r.status_code == 409 and r.json()["code"] == "duplicate_reference"
+    assert api.patch(f"/payments/{b['id']}", {"payment_date": "2999-01-01"}).status_code == 400
+    api.ok(api.post(f"/payments/{a['id']}/reject", {"reason": "Not received"}))
+    assert api.patch(f"/payments/{a['id']}", {"notes": "x"}).status_code == 409
+    # A recorder may fix a pending payment, but not an approved one.
+    make_user("pm@example.com", "Property Manager")
+    h = login(client, "pm@example.com")
+    assert client.patch(f"/api/v1/payments/{b['id']}", json={"notes": "fixed"}, headers=h).status_code == 200
+    api.ok(api.approve(b["id"]))
+    assert client.patch(f"/api/v1/payments/{b['id']}", json={"notes": "again"}, headers=h).status_code == 403

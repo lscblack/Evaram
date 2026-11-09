@@ -32,4 +32,9 @@ test('download the payments, overdue and occupancy PDF reports', async ({ page }
     await expect(page.getByText(`${title} report downloaded`)).toBeVisible()
     await expect(dialog).toBeHidden()
   }
+
+  // A table left out once is ticked again next time, so the tenants who paid never silently disappear.
+  const tile = page.locator('div.rounded-xl').filter({ has: page.getByText('Payments received', { exact: true }) })
+  await tile.getByRole('button', { name: 'Download PDF' }).click()
+  await expect(page.getByRole('dialog').getByLabel('Table of tenants who paid')).toBeChecked()
 })

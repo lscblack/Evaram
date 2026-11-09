@@ -19,6 +19,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, EmailStr, Field
@@ -227,6 +228,29 @@ class PasskeyOut(BaseModel):
     backed_up: bool
 
 
+def _relying_party(request: Request) -> tuple[str, list[str]]:
+    """(RP ID, accepted origins) for this request.
+
+    WEBAUTHN_RP_ID / WEBAUTHN_ORIGINS win when set. Otherwise the page's own
+    origin is used — but only when it is a trusted site origin (CORS_ORIGINS or
+    PUBLIC_SITE_URL), so a production server whose PUBLIC_SITE_URL was left at a
+    development value still offers passkeys for https://evaramu.rw. "www." is
+    dropped so evaramu.rw and www.evaramu.rw share the same passkeys.
+    """
+    s = get_settings()
+    if s.WEBAUTHN_RP_ID:
+        return s.WEBAUTHN_RP_ID, s.webauthn_origins
+    trusted = {o.rstrip("/") for o in [*s.cors_origins, *s.webauthn_origins]}
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    if origin in trusted:
+        host = urlsplit(origin).hostname or ""
+        if host:
+            rp = host[4:] if host.startswith("www.") and host.count(".") >= 2 else host
+            same_site = sorted(o for o in trusted if (urlsplit(o).hostname or "") in (rp, f"www.{rp}"))
+            return rp, same_site or [origin]
+    return s.webauthn_rp_id, s.webauthn_origins
+
+
 @router.get("/passkeys", response_model=list[PasskeyOut])
 def list_passkeys(user: CurrentUser, db: DB):
     return list(db.execute(select(Passkey).where(Passkey.user_id == user.id).order_by(Passkey.created_at)).scalars())
@@ -234,12 +258,13 @@ def list_passkeys(user: CurrentUser, db: DB):
 
 @router.post("/passkeys/register/options", response_model=PasskeyOptionsOut,
              dependencies=[Depends(rate_limit("passkey-reg", 20, 300))])
-def passkey_register_options(user: CurrentUser, db: DB):
+def passkey_register_options(request: Request, user: CurrentUser, db: DB):
     s = get_settings()
+    rp_id, _origins = _relying_party(request)
     existing = db.execute(select(Passkey.credential_id).where(Passkey.user_id == user.id)).scalars().all()
     cid, challenge = _new_challenge(db, "register", user.id)
     opts = generate_registration_options(
-        rp_id=s.webauthn_rp_id, rp_name=s.WEBAUTHN_RP_NAME, user_id=_user_handle(user), user_name=user.email,
+        rp_id=rp_id, rp_name=s.WEBAUTHN_RP_NAME, user_id=_user_handle(user), user_name=user.email,
         user_display_name=user.full_name, challenge=challenge,
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.REQUIRED, user_verification=UserVerificationRequirement.REQUIRED),
@@ -251,11 +276,11 @@ def passkey_register_options(user: CurrentUser, db: DB):
 @router.post("/passkeys/register", response_model=PasskeyOut, status_code=201,
              dependencies=[Depends(rate_limit("passkey-reg", 20, 300))])
 def passkey_register(body: PasskeyRegister, request: Request, user: CurrentUser, db: DB):
-    s = get_settings()
+    rp_id, origins = _relying_party(request)
     challenge = _take_challenge(db, body.challenge_id, "register", user.id)
     try:
         v = verify_registration_response(credential=body.credential, expected_challenge=challenge,
-                                         expected_rp_id=s.webauthn_rp_id, expected_origin=s.webauthn_origins,
+                                         expected_rp_id=rp_id, expected_origin=origins,
                                          require_user_verification=True)
     except Exception as exc:
         db.commit()
@@ -285,16 +310,16 @@ def passkey_delete(passkey_id: int, request: Request, user: CurrentUser, db: DB)
 
 @router.post("/passkeys/login/options", response_model=PasskeyOptionsOut,
              dependencies=[Depends(rate_limit("passkey-login", 20, 60))])
-def passkey_login_options(db: DB):
+def passkey_login_options(request: Request, db: DB):
     cid, challenge = _new_challenge(db, "login", None)
-    opts = generate_authentication_options(rp_id=get_settings().webauthn_rp_id, challenge=challenge,
+    opts = generate_authentication_options(rp_id=_relying_party(request)[0], challenge=challenge,
                                            user_verification=UserVerificationRequirement.REQUIRED)
     return PasskeyOptionsOut(challenge_id=cid, options=json.loads(options_to_json(opts)))
 
 
 @router.post("/passkeys/login", response_model=TokenOut, dependencies=[Depends(rate_limit("passkey-login", 20, 60))])
 def passkey_login(body: PasskeyLogin, request: Request, response: Response, db: DB):
-    s = get_settings()
+    rp_id, origins = _relying_party(request)
     challenge = _take_challenge(db, body.challenge_id, "login")
     failed = Unauthorized("That passkey is not registered here. Sign in another way, then add it from your account.",
                           code="bad_passkey")
@@ -312,7 +337,7 @@ def passkey_login(body: PasskeyLogin, request: Request, response: Response, db: 
         if handle and base64url_to_bytes(handle) != _user_handle(pk.user):
             raise ValueError("user handle mismatch")
         v = verify_authentication_response(credential=body.credential, expected_challenge=challenge,
-                                           expected_rp_id=s.webauthn_rp_id, expected_origin=s.webauthn_origins,
+                                           expected_rp_id=rp_id, expected_origin=origins,
                                            credential_public_key=pk.public_key,
                                            credential_current_sign_count=pk.sign_count, require_user_verification=True)
     except Exception as exc:

@@ -387,7 +387,6 @@ function PdfReports({
     setBusy(r.kind)
     try {
       await downloadFile(`/reports/pdf/${r.kind}`, query, `evaramu-${r.file}-${todayISO()}.pdf`)
-      saveChoice(r.kind, choice)
       setPicking(null)
       toast.success(`${r.title} report downloaded`)
     } catch (e) {
@@ -431,7 +430,7 @@ function PdfReports({
         <ChooseContents
           title={picking.title}
           options={options.data[picking.kind]!}
-          initial={loadChoice(picking.kind, options.data[picking.kind]!)}
+          initial={allChoice(options.data[picking.kind]!)}
           busy={busy === picking.kind}
           onClose={() => setPicking(null)}
           onGenerate={(c) => download(picking, c)}
@@ -445,29 +444,9 @@ type PdfOption = { key: string; label: string }
 type PdfOptions = Record<string, { cards: PdfOption[]; sections: PdfOption[] }>
 type Choice = { cards: string[]; sections: string[] }
 
-const CHOICE_KEY = (kind: string) => `evaramu.report-choice.${kind}`
-
-/** Last choice for this report (per browser); everything on by default. */
-function loadChoice(kind: string, opts: { cards: PdfOption[]; sections: PdfOption[] }): Choice {
-  const all = { cards: opts.cards.map((o) => o.key), sections: opts.sections.map((o) => o.key) }
-  try {
-    const saved = JSON.parse(localStorage.getItem(CHOICE_KEY(kind)) || 'null') as Choice | null
-    if (!saved) return all
-    return {
-      cards: saved.cards.filter((k) => all.cards.includes(k)),
-      sections: saved.sections.filter((k) => all.sections.includes(k)),
-    }
-  } catch {
-    return all
-  }
-}
-
-function saveChoice(kind: string, c: Choice) {
-  try {
-    localStorage.setItem(CHOICE_KEY(kind), JSON.stringify(c))
-  } catch {
-    /* private mode: the choice is not remembered */
-  }
+/** Everything is ticked each time: a table left out once must not silently go missing from later reports. */
+function allChoice(opts: { cards: PdfOption[]; sections: PdfOption[] }): Choice {
+  return { cards: opts.cards.map((o) => o.key), sections: opts.sections.map((o) => o.key) }
 }
 
 function ChooseContents({
@@ -528,7 +507,7 @@ function ChooseContents({
       onClose={onClose}
       size="lg"
       title={`${title} — choose what to include`}
-      description="Pick the summary cards and tables for this PDF. Your choice is remembered for next time."
+      description="Untick anything you do not want in this PDF."
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>

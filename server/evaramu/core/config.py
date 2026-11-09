@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     APP_NAME: str = "Evaramu Rent Management API"
     APP_ENV: Literal["development", "staging", "production", "test"] = "development"
     DEBUG: bool = False
+    #: Multiplies every rate limit. Only for automated browser tests (many sign-ins
+    #: from one address); production refuses anything but 1.
+    RATE_LIMIT_MULTIPLIER: int = Field(default=1, ge=1, le=100)
     API_PREFIX: str = "/api/v1"
 
     # ---- database (no defaults for credentials: they must come from env) ----
@@ -113,6 +116,8 @@ class Settings(BaseSettings):
                 )
             if self.DEBUG:
                 raise ValueError("DEBUG must be false in production")
+            if self.RATE_LIMIT_MULTIPLIER != 1:
+                raise ValueError("RATE_LIMIT_MULTIPLIER is for automated tests only; remove it in production")
             if self.MAIL_BACKEND == "file":
                 raise ValueError("MAIL_BACKEND=file is for development only; use smtp or disabled in production")
         return self

@@ -49,6 +49,7 @@ from evaramu.modules.billing.schemas import (
     PaymentMethodOut,
     PaymentMethodUpdate,
     PaymentOut,
+    PaymentUpdate,
     ReasonIn,
 )
 from evaramu.modules.identity.models import User
@@ -513,6 +514,19 @@ def record_payment(
 @router.get("/payments/{payment_id}", response_model=PaymentOut, dependencies=[Depends(require("payments.view"))])
 def get_payment(payment_id: int, db: DB):
     return payments_out(db, [service.get_payment(db, payment_id)], with_duplicates=True)[0]
+
+
+@router.patch("/payments/{payment_id}", response_model=PaymentOut)
+def edit_payment(payment_id: int, body: PaymentUpdate, request: Request, db: DB, actor: CurrentUser):
+    """Correct a payment. Pending: needs payments.record; approved: needs payments.approve."""
+    p = service.get_payment(db, payment_id, for_update=True)
+    needed = "payments.approve" if p.status == PaymentStatus.APPROVED.value else "payments.record"
+    if needed not in actor.permission_codes:
+        raise Forbidden("You do not have permission to edit this payment.")
+    service.update_payment(db, p, body.model_dump(exclude_unset=True), actor=actor, request=request)
+    db.commit()
+    db.refresh(p)
+    return payments_out(db, [p])[0]
 
 
 @router.get("/payments/{payment_id}/evidence", dependencies=[Depends(require("payments.view"))])

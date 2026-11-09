@@ -184,6 +184,15 @@ class CoverageOut(BaseModel):
     months: list[CoverageMonth]
 
 
+class PaymentUpdate(BaseModel):
+    amount: Decimal | None = Field(default=None, gt=0)
+    payment_date: date | None = None
+    method_code: str | None = Field(default=None, max_length=32)
+    transaction_reference: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=2000)
+    months_covered: int | None = Field(default=None, ge=1, le=24)
+
+
 class ApproveIn(BaseModel):
     confirm_duplicate: bool = False
     auto_allocate: bool = True

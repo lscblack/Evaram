@@ -380,6 +380,107 @@ def record_payment(db: Session, data: dict, *, actor: User, request: Request | N
     return payment
 
 
+EDITABLE = ("amount", "payment_date", "method_code", "transaction_reference", "notes", "months_covered")
+
+
+def update_payment(db: Session, p: Payment, data: dict, *, actor: User, request: Request | None,
+                   today: date | None = None) -> Payment:
+    """Correct a pending or approved payment.
+
+    Details (date, method, reference, notes) change in place. When an approved
+    payment's amount or months change, its money is taken off its invoices and
+    applied again (chosen months first, then oldest open invoices), so balances
+    always match the corrected payment."""
+    today = today or date.today()
+    if p.status not in (PaymentStatus.PENDING.value, PaymentStatus.APPROVED.value):
+        raise Conflict(f"A {p.status} payment cannot be edited", code="not_editable")
+    changes: dict = {}
+    if "amount" in data and data["amount"] is not None:
+        amount = _amount(data["amount"], p.currency)
+        if amount != p.amount:
+            changes["amount"] = (str(p.amount), str(amount))
+    if data.get("payment_date") and data["payment_date"] != p.payment_date:
+        if data["payment_date"] > today:
+            raise DomainError("Payment date cannot be in the future")
+        changes["payment_date"] = (p.payment_date.isoformat(), data["payment_date"].isoformat())
+    if data.get("method_code") and data["method_code"] != p.method_code:
+        _check_method(db, data["method_code"])
+        changes["method_code"] = (p.method_code, data["method_code"])
+    if "transaction_reference" in data and data["transaction_reference"] is not None:
+        ref = data["transaction_reference"].strip()
+        if ref != p.transaction_reference:
+            changes["transaction_reference"] = (p.transaction_reference, ref)
+    if "notes" in data and data["notes"] is not None and data["notes"] != p.notes:
+        changes["notes"] = ("…", "…")
+    if "months_covered" in data:
+        m = data["months_covered"] or None
+        if m is not None and not 1 <= m <= MAX_MONTHS:
+            raise DomainError(f"A payment can cover 1 to {MAX_MONTHS} months")
+        if m != p.months_covered:
+            changes["months_covered"] = (p.months_covered, m)
+    if not changes:
+        return p
+
+    method = changes.get("method_code", (None, p.method_code))[1]
+    ref = changes.get("transaction_reference", (None, p.transaction_reference))[1]
+    if ref and ("transaction_reference" in changes or "method_code" in changes):
+        dup = db.execute(select(Payment.payment_number).where(
+            Payment.id != p.id, Payment.method_code == method, func.lower(Payment.transaction_reference) == ref.lower(),
+            Payment.status.in_([PaymentStatus.PENDING.value, PaymentStatus.APPROVED.value]),
+        )).scalar_one_or_none()
+        if dup:
+            raise Conflict(f"Transaction reference {ref} is already recorded on payment {dup}", code="duplicate_reference")
+
+    reapply = p.status == PaymentStatus.APPROVED.value and ("amount" in changes or "months_covered" in changes)
+    old_invoices: set[int] = set()
+    if reapply:
+        old_invoices = {a.invoice_id for a in p.allocations}
+        if old_invoices:
+            db.execute(select(Invoice.id).where(Invoice.id.in_(old_invoices)).order_by(Invoice.id).with_for_update())
+        p.allocations.clear()
+        db.flush()
+        for inv_id in sorted(old_invoices):
+            ledger.recompute_invoice(db, get_invoice(db, inv_id), today)
+        db.flush()
+    elif p.status == PaymentStatus.PENDING.value and "amount" in changes:
+        # Requested allocations larger than the new amount are trimmed on approval; drop them if they no longer fit.
+        if sum((a.amount for a in p.allocations), ZERO) > _amount(data["amount"], p.currency):
+            p.allocations.clear()
+
+    if "amount" in changes:
+        p.amount = _amount(data["amount"], p.currency)
+    if "payment_date" in changes:
+        p.payment_date = data["payment_date"]
+    if "method_code" in changes:
+        p.method_code = data["method_code"]
+    if "transaction_reference" in changes:
+        p.transaction_reference = ref
+    if "notes" in changes:
+        p.notes = data["notes"]
+    if "months_covered" in changes:
+        p.months_covered = changes["months_covered"][1]
+        if p.months_covered and p.status == PaymentStatus.PENDING.value:
+            p.allocations.clear()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        raise Conflict("This transaction reference is already recorded", code="duplicate_reference") from exc
+
+    if reapply:
+        touched = _allocate(db, p, today=today, auto=True)
+        db.flush()
+        for inv_id in sorted(touched - old_invoices):
+            ledger.recompute_invoice(db, get_invoice(db, inv_id), today)
+        for inv_id in sorted(touched & old_invoices):
+            ledger.recompute_invoice(db, get_invoice(db, inv_id), today)
+    db.expire(p)
+    audit(db, actor=actor, action="payment.edited", entity_type="payment", entity_id=p.id,
+          summary=f"Edited {p.payment_number}: " + ", ".join(
+              f"{k.replace('_', ' ')} {a} → {b}" if k != "notes" else "notes" for k, (a, b) in changes.items()),
+          changes={k: {"from": a, "to": b} for k, (a, b) in changes.items() if k != "notes"}, request=request)
+    return p
+
+
 def notify_pending(db: Session, payment: Payment) -> None:
     notify(db, permission="payments.approve", kind="payment_pending",
            title=f"Payment awaiting approval: {payment.amount:,} {payment.currency}",

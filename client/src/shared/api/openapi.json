@@ -4949,6 +4949,62 @@
       }
      }
     }
+   },
+   "patch": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Edit Payment",
+    "description": "Correct a payment. Pending: needs payments.record; approved: needs payments.approve.",
+    "operationId": "edit_payment_api_v1_payments__payment_id__patch",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "payment_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Payment Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PaymentUpdate"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PaymentOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
    }
   },
   "/api/v1/payments/{payment_id}/evidence": {
@@ -11300,6 +11356,88 @@
      "reversed"
     ],
     "title": "PaymentStatus"
+   },
+   "PaymentUpdate": {
+    "properties": {
+     "amount": {
+      "anyOf": [
+       {
+        "type": "number",
+        "exclusiveMinimum": 0.0
+       },
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Amount"
+     },
+     "payment_date": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Payment Date"
+     },
+     "method_code": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 32
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Method Code"
+     },
+     "transaction_reference": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 120
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Transaction Reference"
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 2000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notes"
+     },
+     "months_covered": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 24.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Months Covered"
+     }
+    },
+    "type": "object",
+    "title": "PaymentUpdate"
    },
    "PermissionOut": {
     "properties": {
