@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { CalendarPlus, FilePlus2, Plus, ReceiptText, Trash2 } from 'lucide-react'
+import { CalendarPlus, FilePlus2, Layers, Plus, ReceiptText, Trash2, X } from 'lucide-react'
 import { api } from '@/shared/api/client'
 import type { AgreementOut, GenerateOut, InvoiceDetail, InvoiceOut, Page } from '@/shared/api/types'
 import { Can } from '@/shared/auth/AuthProvider'
-import { currentPeriod, formatDate, todayISO } from '@/shared/lib/format'
+import { currentPeriod, formatDate, formatMoney, todayISO } from '@/shared/lib/format'
 import { useApiMutation } from '@/shared/lib/useApiMutation'
 import { useUrlState } from '@/shared/lib/useUrlState'
 import { StatusBadge } from '@/shared/ui/Badge'
@@ -17,7 +17,8 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Field, FormError, FormGrid, Input, Textarea } from '@/shared/ui/Form'
 import { FilterBar, Money, SearchInput, Tabs } from '@/shared/ui/Misc'
 import { PageHeader } from '@/shared/ui/PageHeader'
-import { AgreementPicker, amountError, CurrencySelect, DateRange, periodLabel, PropertySelect } from './components'
+import { AgreementPicker, amountError, CurrencySelect, DateRange, periodLabel, PropertySelect, TenantSelect } from './components'
+import { InvoicePdfButton, WhatsAppInvoiceButton } from './InvoiceShare'
 
 const PAGE_SIZE = 25
 const TABS = [
@@ -41,6 +42,15 @@ export default function InvoicesPage() {
   })
   const [generate, setGenerate] = useState(false)
   const [create, setCreate] = useState(false)
+  // Picked invoices are kept across pages and filters until cleared.
+  const [picked, setPicked] = useState<Map<number, InvoiceOut>>(new Map())
+  const togglePick = (r: InvoiceOut) =>
+    setPicked((m) => {
+      const next = new Map(m)
+      if (next.has(r.id)) next.delete(r.id)
+      else next.set(r.id, r)
+      return next
+    })
   const query = useQuery({
     queryKey: ['invoices', 'list', state],
     queryFn: () =>
@@ -114,6 +124,7 @@ export default function InvoicesPage() {
         <FilterBar>
           <SearchInput value={state.search} onChange={(v) => set({ search: v })} placeholder="Invoice, tenant or unit" className="sm:w-64" />
           <PropertySelect value={state.property_id} onChange={(v) => set({ property_id: v })} className="sm:w-56" />
+          <TenantSelect value={state.tenant_id} onChange={(v) => set({ tenant_id: v })} className="sm:w-56" />
           <CurrencySelect value={state.currency} onChange={(v) => set({ currency: v })} className="sm:w-40" />
           <DateRange from={state.date_from} to={state.date_to} onChange={(v) => set(v)} />
           {state.agreement_id ? (
@@ -122,7 +133,14 @@ export default function InvoicesPage() {
             </button>
           ) : null}
         </FilterBar>
+        <CombineBar picked={[...picked.values()]} onClear={() => setPicked(new Map())} />
         <DataView
+          selection={{
+            isSelected: (r) => picked.has(r.id),
+            onToggle: togglePick,
+            canSelect: (r) => r.status !== 'void',
+            label: (r) => `Select ${r.invoice_number}`,
+          }}
           rows={query.data?.items}
           columns={columns}
           rowKey={(r) => r.id}
@@ -329,5 +347,50 @@ function NewInvoiceDialog({ open, onClose }: { open: boolean; onClose: () => voi
         <FormError message={create.errorText} />
       </div>
     </Dialog>
+  )
+}
+
+/** Picked invoices → one combined invoice (one tenant, one currency). */
+function CombineBar({ picked, onClear }: { picked: InvoiceOut[]; onClear: () => void }) {
+  if (!picked.length) {
+    return (
+      <p className="hidden border-b border-slate-100 px-4 py-2 text-xs text-slate-500 sm:block">
+        <Layers className="mr-1 inline size-3.5 align-[-2px]" />
+        Tick invoices of one tenant to download or send them as one combined invoice.
+      </p>
+    )
+  }
+  const tenants = new Set(picked.map((i) => i.tenant_id))
+  const currencies = new Set(picked.map((i) => i.currency))
+  const problem =
+    tenants.size > 1 ? 'Pick invoices of one tenant only.' : currencies.size > 1 ? 'RWF and USD invoices cannot be combined.' : null
+  const ids = [...picked].sort((a, b) => a.id - b.id).map((i) => i.id)
+  const source = { kind: 'combined' as const, ids }
+  const total = picked.reduce((s, i) => s + Number(i.amount_charged), 0)
+  const balance = picked.reduce((s, i) => s + Number(i.balance_due), 0)
+  const first = [...picked].sort((a, b) => a.invoice_number.localeCompare(b.invoice_number))[0]!
+  return (
+    <div className="flex flex-col gap-3 border-b border-brand-100 bg-brand-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" role="region" aria-label="Combine invoices">
+      <div className="min-w-0 text-sm">
+        <p className="font-semibold text-slate-900">
+          {picked.length} invoice{picked.length === 1 ? '' : 's'} selected
+          {!problem ? <span className="font-normal text-slate-600"> · {first.tenant_name}</span> : null}
+        </p>
+        {problem ? (
+          <p className="text-red-700">{problem}</p>
+        ) : (
+          <p className="text-slate-600">
+            Total {formatMoney(String(total), first.currency)} · balance {formatMoney(String(balance), first.currency)}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <InvoicePdfButton id={ids[0]!} source={source} number={picked.length > 1 ? `${first.invoice_number}-combined` : first.invoice_number} label="Download combined invoice" disabled={!!problem} />
+        <WhatsAppInvoiceButton id={ids[0]!} source={source} disabled={!!problem} />
+        <Button variant="ghost" icon={X} onClick={onClear}>
+          Clear
+        </Button>
+      </div>
+    </div>
   )
 }

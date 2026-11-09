@@ -30,6 +30,7 @@ export function DataView<T>({
   onRetry,
   empty,
   footer,
+  selection,
 }: {
   rows: T[] | undefined
   columns: Column<T>[]
@@ -43,28 +44,48 @@ export function DataView<T>({
   onRetry?: () => void
   empty?: ReactNode
   footer?: ReactNode
+  /** Optional checkboxes to pick rows (e.g. invoices to combine). */
+  selection?: {
+    isSelected: (row: T) => boolean
+    onToggle: (row: T) => void
+    canSelect?: (row: T) => boolean
+    label: (row: T) => string
+  }
 }) {
   const navigate = useNavigate()
   const activate = rowHref ? (row: T) => navigate(rowHref(row)) : onRowClick
   if (error) return <ErrorState error={error} onRetry={onRetry} />
   if (loading && !rows) return <SkeletonRows />
   if (!rows || rows.length === 0) return <>{empty ?? <EmptyState title="Nothing here yet" />}</>
+  const box = (row: T) =>
+    selection ? (
+      <input
+        type="checkbox"
+        className="size-4 rounded border-slate-300 accent-brand-800 disabled:opacity-30"
+        aria-label={selection.label(row)}
+        checked={selection.isSelected(row)}
+        disabled={selection.canSelect ? !selection.canSelect(row) : false}
+        onClick={(e) => e.stopPropagation()}
+        onChange={() => selection.onToggle(row)}
+      />
+    ) : null
   return (
     <div className={cn(loading && 'opacity-60 transition-opacity')}>
       {/* Phones and small tablets */}
       <ul className="divide-y divide-slate-100 md:hidden">
         {rows.map((row) => (
-          <li key={rowKey(row)}>
+          <li key={rowKey(row)} className={cn(selection && 'flex items-start')}>
+            {selection ? <label className="flex shrink-0 cursor-pointer items-center self-stretch pl-4 pr-1">{box(row)}</label> : null}
             {activate ? (
               <button
                 type="button"
                 onClick={() => activate(row)}
-                className="block w-full px-4 py-3.5 text-left active:bg-slate-50"
+                className="block w-full min-w-0 flex-1 px-4 py-3.5 text-left active:bg-slate-50"
               >
                 {mobile(row)}
               </button>
             ) : (
-              <div className="px-4 py-3.5">{mobile(row)}</div>
+              <div className="min-w-0 flex-1 px-4 py-3.5">{mobile(row)}</div>
             )}
           </li>
         ))}
@@ -74,6 +95,7 @@ export function DataView<T>({
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/60">
+              {selection ? <th scope="col" className="w-10 px-4 py-2.5"><span className="sr-only">Select</span></th> : null}
               {columns.map((c) => (
                 <th
                   key={c.key}
@@ -94,8 +116,13 @@ export function DataView<T>({
               <tr
                 key={rowKey(row)}
                 onClick={activate ? () => activate(row) : undefined}
-                className={cn(activate && 'cursor-pointer hover:bg-slate-50')}
+                className={cn(activate && 'cursor-pointer hover:bg-slate-50', selection?.isSelected(row) && 'bg-brand-50/50')}
               >
+                {selection ? (
+                  <td className="w-10 px-4 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
+                    {box(row)}
+                  </td>
+                ) : null}
                 {columns.map((c) => (
                   <td
                     key={c.key}

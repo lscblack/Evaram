@@ -247,3 +247,39 @@ def test_edit_rules(api, client):
     assert client.patch(f"/api/v1/payments/{b['id']}", json={"notes": "fixed"}, headers=h).status_code == 200
     api.ok(api.approve(b["id"]))
     assert client.patch(f"/api/v1/payments/{b['id']}", json={"notes": "again"}, headers=h).status_code == 403
+
+
+# ---- combined invoice from chosen invoices --------------------------------------------------------
+
+def test_combine_chosen_invoices_into_one_pdf(api, client):
+    ag = rented(api)  # started last month
+    prev = prev_month(MONTH_START).strftime("%Y-%m")
+    api.generate(prev)
+    api.generate(THIS_MONTH)
+    invs = rent_invoices(api, ag)
+    ids = f"{invs[prev]['id']},{invs[THIS_MONTH]['id']}"
+    r = client.get("/api/v1/invoices/combined-pdf", params={"ids": ids}, headers=api.h)
+    assert r.status_code == 200 and r.content.startswith(b"%PDF")
+    text = "".join(pg.extract_text() for pg in PdfReader(io.BytesIO(r.content)).pages)
+    assert invs[prev]["invoice_number"] in text and invs[THIS_MONTH]["invoice_number"] in text
+    assert "300,000" in text and "2 invoices" in text
+
+    share = api.ok(api.post("/invoices/combined-share", {"invoice_ids": [invs[prev]["id"], invs[THIS_MONTH]["id"]]}))
+    assert "Amount due: 300,000 RWF" in share["message"]
+    assert client.get(share["path"]).content.startswith(b"%PDF")
+    assert client.get(share["path"].replace("combined-invoice-pdf", "invoice-pdf")).status_code == 404
+
+
+def test_combined_invoice_is_for_one_tenant_and_currency(api):
+    a = rented(api)
+    b = rented(api, code="R102", tenant_phone="+250788000002", name="Other Tenant")
+    prop = api.ok(api.get("/properties"))["items"][0]
+    usd_unit = api.unit(prop["id"], code="R103", rent="500", currency="USD")
+    u = api.agreement(a["tenant_id"], usd_unit["id"], start=MONTH_START.isoformat(), end=None, due_day=28)
+    api.generate(THIS_MONTH)
+    ia, ib, iu = (rent_invoices(api, x)[THIS_MONTH]["id"] for x in (a, b, u))
+    r = api.get("/invoices/combined-pdf", params={"ids": f"{ia},{ib}"})
+    assert r.status_code == 400 and r.json()["code"] == "combined_tenants"
+    r = api.get("/invoices/combined-pdf", params={"ids": f"{ia},{iu}"})
+    assert r.status_code == 400 and r.json()["code"] == "combined_currency"
+    assert api.get("/invoices/combined-pdf", params={"ids": "999999"}).status_code == 404

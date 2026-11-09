@@ -8,14 +8,24 @@ import { Dialog } from '@/shared/ui/Dialog'
 import { Field, FormError, Textarea } from '@/shared/ui/Form'
 import { Spinner } from '@/shared/ui/Spinner'
 
-/** Where an invoice PDF comes from: one invoice, or everything one payment paid (several months). */
-export type InvoiceSource = { kind: 'invoice' | 'payment'; id: number }
+/** Where an invoice PDF comes from: one invoice, everything one payment paid, or invoices picked from the list. */
+export type InvoiceSource = { kind: 'invoice' | 'payment'; id: number } | { kind: 'combined'; ids: number[] }
 
-const pdfPath = (s: InvoiceSource) => (s.kind === 'invoice' ? `/invoices/${s.id}/pdf` : `/payments/${s.id}/invoice-pdf`)
-const sharePath = (s: InvoiceSource) => (s.kind === 'invoice' ? `/invoices/${s.id}/share` : `/payments/${s.id}/share`)
+function fetchPdf(s: InvoiceSource): Promise<Blob> {
+  if (s.kind === 'combined') return request<Blob>('/invoices/combined-pdf', { query: { ids: s.ids.join(',') } })
+  return request<Blob>(s.kind === 'invoice' ? `/invoices/${s.id}/pdf` : `/payments/${s.id}/invoice-pdf`)
+}
+
+function createShare(s: InvoiceSource): Promise<InvoiceShareOut> {
+  if (s.kind === 'combined') return api.post<InvoiceShareOut>('/invoices/combined-share', { invoice_ids: s.ids })
+  return api.post<InvoiceShareOut>(s.kind === 'invoice' ? `/invoices/${s.id}/share` : `/payments/${s.id}/share`)
+}
+
+const sourceKey = (s: InvoiceSource) => (s.kind === 'combined' ? `c:${s.ids.join(',')}` : `${s.kind}:${s.id}`)
 
 /** Download the invoice as a branded PDF. */
-export function InvoicePdfButton({ id, number, size, variant = 'outline', label = 'Download PDF', source }: {
+export function InvoicePdfButton({ id, number, size, variant = 'outline', label = 'Download PDF', source, disabled }: {
+  disabled?: boolean
   id: number
   number: string
   size?: 'sm' | 'md'
@@ -31,10 +41,12 @@ export function InvoicePdfButton({ id, number, size, variant = 'outline', label 
       size={size}
       icon={Download}
       loading={busy}
+      disabled={disabled}
       onClick={async () => {
         setBusy(true)
         try {
-          await downloadFile(pdfPath(src), undefined, `invoice-${number}.pdf`)
+          if (src.kind === 'combined') await downloadFile('/invoices/combined-pdf', { ids: src.ids.join(',') }, `invoice-${number}.pdf`)
+          else await downloadFile(src.kind === 'invoice' ? `/invoices/${src.id}/pdf` : `/payments/${src.id}/invoice-pdf`, undefined, `invoice-${number}.pdf`)
         } catch (e) {
           toast.error(errorMessage(e))
         } finally {
@@ -60,8 +72,9 @@ function WhatsAppIcon({ className }: { className?: string }) {
  * WhatsApp for the tenant's number. On phones that can share files, the PDF
  * itself can be shared instead.
  */
-export function WhatsAppInvoiceButton({ id, size, label = 'Send on WhatsApp', source }: {
+export function WhatsAppInvoiceButton({ id, size, label = 'Send on WhatsApp', source, disabled }: {
   id: number
+  disabled?: boolean
   size?: 'sm' | 'md'
   label?: string
   source?: InvoiceSource
@@ -73,6 +86,7 @@ export function WhatsAppInvoiceButton({ id, size, label = 'Send on WhatsApp', so
         variant="outline"
         size={size}
         onClick={() => setOpen(true)}
+        disabled={disabled}
         className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
       >
         <WhatsAppIcon className="size-4" /> {label}
@@ -92,15 +106,14 @@ function WhatsAppDialog({ source, onClose }: { source: InvoiceSource; onClose: (
 
   useEffect(() => {
     let alive = true
-    api
-      .post<InvoiceShareOut>(sharePath(source))
+    createShare(source)
       .then(async (s) => {
         if (!alive) return
         setShare(s)
         setText(`${s.message}\n\nDownload the invoice (PDF): ${API_ORIGIN}${s.path}`)
         // Phones that can share files get the PDF itself, prepared now so the tap is instant.
         if (typeof navigator.canShare === 'function') {
-          const blob = await request<Blob>(pdfPath(source))
+          const blob = await fetchPdf(source)
           const f = new File([blob], s.filename, { type: 'application/pdf' })
           if (alive && navigator.canShare({ files: [f] })) setFile(f)
         }
@@ -109,7 +122,7 @@ function WhatsAppDialog({ source, onClose }: { source: InvoiceSource; onClose: (
     return () => {
       alive = false
     }
-  }, [source.kind, source.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sourceKey(source)]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const waUrl = share ? `https://wa.me/${share.whatsapp_number}?text=${encodeURIComponent(text)}` : '#'
 

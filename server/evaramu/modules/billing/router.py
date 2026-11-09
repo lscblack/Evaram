@@ -178,6 +178,117 @@ def list_invoices(
     return Page(items=invoices_out(rows), total=total, page=paging.page, page_size=paging.page_size)
 
 
+# ---- sharing invoice PDFs (links for WhatsApp) ---------------------------------------------------
+
+SHARE_DAYS = 30
+SHARE_AUDIENCE = "invoice-pdf"
+
+
+def whatsapp_number(phone: str) -> str:
+    """International digits for wa.me links: '+250 788 123 456' / '0788123456' -> '250788123456'."""
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    if digits.startswith("0") and len(digits) == 10:
+        digits = "250" + digits[1:]
+    return digits
+
+
+class InvoiceShareOut(BaseModel):
+    token: str
+    #: Path under the API origin; the client prefixes VITE_API_URL.
+    path: str
+    filename: str
+    whatsapp_number: str
+    message: str
+    expires_at: datetime
+
+
+# ---- several invoices of one tenant on one PDF ---------------------------------------------------
+
+COMBINED_AUDIENCE = "combined-invoice-pdf"
+MAX_COMBINED = 36
+
+
+class CombinedIn(BaseModel):
+    invoice_ids: list[int]
+
+
+def _combined_invoices(db: Session, ids: list[int]) -> list[Invoice]:
+    ids = list(dict.fromkeys(ids))
+    if not 1 <= len(ids) <= MAX_COMBINED:
+        raise DomainError(f"Choose between 1 and {MAX_COMBINED} invoices")
+    rows = list(db.execute(select(Invoice).where(Invoice.id.in_(ids))).unique().scalars())
+    if len(rows) != len(ids):
+        raise NotFound("One of the invoices was not found")
+    if any(i.status == InvoiceStatus.VOID.value for i in rows):
+        raise DomainError("Void invoices cannot be combined", code="combined_void")
+    if len({i.tenant_id for i in rows}) > 1:
+        raise DomainError("A combined invoice is for one tenant: choose invoices of the same tenant",
+                          code="combined_tenants")
+    if len({i.currency for i in rows}) > 1:
+        raise DomainError("RWF and USD invoices cannot be combined: choose one currency", code="combined_currency")
+    return rows
+
+
+def _combined_response(db: Session, invoices: list[Invoice], inline: bool = False) -> Response:
+    content = invoice_pdf.render_combined_invoice(db, invoices, now_local())
+    first, last = (sorted(i.invoice_number for i in invoices)[k] for k in (0, -1))
+    name = f"invoice-{first}.pdf" if first == last else f"invoices-{first}-to-{last}.pdf"
+    return Response(content, media_type="application/pdf", headers={
+        "Content-Disposition": f'{"inline" if inline else "attachment"}; filename="{name}"',
+        "Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+
+
+def _ids_param(ids: str) -> list[int]:
+    try:
+        return [int(x) for x in ids.split(",") if x.strip()]
+    except ValueError as exc:
+        raise DomainError("Invalid invoice list") from exc
+
+
+@router.get("/invoices/combined-pdf", dependencies=[Depends(require("invoices.view"))],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def combined_invoice_pdf(db: DB, ids: Annotated[str, Query(max_length=600, description="Comma-separated invoice ids")]):
+    """The chosen invoices (one tenant, one currency) as a single PDF invoice."""
+    return _combined_response(db, _combined_invoices(db, _ids_param(ids)))
+
+
+@router.post("/invoices/combined-share", response_model=InvoiceShareOut)
+def combined_invoice_share(body: CombinedIn, request: Request, db: DB,
+                           actor: Annotated[User, Depends(require("invoices.view"))]):
+    rows = sorted(_combined_invoices(db, body.invoice_ids), key=lambda i: (i.period_start or i.issue_date, i.id))
+    expires = datetime.now(UTC) + timedelta(days=SHARE_DAYS)
+    token = jwt.encode({"sub": ",".join(str(i.id) for i in rows), "aud": COMBINED_AUDIENCE, "exp": expires,
+                        "t": rows[0].tenant_id}, get_settings().SECRET_KEY, algorithm="HS256")
+    balance = sum((i.balance_due for i in rows), Decimal("0"))
+    cur = rows[0].currency
+    amount = f"{balance:,.0f} RWF" if cur == "RWF" else f"${balance:,.2f}"
+    months = [i.period_start for i in rows if i.period_start]
+    span = (f" for {min(months):%B %Y}" + (f" – {max(months):%B %Y}" if len(months) > 1 else "")) if months else ""
+    ref = invoice_pdf.combined_reference(rows)
+    message = (f"Hello {rows[0].tenant.full_name}, here is your invoice{span} ({ref})"
+               + (f". Amount due: {amount}." if balance > 0 else ". It is fully paid, thank you."))
+    audit(db, actor=actor, action="invoice.combined_shared", entity_type="invoice", entity_id=None,
+          summary=f"Created a share link for a combined invoice ({ref})", request=request)
+    db.commit()
+    first, last = rows[0].invoice_number, rows[-1].invoice_number
+    return InvoiceShareOut(token=token, path=f"/api/v1/public/combined-invoice-pdf/{token}",
+                           filename=f"invoice-{first}.pdf" if first == last else f"invoices-{first}-to-{last}.pdf",
+                           whatsapp_number=whatsapp_number(rows[0].tenant.phone), message=message, expires_at=expires)
+
+
+@router.get("/public/combined-invoice-pdf/{token}", dependencies=[Depends(rate_limit("invoice-pdf", 30, 60))],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def combined_invoice_public(token: str, db: DB):
+    try:
+        claims = jwt.decode(token, get_settings().SECRET_KEY, algorithms=["HS256"], audience=COMBINED_AUDIENCE)
+        rows = _combined_invoices(db, [int(x) for x in str(claims["sub"]).split(",")])
+        if rows[0].tenant_id != claims.get("t"):
+            raise ValueError("tenant changed")
+    except (jwt.PyJWTError, KeyError, ValueError, DomainError):
+        raise NotFound("This invoice link has expired or is not valid. Ask for a new one.") from None
+    return _combined_response(db, rows, inline=True)
+
+
 @router.post("/invoices/generate", response_model=GenerateOut)
 def generate(body: GenerateIn, request: Request, db: DB, actor: InvoiceManager):
     year, month = map(int, body.period.split("-"))
@@ -206,9 +317,6 @@ def get_invoice(invoice_id: int, db: DB):
 
 # ---- invoice PDF: download, and a signed link for sending on WhatsApp -------------------------------
 
-SHARE_DAYS = 30
-SHARE_AUDIENCE = "invoice-pdf"
-
 
 def _invoice_pdf_response(db: Session, inv: Invoice, inline: bool = False) -> Response:
     content = invoice_pdf.render_invoice(db, inv, now_local())
@@ -218,22 +326,10 @@ def _invoice_pdf_response(db: Session, inv: Invoice, inline: bool = False) -> Re
         "Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
 
-def whatsapp_number(phone: str) -> str:
-    """International digits for wa.me links: '+250 788 123 456' / '0788123456' -> '250788123456'."""
-    digits = "".join(ch for ch in phone if ch.isdigit())
-    if digits.startswith("0") and len(digits) == 10:
-        digits = "250" + digits[1:]
-    return digits
 
 
-class InvoiceShareOut(BaseModel):
-    token: str
-    #: Path under the API origin; the client prefixes VITE_API_URL.
-    path: str
-    filename: str
-    whatsapp_number: str
-    message: str
-    expires_at: datetime
+
+
 
 
 @router.get("/invoices/{invoice_id}/pdf", dependencies=[Depends(require("invoices.view"))],

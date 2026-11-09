@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
 import { api } from '@/shared/api/client'
-import type { AgreementOut, Page, PaymentMethodOut, PropertyOut } from '@/shared/api/types'
+import type { AgreementOut, Page, PaymentMethodOut, PropertyOut, TenantOut } from '@/shared/api/types'
 import { formatDate, formatMoney, todayISO } from '@/shared/lib/format'
 import { Input, Select } from '@/shared/ui/Form'
 import { SearchInput } from '@/shared/ui/Misc'
@@ -37,6 +37,29 @@ export function PropertySelect({ value, onChange, className }: { value: string; 
             {p.code} · {p.name}
           </option>
         ))}
+      </Select>
+    </div>
+  )
+}
+
+/** Filter by tenant (current and former; archived tenants are left out). */
+export function TenantSelect({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const tenants = useQuery({
+    queryKey: ['tenants', 'options'],
+    queryFn: () => api.get<Page<TenantOut>>('/tenants', { page_size: 200 }),
+    staleTime: 60_000,
+  })
+  const sorted = [...(tenants.data?.items ?? [])].sort((a, b) => a.full_name.localeCompare(b.full_name))
+  return (
+    <div className={className}>
+      <Select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Tenant">
+        <option value="">All tenants</option>
+        {sorted.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.full_name}
+          </option>
+        ))}
+        {value && tenants.data && !sorted.some((t) => String(t.id) === value) ? <option value={value}>Selected tenant</option> : null}
       </Select>
     </div>
   )

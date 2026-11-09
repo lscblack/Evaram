@@ -234,6 +234,21 @@ def payment_invoices(payment: Payment) -> list[Invoice]:
     return sorted(invs.values(), key=lambda i: (i.period_start or i.issue_date, i.id))
 
 
+def _invoice_lines(invoices: list[Invoice]) -> list[tuple[str, Decimal]]:
+    lines = []
+    for i in invoices:
+        desc = "; ".join(x.description for x in i.items) if i.items else "Rent"
+        lines.append((f"{desc} ({i.invoice_number})", i.amount_charged))
+    return lines
+
+
+def _span(invoices: list[Invoice]) -> tuple[str, int]:
+    starts = [i.period_start for i in invoices if i.period_start]
+    ends = [i.period_end for i in invoices if i.period_end]
+    period = f"{day(min(starts))} – {day(max(ends))}" if starts and ends else "—"
+    return period, len(starts)
+
+
 def render_payment_invoice(db: Session, payment: Payment, generated_at: datetime) -> bytes:
     """One invoice for everything a payment paid — e.g. three months of rent paid at once."""
     cur = payment.currency
@@ -243,15 +258,7 @@ def render_payment_invoice(db: Session, payment: Payment, generated_at: datetime
     balance = sum((i.balance_due for i in invoices), Decimal("0"))
     this_payment = sum((a.amount for a in payment.allocations), Decimal("0"))
     other_paid = sum((i.amount_paid for i in invoices), Decimal("0")) - this_payment
-
-    items = []
-    for i in invoices:
-        desc = "; ".join(x.description for x in i.items) if i.items else "Rent"
-        items.append((f"{desc} ({i.invoice_number})", i.amount_charged))
-    starts = [i.period_start for i in invoices if i.period_start]
-    ends = [i.period_end for i in invoices if i.period_end]
-    period = f"{day(min(starts))} – {day(max(ends))}" if starts and ends else "—"
-    months = sum(1 for i in invoices if i.period_start)
+    period, months = _span(invoices)
 
     totals = [("Charged", money(charged, cur))]
     if credited:
@@ -270,8 +277,58 @@ def render_payment_invoice(db: Session, payment: Payment, generated_at: datetime
         cur=cur, tenant=payment.tenant, unit=payment.unit, agreement_number=payment.agreement.agreement_number,
         facts=[("Paid on", day(payment.payment_date)), ("Period", period),
                ("Months", str(months) if months else "—")],
-        items=items, totals=totals, balance=balance,
+        items=_invoice_lines(invoices), totals=totals, balance=balance,
         payments=[(payment.payment_number, payment.payment_date, method, this_payment)],
         payments_heading="Payment received", reference=payment.payment_number, notes=notes, footnote=None,
         title=f"Invoice {payment.payment_number}", generated_at=generated_at,
+    )
+
+
+def combined_reference(invoices: list[Invoice]) -> str:
+    first, last = invoices[0].invoice_number, invoices[-1].invoice_number
+    return first if len(invoices) == 1 else f"{first} – {last}"
+
+
+def render_combined_invoice(db: Session, invoices: list[Invoice], generated_at: datetime) -> bytes:
+    """Several invoices of one tenant (same currency) on a single invoice."""
+    invoices = sorted(invoices, key=lambda i: (i.period_start or i.issue_date, i.id))
+    cur = invoices[0].currency
+    charged = sum((i.amount_charged for i in invoices), Decimal("0"))
+    credited = sum((i.amount_credited for i in invoices), Decimal("0"))
+    paid = sum((i.amount_paid for i in invoices), Decimal("0"))
+    balance = sum((i.balance_due for i in invoices), Decimal("0"))
+    period, months = _span(invoices)
+    if balance <= 0:
+        status = InvoiceStatus.PAID.value
+    elif any(i.status == InvoiceStatus.OVERDUE.value for i in invoices):
+        status = InvoiceStatus.OVERDUE.value
+    elif paid > 0:
+        status = InvoiceStatus.PARTIALLY_PAID.value
+    else:
+        status = InvoiceStatus.UNPAID.value
+
+    by_payment: dict[int, list] = {}
+    for inv in invoices:
+        for p, amt, label in _payments(db, inv):
+            row = by_payment.setdefault(p.id, [p.payment_number, p.payment_date, label, Decimal("0")])
+            row[3] += amt
+    payments = sorted((tuple(r) for r in by_payment.values()), key=lambda r: (r[1], r[0]))
+
+    totals = [("Charged", money(charged, cur))]
+    if credited:
+        totals.append(("Credits", f"− {money(credited, cur)}"))
+    totals.append(("Paid", f"− {money(paid, cur)}"))
+    open_dues = [i.due_date for i in invoices if i.balance_due > 0]
+    first = invoices[0]
+    agreements = sorted({i.agreement.agreement_number for i in invoices if i.agreement})
+    ref = combined_reference(invoices)
+    return _render(
+        db, number=f"{len(invoices)} invoices · {ref}" if len(invoices) > 1 else ref, status=status, cur=cur,
+        tenant=first.tenant, unit=first.unit, agreement_number=", ".join(agreements),
+        facts=[("Issue date", day(min(i.issue_date for i in invoices))),
+               ("Due date", day(min(open_dues)) if open_dues else "—"), ("Period", period),
+               ("Months", str(months) if months else "—")],
+        items=_invoice_lines(invoices), totals=totals, balance=balance, payments=payments,
+        payments_heading="Payments received for these invoices", reference=ref, notes=[], footnote=None,
+        title=f"Invoices {ref}", generated_at=generated_at,
     )

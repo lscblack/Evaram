@@ -100,3 +100,32 @@ test('passkeys can be added from System settings', async ({ page }) => {
   await page.goto('/admin/settings')
   await expect(page.getByRole('button', { name: 'Add a passkey' })).toBeVisible()
 })
+
+test('filter invoices by tenant, pick several and get one combined invoice', async ({ page, request }) => {
+  const api = await Api.login(request)
+  const stamp = Date.now().toString().slice(-6)
+  const { tenant, ag } = await tenancy(api, stamp, '120000')
+  // Three monthly invoices for one tenant: a payment covering three months creates them.
+  const p = await api.multipart('/payments', {
+    agreement_id: String(ag.id), amount: '360000', payment_date: todayISO(), method_code: 'cash',
+    auto_approve: 'true', months_covered: '3',
+  })
+  expect(p.status).toBe('approved')
+
+  await loginUI(page)
+  await page.goto('/admin/finance/invoices?tab=all')
+  await page.getByRole('combobox', { name: 'Tenant', exact: true }).selectOption(String(tenant.id))
+  await expect(page).toHaveURL(new RegExp(`tenant_id=${tenant.id}`))
+  const rows = page.locator('table tbody tr')
+  await expect(rows).toHaveCount(3)
+  const invoices = (await api.get(`/invoices?tenant_id=${tenant.id}`)).items as { invoice_number: string }[]
+  for (const inv of invoices) await page.getByRole('checkbox', { name: `Select ${inv.invoice_number}` }).check()
+  const bar = page.getByRole('region', { name: 'Combine invoices' })
+  await expect(bar.getByText('3 invoices selected')).toBeVisible()
+  await expect(bar.getByText(/Total 360,000/)).toBeVisible()
+  const [download] = await Promise.all([page.waitForEvent('download'), bar.getByRole('button', { name: 'Download combined invoice' }).click()])
+  expect((await readFile((await download.path())!)).subarray(0, 4).toString()).toBe('%PDF')
+  await bar.getByRole('button', { name: 'Send on WhatsApp' }).click()
+  const wa = page.getByRole('dialog', { name: 'Send invoice on WhatsApp' })
+  await expect(wa.getByRole('link', { name: /Open WhatsApp/ })).toHaveAttribute('href', /combined-invoice-pdf/)
+})
