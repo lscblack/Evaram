@@ -16,6 +16,7 @@ import { Money } from '@/shared/ui/Misc'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { DuplicateWarning } from './components'
+import { InvoicePdfButton, WhatsAppInvoiceButton } from './InvoiceShare'
 import { PaymentReviewDialogs, type ReviewMode } from './PaymentReview'
 import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
 
@@ -40,6 +41,18 @@ export default function PaymentDetailPage() {
         title={p.payment_number}
         meta={<StatusBadge status={p.status} />}
         actions={
+          <>
+          {approved && p.allocations.length ? (
+            <>
+              <InvoicePdfButton
+                id={p.id}
+                source={{ kind: 'payment', id: p.id }}
+                number={p.payment_number}
+                label={(p.months_covered ?? 0) > 1 ? `Invoice (${p.months_covered} months)` : p.allocations.length > 1 ? 'Combined invoice' : 'Invoice PDF'}
+              />
+              <WhatsAppInvoiceButton id={p.id} source={{ kind: 'payment', id: p.id }} />
+            </>
+          ) : null}
           <Can perm="payments.approve">
             {p.status === 'pending' ? (
               <>
@@ -63,6 +76,7 @@ export default function PaymentDetailPage() {
             ) : null}
             <DeleteRecordButton kind="payment" id={p.id} name={p.payment_number} redirectTo="/admin/finance/payments" />
           </Can>
+          </>
         }
       />
       <DuplicateWarning numbers={p.possible_duplicate_of ?? []} className="mb-4" />

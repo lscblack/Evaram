@@ -1,4 +1,5 @@
 /** Paying several months in one payment, and deleting records permanently. */
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { Api, loginUI, todayISO } from './helpers'
 
@@ -32,6 +33,15 @@ test('record one payment for three months', async ({ page, request }) => {
   for (const inv of invoices.items) expect(inv.status).toBe('paid')
   const payments = await api.get(`/payments?agreement_id=${ag.id}`)
   expect(payments.items[0].months_covered).toBe(3)
+
+  // One invoice for all three months, downloadable and sendable on WhatsApp.
+  await page.goto(`/admin/finance/payments/${payments.items[0].id}`)
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Invoice (3 months)' }).click()])
+  expect(download.suggestedFilename()).toBe(`invoice-${payments.items[0].payment_number}.pdf`)
+  expect((await readFile((await download.path())!)).subarray(0, 4).toString()).toBe('%PDF')
+  await page.getByRole('button', { name: 'Send on WhatsApp' }).click()
+  const wa = page.getByRole('dialog', { name: 'Send invoice on WhatsApp' })
+  await expect(wa.getByRole('link', { name: /Open WhatsApp/ })).toHaveAttribute('href', /payment-invoice-pdf/)
 })
 
 test('delete a payment, then the whole tenant', async ({ page, request }) => {

@@ -1,8 +1,10 @@
 """Paying several months at once, and permanently deleting records."""
 
+import io
 from datetime import date
 
 from conftest import login, make_user, png_bytes
+from pypdf import PdfReader
 from test_billing import MONTH_START, THIS_MONTH, current_invoice, prev_month, rented
 
 from evaramu.modules.billing.service import _next_month
@@ -168,3 +170,33 @@ def test_only_holders_of_records_delete_can_delete(api, client):
     assert client.delete(f"/api/v1/records/agreement/{ag['id']}").status_code == 401
     assert api.c.delete("/api/v1/records/agreement/999999", headers=api.h).status_code == 404
     assert api.c.delete("/api/v1/records/user/1", headers=api.h).status_code == 422
+
+
+# ---- one invoice for several months --------------------------------------------------------------
+
+def test_three_month_payment_has_one_invoice_pdf_listing_every_month(api, client):
+    ag = rented(api, start=MONTH_START.isoformat())
+    p = api.ok(pay_months(api, ag["id"], 450000, 3, ref="MP3PDF"), 201)
+    r = client.get(f"/api/v1/payments/{p['id']}/invoice-pdf", headers=api.h)
+    assert r.status_code == 200 and r.content.startswith(b"%PDF")
+    assert f'invoice-{p["payment_number"]}.pdf' in r.headers["content-disposition"]
+    text = "".join(pg.extract_text() for pg in PdfReader(io.BytesIO(r.content)).pages)
+    invs = rent_invoices(api, ag)
+    for k in (month_key(0), month_key(1), month_key(2)):
+        assert invs[k]["invoice_number"] in text
+    assert "3 months" in text and "450,000" in text
+
+    share = api.ok(api.post(f"/payments/{p['id']}/share"))
+    assert share["whatsapp_number"] == "250788000001" and p["payment_number"] in share["message"]
+    public = client.get(share["path"])
+    assert public.status_code == 200 and public.content.startswith(b"%PDF")
+    assert client.get(share["path"][:-3] + "abc").status_code == 404
+    # An invoice token does not open a payment invoice and vice versa.
+    assert client.get(share["path"].replace("payment-invoice-pdf", "invoice-pdf")).status_code == 404
+
+
+def test_pending_payment_has_no_combined_invoice_yet(api):
+    ag = rented(api, start=MONTH_START.isoformat())
+    p = api.ok(pay_months(api, ag["id"], 300000, 2, approve=False), 201)
+    r = api.get(f"/payments/{p['id']}/invoice-pdf")
+    assert r.status_code == 409 and r.json()["code"] == "no_payment_invoice"

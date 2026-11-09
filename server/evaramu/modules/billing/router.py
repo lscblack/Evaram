@@ -277,6 +277,69 @@ def invoice_pdf_public(token: str, db: DB):
     return _invoice_pdf_response(db, inv, inline=True)
 
 
+# ---- one invoice for everything a payment paid (several months at once) --------------------------
+
+PAYMENT_SHARE_AUDIENCE = "payment-invoice-pdf"
+
+
+def _paid_payment(db: Session, payment_id: int) -> Payment:
+    p = service.get_payment(db, payment_id)
+    if p.status != PaymentStatus.APPROVED.value or not p.allocations:
+        raise Conflict("An invoice is available once the payment is approved and applied to invoices",
+                       code="no_payment_invoice")
+    return p
+
+
+def _payment_pdf_response(db: Session, p: Payment, inline: bool = False) -> Response:
+    content = invoice_pdf.render_payment_invoice(db, p, now_local())
+    return Response(content, media_type="application/pdf", headers={
+        "Content-Disposition": f'{"inline" if inline else "attachment"}; filename="invoice-{p.payment_number}.pdf"',
+        "Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+
+
+@router.get("/payments/{payment_id}/invoice-pdf", dependencies=[Depends(require("payments.view"))],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def payment_invoice_pdf(payment_id: int, db: DB):
+    """One PDF invoice listing every month (invoice) the payment paid."""
+    return _payment_pdf_response(db, _paid_payment(db, payment_id))
+
+
+@router.post("/payments/{payment_id}/share", response_model=InvoiceShareOut)
+def payment_invoice_share(payment_id: int, request: Request, db: DB,
+                          actor: Annotated[User, Depends(require("payments.view"))]):
+    p = _paid_payment(db, payment_id)
+    expires = datetime.now(UTC) + timedelta(days=SHARE_DAYS)
+    token = jwt.encode({"sub": str(p.id), "aud": PAYMENT_SHARE_AUDIENCE, "exp": expires, "n": p.payment_number},
+                       get_settings().SECRET_KEY, algorithm="HS256")
+    invoices = invoice_pdf.payment_invoices(p)
+    months = [i.period_start for i in invoices if i.period_start]
+    amount = f"{p.amount:,.0f} RWF" if p.currency == "RWF" else f"${p.amount:,.2f}"
+    span = (f" for {min(months):%B %Y}" + (f" – {max(months):%B %Y}" if len(months) > 1 else "")) if months else ""
+    balance = sum((i.balance_due for i in invoices), Decimal("0"))
+    message = (f"Hello {p.tenant.full_name}, here is your invoice{span} ({p.payment_number}). "
+               f"We received {amount} on {p.payment_date:%d %b %Y}"
+               + (", thank you — it is fully paid." if balance <= 0 else ". Part of it is still due."))
+    audit(db, actor=actor, action="payment.invoice_shared", entity_type="payment", entity_id=p.id,
+          summary=f"Created a share link for the invoice of payment {p.payment_number}", request=request)
+    db.commit()
+    return InvoiceShareOut(token=token, path=f"/api/v1/public/payment-invoice-pdf/{token}",
+                           filename=f"invoice-{p.payment_number}.pdf",
+                           whatsapp_number=whatsapp_number(p.tenant.phone), message=message, expires_at=expires)
+
+
+@router.get("/public/payment-invoice-pdf/{token}", dependencies=[Depends(rate_limit("invoice-pdf", 30, 60))],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def payment_invoice_public(token: str, db: DB):
+    try:
+        claims = jwt.decode(token, get_settings().SECRET_KEY, algorithms=["HS256"], audience=PAYMENT_SHARE_AUDIENCE)
+        p = db.get(Payment, int(claims["sub"]))
+    except (jwt.PyJWTError, KeyError, ValueError):
+        p = None
+    if p is None or p.payment_number != claims.get("n") or p.status != PaymentStatus.APPROVED.value or not p.allocations:
+        raise NotFound("This invoice link has expired or is not valid. Ask for a new one.")
+    return _payment_pdf_response(db, p, inline=True)
+
+
 @router.post("/invoices/{invoice_id}/adjustments", response_model=InvoiceDetail, status_code=201)
 def adjust(invoice_id: int, body: AdjustmentIn, request: Request, db: DB, actor: InvoiceManager):
     inv = service.get_invoice(db, invoice_id, for_update=True)

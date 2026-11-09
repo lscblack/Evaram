@@ -4197,6 +4197,135 @@
     }
    }
   },
+  "/api/v1/payments/{payment_id}/invoice-pdf": {
+   "get": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Payment Invoice Pdf",
+    "description": "One PDF invoice listing every month (invoice) the payment paid.",
+    "operationId": "payment_invoice_pdf_api_v1_payments__payment_id__invoice_pdf_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "payment_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Payment Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/pdf": {}
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/payments/{payment_id}/share": {
+   "post": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Payment Invoice Share",
+    "operationId": "payment_invoice_share_api_v1_payments__payment_id__share_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "payment_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Payment Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InvoiceShareOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/public/payment-invoice-pdf/{token}": {
+   "get": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Payment Invoice Public",
+    "operationId": "payment_invoice_public_api_v1_public_payment_invoice_pdf__token__get",
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Token"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/pdf": {}
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/invoices/{invoice_id}/adjustments": {
    "post": {
     "tags": [
