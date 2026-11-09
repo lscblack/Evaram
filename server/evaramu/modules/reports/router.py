@@ -209,14 +209,16 @@ def pdf_options() -> dict:
     return builders.OPTIONS
 
 
-Choice = Query(default=None, max_length=500, description="Comma-separated keys from /reports/pdf/options; omit for all")
+def _choice():
+    # A fresh Query per parameter: FastAPI must not share one object between "cards" and "sections".
+    return Query(default=None, max_length=500, description="Comma-separated keys from /reports/pdf/options; omit for all")
 
 
 @router.get("/reports/pdf/payments-received", dependencies=[Reports],
             response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
 def payments_received_pdf(db: DB, user: CurrentUser, request: Request, date_from: date | None = None,
                           date_to: date | None = None, property_id: int | None = None, currency: Currency | None = None,
-                          cards: str | None = Choice, sections: str | None = Choice):
+                          cards: str | None = _choice(), sections: str | None = _choice()):
     """Approved payments in a period: totals, tenants who paid, months paid, units taken."""
     _filters(date_from, date_to, None, None, None, None, None)
     cur = currency.value if currency else None
@@ -229,7 +231,7 @@ def payments_received_pdf(db: DB, user: CurrentUser, request: Request, date_from
 @router.get("/reports/pdf/overdue", dependencies=[Reports, Depends(require("invoices.view"))],
             response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
 def overdue_pdf(db: DB, user: CurrentUser, request: Request, property_id: int | None = None,
-                currency: Currency | None = None, cards: str | None = Choice, sections: str | None = Choice):
+                currency: Currency | None = None, cards: str | None = _choice(), sections: str | None = _choice()):
     """Tenants with overdue rent: amount, months, days late, ageing."""
     today = date.today()
     cur = currency.value if currency else None
@@ -241,7 +243,7 @@ def overdue_pdf(db: DB, user: CurrentUser, request: Request, property_id: int | 
 @router.get("/reports/pdf/occupancy", dependencies=[Reports],
             response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
 def occupancy_pdf(db: DB, user: CurrentUser, request: Request, property_id: int | None = None,
-                  cards: str | None = Choice, sections: str | None = Choice):
+                  cards: str | None = _choice(), sections: str | None = _choice()):
     """Every unit: taken or free, tenant, rent, paid through, balance."""
     data = statements.occupancy(db, property_id=property_id)
     report = builders.occupancy(data, today=date.today(), property_name=_property_name(db, property_id))

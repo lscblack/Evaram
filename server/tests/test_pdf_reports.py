@@ -1,13 +1,19 @@
+import io
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from conftest import SessionLocal
+from pypdf import PdfReader
 from sqlalchemy import text
 from test_billing import MONTH_START, THIS_MONTH, prev_month
 
 from evaramu.modules.reports import builders, pdf, statements
 
 TODAY = date.today()
+
+
+def pdf_text(content: bytes) -> str:
+    return "".join(p.extract_text() for p in PdfReader(io.BytesIO(content)).pages)
 PREV = prev_month(MONTH_START)
 
 
@@ -125,6 +131,15 @@ def test_choose_cards_and_tables(api, client):
     r = client.get("/api/v1/reports/pdf/payments-received", headers=api.h,
                    params={"cards": "total_paid,units_taken", "sections": "tenants"})
     assert r.status_code == 200 and r.content.startswith(b"%PDF")
+    # The tenants who paid, with the amount each paid, are in the PDF (regression: the
+    # tables list used to be read from the cards list, dropping the table).
+    txt = pdf_text(r.content)
+    assert "Tenants who paid" in txt and "Jean Mugisha" in txt and "200,000 RWF" in txt
+    assert "Rent months paid" not in txt  # a card that was not chosen
+    # Cards only: no table.
+    r = client.get("/api/v1/reports/pdf/payments-received", headers=api.h,
+                   params={"cards": "total_paid", "sections": ""})
+    assert "Jean Mugisha" not in pdf_text(r.content)
     r = client.get("/api/v1/reports/pdf/payments-received", headers=api.h, params={"cards": "", "sections": ""})
     assert r.status_code == 400 and "at least one" in r.json()["detail"]
     for slug in ("overdue", "occupancy"):
