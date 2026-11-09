@@ -75,7 +75,7 @@ Evaram/
 
 ## Requirements
 
-* Python 3.12+ (developed on 3.14), PostgreSQL 14+ (developed on 17)
+* Python 3.11+ (developed on 3.14, tested on 3.11), PostgreSQL 14+ (developed on 17)
 * Node.js 20+ and pnpm 10
 * PostgreSQL client tools (`pg_dump`, `pg_restore`, `psql`) for backups
 
@@ -124,6 +124,13 @@ The administrator password is asked for interactively (or read from `EVARAMU_ADM
 
 ### Moving from the previous application
 
+**API still answering as the old app?** (sign-in says "Verification challenge required" or "The server is not fully updated")
+Run once on the server, with your Python environment active: `sudo -E bash scripts/switch-api.sh`.
+It installs packages, reviews `server/.env`, migrates, stops only the old API started from this project
+folder (other projects' `app.main:app` processes are left alone), installs the `evaramu-api` service on the same
+port and checks the public API. Then:
+
+
 If `scripts/migrate.sh` says the database *"still holds the PREVIOUS application's schema"*, run once:
 
 ```bash
@@ -137,15 +144,16 @@ Once you no longer need the old data: `sudo -u postgres dropdb <db>_legacy_<date
 
 ### Which Python the scripts use
 
-The scripts use, in order: `EVARAMU_PYTHON` if set, the active virtualenv / conda environment (not
-`base`) when it has the backend packages, then `server/.venv`. With a conda environment, activate it
-and run `scripts/setup-backend.sh` once to install `server/requirements.txt` into it.
+The backend always runs from its own virtualenv, `server/.venv`. `scripts/setup-backend.sh` creates it
+from the active Python (any 3.11+, e.g. `conda activate fastapi_setup`, or `PYTHON_BIN=/path/to/python3.11`)
+and installs `server/requirements.txt` into it — never into the conda environment itself, so other projects
+sharing that environment are not affected. `EVARAMU_PYTHON=/path/to/python` overrides the interpreter.
 
 ## Deployment
 
 One-time server setup (Ubuntu/Debian example, app in `/srv/evaramu`, user `evaramu`):
 
-1. Install Python 3.12+, PostgreSQL client tools, Node 20+, pnpm, nginx.
+1. Install Python 3.11+, PostgreSQL client tools, Node 20+, pnpm, nginx.
 2. Clone the repository to `/srv/evaramu`; create `server/.env` (`chmod 600`), with `APP_ENV=production`, `COOKIE_SECURE=true`, a real `SECRET_KEY` and the database settings.
 3. `scripts/setup-backend.sh && scripts/setup-frontend.sh && scripts/migrate.sh`, then create the administrator (above).
 4. Install the templates from `scripts/templates/` (adjust paths/domain):
