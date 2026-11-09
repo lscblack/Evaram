@@ -4,7 +4,7 @@
  * backups/e2e-screens for visual review.
  */
 import { expect, test } from '@playwright/test'
-import { Api, expectNoHorizontalOverflow, loginUI, pngBuffer, settle, todayISO } from './helpers'
+import { API_URL, Api, expectNoHorizontalOverflow, loginUI, pngBuffer, settle, todayISO } from './helpers'
 
 const WIDTHS = [360, 390, 430, 768, 1024, 1440]
 const SHOTS = '../backups/e2e-screens'
@@ -56,7 +56,7 @@ test.beforeAll(async ({ request }) => {
     agreement_id: String(ag.id), amount: '100000', payment_date: todayISO(), method_code: 'cash', transaction_reference: '',
   })
   await api.post(`/payments/${pay.id}/approve`, { auto_allocate: true })
-  await request.post('/api/v1/public/inquiries', {
+  await request.post(`${API_URL}/api/v1/public/inquiries`, {
     data: { full_name: 'Eric Mugabo', phone: '+250788123123', unit_code: 'RSPR1', message: 'Can I visit on Saturday?' },
   })
   const doc = await api.post(`/agreements/${ag.id}/documents`, {})

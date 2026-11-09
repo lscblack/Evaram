@@ -12,12 +12,16 @@ export async function loginUI(page: Page) {
   await expect(page).toHaveURL(/\/admin/)
 }
 
-/** Authenticated API helper for seeding (talks to the backend through the Vite proxy). */
+/** Backend origin for seeding; the site itself calls the API at VITE_API_URL. */
+export const API_URL = (process.env.E2E_API_URL || process.env.VITE_API_URL || '').replace(/\/+$/, '')
+if (!API_URL) throw new Error('Set E2E_API_URL (scripts/e2e.sh does this)')
+
+/** Authenticated API helper for seeding (talks to the backend directly). */
 export class Api {
   constructor(private request: APIRequestContext, private token: string) {}
 
   static async login(request: APIRequestContext) {
-    const r = await request.post('/api/v1/auth/login', { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
+    const r = await request.post(`${API_URL}/api/v1/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
     expect(r.ok(), await r.text()).toBeTruthy()
     return new Api(request, (await r.json()).access_token)
   }
@@ -27,19 +31,19 @@ export class Api {
   }
 
   async get(path: string) {
-    const r = await this.request.get(`/api/v1${path}`, { headers: this.h() })
+    const r = await this.request.get(`${API_URL}/api/v1${path}`, { headers: this.h() })
     expect(r.ok(), await r.text()).toBeTruthy()
     return r.json()
   }
 
   async post(path: string, data?: unknown) {
-    const r = await this.request.post(`/api/v1${path}`, { headers: this.h(), data })
+    const r = await this.request.post(`${API_URL}/api/v1${path}`, { headers: this.h(), data })
     expect(r.ok(), `${path}: ${await r.text()}`).toBeTruthy()
     return r.json()
   }
 
   async multipart(path: string, multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }>) {
-    const r = await this.request.post(`/api/v1${path}`, { headers: this.h(), multipart })
+    const r = await this.request.post(`${API_URL}/api/v1${path}`, { headers: this.h(), multipart })
     expect(r.ok(), `${path}: ${await r.text()}`).toBeTruthy()
     return r.json()
   }

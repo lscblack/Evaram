@@ -1,13 +1,35 @@
 /**
  * HTTP client for the Evaramu API.
  *
- * - All calls go to the same origin under /api/v1.
+ * - Every call goes to the backend named by VITE_API_URL (required; there is
+ *   no built-in default), under /api/v1. Uploaded files (/media/...) are
+ *   resolved against the same origin.
  * - The short-lived access token lives only in memory (never localStorage).
  * - On a 401 the client performs ONE refresh (httpOnly cookie, rotated by the
  *   server) shared by all concurrent requests, then retries once.
  */
 
-export const API_BASE = '/api/v1'
+/** Backend origin from VITE_API_URL, without a trailing slash. */
+export const API_ORIGIN = String(import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '')
+if (!API_ORIGIN) throw new Error('VITE_API_URL is not set: add it to client/.env (e.g. VITE_API_URL=https://api.example.com)')
+export const API_BASE = `${API_ORIGIN}/api/v1`
+
+/** Absolute URL for an uploaded file path returned by the API ("/media/..."). */
+export function mediaUrl<T extends string | null | undefined>(path: T): T {
+  return (typeof path === 'string' && path.startsWith('/media/') ? `${API_ORIGIN}${path}` : path) as T
+}
+
+/** Point every "/media/..." string in an API response at the backend origin. */
+function resolveMedia(value: unknown): unknown {
+  if (typeof value === 'string') return mediaUrl(value)
+  if (Array.isArray(value)) return value.map(resolveMedia)
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) out[k] = resolveMedia(v)
+    return out
+  }
+  return value
+}
 
 export class ApiError extends Error {
   status: number
@@ -67,7 +89,7 @@ async function doRefresh(): Promise<RefreshResult | null> {
     if (wait) await new Promise((r) => setTimeout(r, wait))
     res = await fetch(`${API_BASE}/auth/refresh`, {
       method: 'POST',
-      credentials: 'same-origin',
+      credentials: 'include',
       headers: { 'X-Requested-With': 'evaramu' },
     })
     if (res.status !== 429) break
@@ -128,7 +150,7 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
     method: opts.method || 'GET',
     headers,
     body,
-    credentials: 'same-origin',
+    credentials: 'include',
     signal: opts.signal,
   })
 }
@@ -155,7 +177,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   }
   if (res.status === 204) return undefined as T
   const type = res.headers.get('content-type') || ''
-  if (type.includes('application/json')) return (await res.json()) as T
+  if (type.includes('application/json')) return resolveMedia(await res.json()) as T
   return (await res.blob()) as T
 }
 

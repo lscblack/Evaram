@@ -4,30 +4,22 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
-// The browser always talks to the API on the same origin (`/api/v1`, `/media`).
-// In development Vite proxies those paths to uvicorn; in production nginx does
-// the same (see deploy/nginx.conf). Same-origin keeps the refresh cookie
-// `SameSite=Strict` and removes CORS from the picture entirely.
+// The browser calls the backend at VITE_API_URL (client/.env or the
+// environment) for /api/v1 and /media. There is deliberately no default: a
+// missing value stops dev, preview and build instead of silently pointing the
+// site at the wrong server. If it is a different origin from the site, list the
+// site in the backend's CORS_ORIGINS; keep both on the same site (domain or
+// subdomain) so the SameSite=Strict refresh cookie is sent.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const api = env.VITE_API_URL || 'http://127.0.0.1:8000'
+  if (mode !== 'test' && !env.VITE_API_URL?.trim()) {
+    throw new Error('VITE_API_URL is not set. Add it to client/.env, e.g. VITE_API_URL=https://api.example.com')
+  }
   return {
     plugins: [react(), tailwindcss()],
     resolve: { alias: { '@': path.resolve(__dirname, './src') } },
-    server: {
-      port: 5173,
-      proxy: {
-        '/api': { target: api, changeOrigin: true },
-        '/media': { target: api, changeOrigin: true },
-      },
-    },
-    preview: {
-      port: 4173,
-      proxy: {
-        '/api': { target: api, changeOrigin: true },
-        '/media': { target: api, changeOrigin: true },
-      },
-    },
+    server: { port: 5173 },
+    preview: { port: 4173 },
     build: {
       outDir: 'dist',
       sourcemap: false,
@@ -39,6 +31,7 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       css: false,
+      env: { VITE_API_URL: 'http://api.test' },
     },
   }
 })

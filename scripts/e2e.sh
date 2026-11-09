@@ -51,4 +51,4 @@ for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$WEB_PORT/" >/dev/null 2>&1
 
 log "Running Playwright"
 cd "$CLIENT_DIR"
-E2E_BASE_URL="http://127.0.0.1:$WEB_PORT" pnpm exec playwright test "$@"
+E2E_BASE_URL="http://127.0.0.1:$WEB_PORT" E2E_API_URL="http://127.0.0.1:$API_PORT" pnpm exec playwright test "$@"

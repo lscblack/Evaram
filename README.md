@@ -109,7 +109,7 @@ The administrator password is asked for interactively (or read from `EVARAMU_ADM
 | `PUBLIC_SITE_URL` | no | public URL of the site |
 | `TEST_DB_NAME` | no | test database (default `<DB_NAME>_test`; must end in `_test`) |
 
-`client/.env`: `VITE_API_URL` — backend origin used by the Vite dev/preview proxy only.
+`client/.env`: `VITE_API_URL` — **required** backend origin (e.g. `https://evaramu.rw` or `https://api.evaramu.rw`). The frontend calls `${VITE_API_URL}/api/v1` and loads uploads from `${VITE_API_URL}/media`; there is no built-in default and `vite dev/build` stop if it is missing. It is baked in at build time, so rebuild after changing it. When it is a different origin from the site, add the site's origin to the backend `CORS_ORIGINS`, and keep both on the same domain (a subdomain is fine) so the `SameSite=Strict` refresh cookie is sent.
 
 ## Database & migrations
 
@@ -122,27 +122,16 @@ The administrator password is asked for interactively (or read from `EVARAMU_ADM
 
 ### Moving from the previous application
 
-If `scripts/migrate.sh` stops with *"is at revision '…', which is not part of this application's
-migrations"*, the database configured in `server/.env` still holds the **previous** application's
-schema (its revisions live in the old `server/alembic/versions`). The two schemas are unrelated, so
-never `alembic stamp` that database. Keep it intact as a backup and give the new application an
-empty database **with the same name**, so `server/.env` stays unchanged:
+If `scripts/migrate.sh` says the database *"still holds the PREVIOUS application's schema"*, run once:
 
 ```bash
-# 0. stop whatever still uses the old database (old API service, workers)
-# 1. back it up (custom-format dump in backups/)
-scripts/backup-db.sh legacy-before-switch
-# 2. show the configured database name and user (the password is never printed)
-bash -c 'source scripts/lib/common.sh; load_db_env; echo "db=$PGDATABASE user=$PGUSER"'
-# 3. as the PostgreSQL superuser: rename the old database, create a fresh one owned by the same user
-sudo -u postgres psql -c 'ALTER DATABASE "<db>" RENAME TO "<db>_legacy_YYYYMMDD";'
-sudo -u postgres psql -c 'CREATE DATABASE "<db>" OWNER "<user>" TEMPLATE template0;'
-# 4. build the new schema, permissions and administrator
-scripts/migrate.sh
+scripts/migrate.sh --replace-legacy
 ```
 
-Nothing is deleted: the old data stays in `<db>_legacy_YYYYMMDD` and in the dump. To undo, rename the
-databases back. Uploaded files are not touched.
+It renames the old database to `<db>_legacy_<date>` (kept as it is, no dump), creates a fresh empty
+`<db>` (so `server/.env` stays unchanged), builds the schema, permissions and administrator. Run it as
+root (it uses the `postgres` superuser locally) or as a role that owns the database and has CREATEDB.
+Once you no longer need the old data: `sudo -u postgres dropdb <db>_legacy_<date>`.
 
 ### Which Python the scripts use
 

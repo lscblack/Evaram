@@ -118,7 +118,7 @@ export function ListingCard({
         <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-100 pt-3">
           <p className="min-w-0 tabular leading-tight">
             <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Monthly rent</span>
-            <Price amount={listing.monthly_rent} currency={listing.currency} className="text-base font-bold text-brand-900" />
+            <Price compact amount={listing.monthly_rent} currency={listing.currency} className="text-base font-bold text-brand-900" />
           </p>
           <div className="flex shrink-0 gap-1.5">
             <button

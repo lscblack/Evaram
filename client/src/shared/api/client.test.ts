@@ -16,7 +16,7 @@ describe('api client', () => {
     setAccessToken('abc')
     await api.get('/units', { status: 'available', empty: '' })
     const [url, init] = fetchMock.mock.calls[0]!
-    expect(url).toBe('/api/v1/units?status=available')
+    expect(url).toBe('http://api.test/api/v1/units?status=available')
     expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer abc')
     expect((init!.headers as Record<string, string>)['X-Requested-With']).toBe('evaramu')
   })
@@ -34,7 +34,7 @@ describe('api client', () => {
       return auth === 'Bearer fresh' ? json(200, { url }) : json(401, { detail: 'expired' })
     })
     const results = await Promise.all([api.get<{ url: string }>('/a'), api.get<{ url: string }>('/b'), api.get<{ url: string }>('/c')])
-    expect(results.map((r) => r.url)).toEqual(['/api/v1/a', '/api/v1/b', '/api/v1/c'])
+    expect(results.map((r) => r.url)).toEqual(['http://api.test/api/v1/a', 'http://api.test/api/v1/b', 'http://api.test/api/v1/c'])
     expect(refreshes).toBe(1)
   })
 

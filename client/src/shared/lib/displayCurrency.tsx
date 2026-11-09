@@ -81,7 +81,10 @@ function formatConverted(value: number, to: DisplayCurrency) {
 export function convertPrice(amount: string | number, from: string, to: DisplayCurrency, rate: number | null): ShownPrice {
   const n = Number(amount)
   const listed = formatMoney(n, from)
-  if (from === to || !rate) return { text: listed, value: n, currency: from, converted: false, listed }
+  if (from === to || !rate) {
+    const text = from === 'USD' && Number.isInteger(n) ? formatConverted(n, 'USD') : listed
+    return { text, value: n, currency: from, converted: false, listed }
+  }
   const raw = to === 'RWF' ? n * rate : n / rate
   const value = roundConverted(raw, to)
   return { text: formatConverted(value, to), value, currency: to, converted: true, listed }
@@ -139,13 +142,16 @@ export function CurrencySwitch({ className, tone = 'light' }: { className?: stri
 }
 
 /** Price in the chosen currency; converted prices get "≈" and show the listed price on hover. */
-export function Price({ amount, currency, className }: { amount: string | number; currency: string; className?: string }) {
+export function Price({ amount, currency, className, compact }: { amount: string | number; currency: string; className?: string; compact?: boolean }) {
   const { show } = useMoney()
   const p = show(amount, currency)
+  // Compact (cards): the "RWF" code is set small so long amounts stay on one line.
+  const code = compact && p.text.endsWith(' RWF')
   return (
-    <span className={className} title={p.converted ? `Listed at ${p.listed} — converted estimate` : undefined}>
+    <span className={cn('whitespace-nowrap', className)} title={p.converted ? `Listed at ${p.listed} — converted estimate` : undefined}>
       {p.converted ? <span className="mr-0.5 font-normal opacity-70">≈</span> : null}
-      {p.text}
+      {code ? p.text.slice(0, -4) : p.text}
+      {code ? <span className="ml-1 text-[11px] font-semibold opacity-70">RWF</span> : null}
     </span>
   )
 }
