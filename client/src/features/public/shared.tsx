@@ -7,7 +7,8 @@ import { ArrowUpRight, BedDouble, Bath, Building2, CalendarCheck, CheckCircle2, 
 import { api, errorMessage } from '@/shared/api/client'
 import type { PublicListing } from '@/shared/api/types'
 import { LOGO } from '@/shared/lib/brand'
-import { formatMoney, todayISO, UNIT_TYPE_LABEL } from '@/shared/lib/format'
+import { Price } from '@/shared/lib/displayCurrency'
+import { todayISO, UNIT_TYPE_LABEL } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Field, FormError, FormGrid, Input, Textarea } from '@/shared/ui/Form'
@@ -117,7 +118,7 @@ export function ListingCard({
         <div className="mt-auto flex items-end justify-between gap-2 border-t border-slate-100 pt-3">
           <p className="min-w-0 tabular leading-tight">
             <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Monthly rent</span>
-            <span className="text-base font-bold text-brand-900">{formatMoney(listing.monthly_rent, listing.currency)}</span>
+            <Price amount={listing.monthly_rent} currency={listing.currency} className="text-base font-bold text-brand-900" />
           </p>
           <div className="flex shrink-0 gap-1.5">
             <button

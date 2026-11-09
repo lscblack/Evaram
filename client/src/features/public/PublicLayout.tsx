@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
 import { Clock, Mail, MapPin, Menu, Phone, X } from 'lucide-react'
 import { LOGO, settingText, usePublicSettings } from '@/shared/lib/brand'
+import { CurrencySwitch, useExchangeRate } from '@/shared/lib/displayCurrency'
 import { cn } from '@/shared/ui/cn'
 
 const LINKS = [
@@ -36,6 +37,7 @@ export default function PublicLayout() {
             <img src={LOGO.horizontal} alt={company} className="h-9 w-auto sm:h-10" />
           </Link>
           <nav className="ml-auto hidden items-center gap-1 md:flex" aria-label="Main">
+            <CurrencySwitch className="mr-2" />
             {LINKS.map((l) => (
               <Link key={l.hash} to={{ pathname: '/', hash: l.hash }} className="rounded-full px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900">
                 {l.label}
@@ -48,12 +50,13 @@ export default function PublicLayout() {
               Request a viewing
             </Link>
           </nav>
+          <CurrencySwitch className="ml-auto md:hidden" />
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label={open ? 'Close menu' : 'Open menu'}
-            className="ml-auto inline-flex size-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 md:hidden"
+            className="inline-flex size-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 md:hidden"
           >
             {open ? <X className="size-6" /> : <Menu className="size-6" />}
           </button>
@@ -126,10 +129,24 @@ export default function PublicLayout() {
         <div className="border-t border-white/10">
           <div className="mx-auto flex w-11/12 flex-col gap-2 py-5 text-sm text-brand-100/60 sm:flex-row sm:items-center sm:justify-between">
             <p>© {new Date().getFullYear()} {company}. All rights reserved.</p>
+            <RateNote />
             <Link to="/login" className="hover:text-white">Staff sign in</Link>
           </div>
         </div>
       </footer>
     </div>
+  )
+}
+
+/** Where converted prices come from; rent itself is paid in each home's listed currency. */
+function RateNote() {
+  const fx = useExchangeRate().data
+  if (!fx?.rate) return null
+  const rate = Math.round(Number(fx.rate)).toLocaleString('en-US')
+  const when = fx.updated_at && !fx.is_override ? ` · updated ${new Date(fx.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''
+  return (
+    <p className="text-xs text-brand-100/50" title={fx.source ? `Rate source: ${fx.source}` : undefined}>
+      1 USD ≈ {rate} RWF{when}. Converted prices are estimates; rent is paid in the listed currency.
+    </p>
   )
 }

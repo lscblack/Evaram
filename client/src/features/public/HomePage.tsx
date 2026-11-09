@@ -24,6 +24,7 @@ import {
 import { api } from '@/shared/api/client'
 import type { Page, PublicArea, PublicFilters, PublicListing } from '@/shared/api/types'
 import { settingText, usePublicSettings } from '@/shared/lib/brand'
+import { useMoney } from '@/shared/lib/displayCurrency'
 import { formatMoney, UNIT_TYPE_LABEL } from '@/shared/lib/format'
 import { useUrlState } from '@/shared/lib/useUrlState'
 import { Button } from '@/shared/ui/Button'
@@ -75,7 +76,8 @@ export default function HomePage() {
       api.publicGet<Page<PublicListing>>('/public/listings', {
         location: state.location,
         unit_type: state.unit_type,
-        currency: state.currency,
+        // The currency only qualifies a budget; it never hides homes listed in the other currency.
+        currency: state.min_rent || state.max_rent ? state.currency : undefined,
         min_rent: state.currency ? state.min_rent : undefined,
         max_rent: state.currency ? state.max_rent : undefined,
         bedrooms: state.bedrooms,
@@ -347,15 +349,15 @@ const bare =
 function HeroSearch({ state, filters, onApply }: { state: Filters; filters?: PublicFilters; onApply: (f: Partial<Filters>) => void }) {
   const [draft, setDraft] = useState<Filters>(state)
   useEffect(() => setDraft(state), [state])
-  const currencies = filters?.currencies.map((c) => c.currency) ?? []
+  const { currency: shown } = useMoney()
   const maxBeds = Math.max(filters?.max_bedrooms ?? 0, 1)
   const up = (k: keyof Filters) => (e: { target: { value: string } }) => setDraft((d) => ({ ...d, [k]: e.target.value }))
 
   function submit(e: FormEvent) {
     e.preventDefault()
     const next = { ...draft, sort: state.sort }
-    // The API filters rent within one currency only.
-    if (!next.currency && (next.min_rent || next.max_rent)) next.currency = currencies[0] ?? 'RWF'
+    // The budget is in the currency the visitor chose; the API converts other listings.
+    next.currency = next.min_rent || next.max_rent ? shown : ''
     onApply(next)
   }
 
@@ -397,12 +399,7 @@ function HeroSearch({ state, filters, onApply }: { state: Filters; filters?: Pub
       <div className={cell}>
         <span className={fieldLabel}><Wallet className="size-3.5 text-gold-600" /> Max budget / month</span>
         <div className="flex items-center gap-2">
-          <select value={draft.currency} onChange={up('currency')} className={cn(bare, 'w-auto shrink-0 text-slate-600')} aria-label="Currency">
-            <option value="">RWF / USD</option>
-            {(currencies.length ? currencies : ['RWF', 'USD']).map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <span className="mt-1 shrink-0 text-[15px] font-semibold text-slate-500">{shown === 'USD' ? '$' : 'RWF'}</span>
           <input
             type="number"
             inputMode="numeric"
@@ -410,7 +407,7 @@ function HeroSearch({ state, filters, onApply }: { state: Filters; filters?: Pub
             value={draft.max_rent}
             onChange={up('max_rent')}
             placeholder="No limit"
-            aria-label="Max rent"
+            aria-label={`Max rent in ${shown}`}
             className={cn(bare, 'cursor-text tabular placeholder:font-medium placeholder:text-slate-400')}
           />
         </div>
@@ -550,11 +547,7 @@ function AreaCard({ area, index, onPick }: { area: PublicArea; index: number; on
       <div className="mt-4 border-t border-slate-100 pt-3">
         <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Monthly rent</p>
         {area.prices.length ? (
-          area.prices.map((p) => (
-            <p key={p.currency} className="mt-0.5 text-sm font-semibold text-slate-900 tabular">
-              {priceRange(p.min, p.max, p.currency)}
-            </p>
-          ))
+          <AreaPrices prices={area.prices} />
         ) : (
           <p className="mt-0.5 text-sm font-medium text-slate-500">Fully let — ask about upcoming homes</p>
         )}
@@ -592,7 +585,7 @@ function ActiveFilters({ state, onClear }: { state: Filters; onClear: (k: keyof 
     const n = (v: string) => Number(v).toLocaleString()
     const range = state.min_rent && state.max_rent ? `${n(state.min_rent)}–${n(state.max_rent)}` : state.max_rent ? `up to ${n(state.max_rent)}` : `from ${n(state.min_rent)}`
     chips.push(['budget', `${range} ${state.currency}`])
-  } else if (state.currency) chips.push(['currency', `Rent in ${state.currency}`])
+  }
   if (!chips.length) return null
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
@@ -768,6 +761,27 @@ function ContactSection() {
 /** A photo file that fails to load is hidden, so the gradient behind it shows instead of a broken image. */
 function hideBroken(e: React.SyntheticEvent<HTMLImageElement>) {
   e.currentTarget.style.display = 'none'
+}
+
+/** One rent range in the visitor's currency (converted where needed); per currency when no rate is known. */
+function AreaPrices({ prices }: { prices: PublicArea['prices'] }) {
+  const { show, rate, currency } = useMoney()
+  const line = 'mt-0.5 text-sm font-semibold text-slate-900 tabular'
+  if (!rate && prices.length > 1) {
+    return prices.map((p) => <p key={p.currency} className={line}>{priceRange(p.min, p.max, p.currency)}</p>)
+  }
+  const lo = prices.map((p) => show(p.min, p.currency))
+  const hi = prices.map((p) => show(p.max, p.currency))
+  const min = lo.reduce((a, b) => (b.value < a.value ? b : a))
+  const max = hi.reduce((a, b) => (b.value > a.value ? b : a))
+  const approx = [...lo, ...hi].some((p) => p.converted)
+  const cur = min.currency === max.currency ? min.currency : currency
+  return (
+    <p className={line} title={approx ? 'Includes homes listed in another currency, converted at today\'s rate' : undefined}>
+      {approx ? <span className="mr-0.5 font-normal opacity-70">≈</span> : null}
+      {min.value === max.value ? min.text : cur === 'USD' ? `${min.text} – ${max.text}` : `${min.text.replace(' RWF', '')} – ${max.text}`}
+    </p>
+  )
 }
 
 /** "120,000 – 150,000 RWF" / "$950 – $2,400": the currency is written once for RWF. */

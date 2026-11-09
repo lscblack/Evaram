@@ -6026,6 +6026,28 @@
     ]
    }
   },
+  "/api/v1/public/exchange-rate": {
+   "get": {
+    "tags": [
+     "public"
+    ],
+    "summary": "Exchange Rate",
+    "description": "Rate used by the website's RWF / USD switch. Display only: rent is paid in the listed currency.",
+    "operationId": "exchange_rate_api_v1_public_exchange_rate_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ExchangeRateOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/public/listings": {
    "get": {
     "tags": [
@@ -8008,6 +8030,65 @@
     },
     "type": "object",
     "title": "DocumentUpdate"
+   },
+   "ExchangeRateOut": {
+    "properties": {
+     "base": {
+      "type": "string",
+      "title": "Base",
+      "default": "USD"
+     },
+     "quote": {
+      "type": "string",
+      "title": "Quote",
+      "default": "RWF"
+     },
+     "rate": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rate"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source"
+     },
+     "updated_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated At"
+     },
+     "is_override": {
+      "type": "boolean",
+      "title": "Is Override",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "rate",
+     "source",
+     "updated_at"
+    ],
+    "title": "ExchangeRateOut"
    },
    "GenerateIn": {
     "properties": {

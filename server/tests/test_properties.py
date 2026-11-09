@@ -88,14 +88,60 @@ def test_public_filters(client, api):
     api.unit(prop2["id"], code="H301", unit_type="house", rent="500000", bedrooms=4)
     assert public_codes(client, location="kicukiro") == {"H301"}
     assert public_codes(client, unit_type="apartment") == {"A201"}
-    assert public_codes(client, currency="USD") == {"A201"}
-    assert public_codes(client, currency="RWF", min_rent=200000) == {"H301"}
+    # Budgets compare across currencies at the test rate (1 USD = 1,400 RWF): $800 = 1,120,000 RWF.
+    assert public_codes(client, currency="RWF", min_rent=200000) == {"H301", "A201"}
     assert public_codes(client, currency="RWF", max_rent=200000) == {"R101"}
+    assert public_codes(client, currency="USD", max_rent=400) == {"R101", "H301"}
+    assert public_codes(client, currency="USD", min_rent=500) == {"A201"}
+    by_price = client.get("/api/v1/public/listings", params={"sort": "price_asc"}).json()["items"]
+    assert [x["code"] for x in by_price] == ["R101", "H301", "A201"]
     assert public_codes(client, bedrooms=2) == {"A201", "H301"}
     assert client.get("/api/v1/public/listings", params={"min_rent": 1}).status_code == 400
     f = client.get("/api/v1/public/filters").json()
     assert f["locations"] == ["Gasabo", "Kicukiro"] and f["total_available"] == 3
     assert {c["currency"] for c in f["currencies"]} == {"RWF", "USD"}
+
+
+def test_exchange_rate_live_override_and_last_known(client, api, monkeypatch, db):
+    from evaramu.modules.public import fx
+    from evaramu.modules.system.models import AppSetting
+
+    if db.get(AppSetting, "currency.usd_rwf_rate") is None:  # wiped by the users TRUNCATE cascade
+        db.add(AppSetting(key="currency.usd_rwf_rate", value=0, label="USD to RWF rate", group="currency"))
+        db.commit()
+
+    r = client.get("/api/v1/public/exchange-rate").json()
+    assert (float(r["rate"]), r["source"], r["is_override"]) == (1400, "test", False)
+
+    # Live lookups failing: the last good rate (saved above) is used.
+    fx.reset_cache()
+    monkeypatch.setattr(fx, "fetch_remote", lambda: None)
+    r = client.get("/api/v1/public/exchange-rate").json()
+    assert float(r["rate"]) == 1400 and r["source"] == "test"
+
+    # The landlord's own rate wins.
+    api.ok(api.patch("/settings", {"values": {"currency.usd_rwf_rate": 1500}}))
+    r = client.get("/api/v1/public/exchange-rate").json()
+    assert (float(r["rate"]), r["is_override"]) == (1500, True)
+
+
+def test_no_exchange_rate_keeps_budgets_within_one_currency(client, api, monkeypatch):
+    from evaramu.modules.public import fx
+
+    fx.reset_cache()
+    monkeypatch.setattr(fx, "fetch_remote", lambda: None)
+    prop = api.property()
+    api.unit(prop["id"], code="R101", rent="150000")
+    api.unit(prop["id"], code="A201", unit_type="apartment", rent="100", currency="USD")
+    assert client.get("/api/v1/public/exchange-rate").json()["rate"] is None
+    assert public_codes(client, currency="RWF", max_rent=1000000) == {"R101"}
+
+
+def test_fx_rejects_insane_rates():
+    from evaramu.modules.public import fx
+
+    assert fx._sane("1450.5") is not None
+    assert fx._sane("0.0007") is None and fx._sane("abc") is None and fx._sane(None) is None
 
 
 def test_public_areas_count_available_taken_and_price_range(client, api):

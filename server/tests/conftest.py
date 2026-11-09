@@ -91,6 +91,24 @@ def _migration_0004():
     return module
 
 
+#: Exchange rate the tests see instead of calling the internet (RWF per USD).
+FX_RATE = "1400"
+
+
+@pytest.fixture(autouse=True)
+def offline_fx(monkeypatch):
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from evaramu.modules.public import fx
+
+    fx.reset_cache()
+    monkeypatch.setattr(fx, "fetch_remote",
+                        lambda: fx.Rate(rate=Decimal(FX_RATE), source="test", updated_at=datetime.now(UTC)))
+    yield
+    fx.reset_cache()
+
+
 @pytest.fixture(autouse=True)
 def clean(database):
     yield
@@ -100,6 +118,8 @@ def clean(database):
         c.execute(text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE"))
         # Reset role grants changed by a test to the migrated defaults.
         c.execute(text("DELETE FROM roles WHERE NOT is_system"))
+        c.execute(text("DELETE FROM app_settings WHERE key = 'currency.usd_rwf_last'"))
+        c.execute(text("UPDATE app_settings SET value = '0' WHERE key = 'currency.usd_rwf_rate'"))
         # Restore the seeded agreement template exactly as migration 0004 created it.
         seed = _migration_0004()
         c.execute(text("TRUNCATE agreement_templates RESTART IDENTITY CASCADE"))

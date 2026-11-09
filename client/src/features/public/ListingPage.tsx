@@ -5,13 +5,14 @@ import { Bath, BedDouble, Check, ChevronLeft, ChevronRight, Home, MapPin, Ruler,
 import { ApiError, api } from '@/shared/api/client'
 import type { PublicListingDetail } from '@/shared/api/types'
 import { settingText, usePublicSettings } from '@/shared/lib/brand'
-import { formatMoney, PROPERTY_TYPE_LABEL, UNIT_TYPE_LABEL } from '@/shared/lib/format'
+import { PROPERTY_TYPE_LABEL, UNIT_TYPE_LABEL } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/Badge'
 import { ButtonLink } from '@/shared/ui/Button'
 import { EmptyState, ErrorState } from '@/shared/ui/EmptyState'
 import { Skeleton } from '@/shared/ui/Spinner'
 import { cn } from '@/shared/ui/cn'
 import { InquiryForm, ListingPhoto, useDocumentTitle } from './shared'
+import { Price, useMoney } from '@/shared/lib/displayCurrency'
 
 export default function ListingPage() {
   const { code = '' } = useParams()
@@ -81,10 +82,7 @@ export default function ListingPage() {
               {l.property_name}{l.address_area ? ` · ${l.address_area}` : ''}
             </p>
           </div>
-          <p className="tabular sm:text-right">
-            <span className="text-2xl font-bold text-brand-900 sm:text-3xl">{formatMoney(l.monthly_rent, l.currency)}</span>
-            <span className="text-slate-500"> / month</span>
-          </p>
+          <ListingPrice amount={l.monthly_rent} currency={l.currency} />
         </div>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
@@ -264,5 +262,23 @@ function GalleryArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () =
     >
       <Icon className="size-5" />
     </button>
+  )
+}
+
+function ListingPrice({ amount, currency }: { amount: string; currency: string }) {
+  const { show } = useMoney()
+  const p = show(amount, currency)
+  return (
+    <div className="tabular sm:text-right">
+      <p>
+        <Price amount={amount} currency={currency} className="text-2xl font-bold text-brand-900 sm:text-3xl" />
+        <span className="text-slate-500"> / month</span>
+      </p>
+      {p.converted ? (
+        <p className="mt-0.5 text-sm text-slate-500">
+          Listed at <span className="font-semibold text-slate-700">{p.listed}</span> / month — rent is paid in {currency}
+        </p>
+      ) : null}
+    </div>
   )
 }

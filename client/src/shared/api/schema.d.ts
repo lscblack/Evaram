@@ -1376,6 +1376,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/exchange-rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exchange Rate
+         * @description Rate used by the website's RWF / USD switch. Display only: rent is paid in the listed currency.
+         */
+        get: operations["exchange_rate_api_v1_public_exchange_rate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/listings": {
         parameters: {
             query?: never;
@@ -2084,6 +2104,30 @@ export interface components {
              * @default false
              */
             refresh: boolean;
+        };
+        /** ExchangeRateOut */
+        ExchangeRateOut: {
+            /**
+             * Base
+             * @default USD
+             */
+            base: string;
+            /**
+             * Quote
+             * @default RWF
+             */
+            quote: string;
+            /** Rate */
+            rate: string | null;
+            /** Source */
+            source: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /**
+             * Is Override
+             * @default false
+             */
+            is_override: boolean;
         };
         /** GenerateIn */
         GenerateIn: {
@@ -7188,6 +7232,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DemoCleared"];
+                };
+            };
+        };
+    };
+    exchange_rate_api_v1_public_exchange_rate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeRateOut"];
                 };
             };
         };

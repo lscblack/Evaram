@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import case, func, literal, select
 
 from evaramu.core.deps import DB
 from evaramu.core.errors import DomainError, NotFound
@@ -30,6 +30,7 @@ from evaramu.modules.properties.models import (
     UnitStatus,
     UnitType,
 )
+from evaramu.modules.public import fx
 from evaramu.modules.system.models import AppSetting, Inquiry, InquiryStatus
 from evaramu.modules.system.services import notify
 from evaramu.modules.tenants.schemas import _phone
@@ -109,6 +110,33 @@ def _listing(u: RentalUnit, imgs: list[PropertyImage]) -> dict:
     )
 
 
+def _rent_in(target: str, rate: Decimal | None):
+    """Monthly rent expressed in `target` (USD <-> RWF at `rate` RWF per USD)."""
+    if rate is None:
+        return RentalUnit.monthly_rent
+    other = RentalUnit.monthly_rent * literal(rate) if target == "RWF" else RentalUnit.monthly_rent / literal(rate)
+    return case((RentalUnit.currency == target, RentalUnit.monthly_rent), else_=other)
+
+
+class ExchangeRateOut(BaseModel):
+    base: str = "USD"
+    quote: str = "RWF"
+    #: RWF per 1 USD, or null when no rate is available.
+    rate: MoneyOut | None
+    source: str | None
+    updated_at: str | None
+    is_override: bool = False
+
+
+@router.get("/exchange-rate", response_model=ExchangeRateOut)
+def exchange_rate(db: DB):
+    """Rate used by the website's RWF / USD switch. Display only: rent is paid in the listed currency."""
+    r = fx.usd_rwf(db)
+    if r is None:
+        return ExchangeRateOut(rate=None, source=None, updated_at=None)
+    return ExchangeRateOut(rate=r.rate, source=r.source, updated_at=r.updated_at.isoformat(), is_override=r.is_override)
+
+
 @router.get("/listings", response_model=Page[PublicListing])
 def listings(
     db: DB,
@@ -132,19 +160,27 @@ def listings(
         stmt = stmt.where(RentalUnit.unit_type == unit_type.value)
     if (min_rent is not None or max_rent is not None) and currency is None:
         raise DomainError("Choose a currency to filter by rent")
+    rate = fx.usd_rwf(db)
     if currency:
-        stmt = stmt.where(RentalUnit.currency == currency.value)
-    if min_rent is not None:
-        stmt = stmt.where(RentalUnit.monthly_rent >= min_rent)
-    if max_rent is not None:
-        stmt = stmt.where(RentalUnit.monthly_rent <= max_rent)
+        # The budget is in `currency`; homes listed in the other currency are converted at the
+        # current rate. Without a rate only homes listed in that currency can be compared.
+        if rate is None:
+            stmt = stmt.where(RentalUnit.currency == currency.value)
+        rent = _rent_in(currency.value, rate.rate if rate else None)
+        if min_rent is not None:
+            stmt = stmt.where(rent >= min_rent)
+        if max_rent is not None:
+            stmt = stmt.where(rent <= max_rent)
     if bedrooms is not None:
         stmt = stmt.where(RentalUnit.bedrooms >= bedrooms)
     if featured is not None:
         stmt = stmt.where(RentalUnit.is_featured.is_(featured))
+    # Price sorting compares everything in RWF when a rate is known.
+    in_rwf = _rent_in("RWF", rate.rate) if rate else None
+    by_price = [in_rwf] if in_rwf is not None else [RentalUnit.currency, RentalUnit.monthly_rent]
     order = {"newest": [RentalUnit.is_featured.desc(), RentalUnit.created_at.desc()],
-             "price_asc": [RentalUnit.currency, RentalUnit.monthly_rent.asc()],
-             "price_desc": [RentalUnit.currency, RentalUnit.monthly_rent.desc()]}[sort]
+             "price_asc": [c.asc() for c in by_price],
+             "price_desc": [c.desc() for c in by_price]}[sort]
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     units = list(db.execute(stmt.order_by(*order, RentalUnit.id).offset((page - 1) * page_size)
                             .limit(page_size)).unique().scalars())
