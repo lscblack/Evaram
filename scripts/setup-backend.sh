@@ -8,11 +8,12 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 command -v "$PYTHON_BIN" >/dev/null || die "$PYTHON_BIN not found (Python 3.12+ required)"
 "$PYTHON_BIN" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)' || die "Python 3.12+ required"
 
-if [[ ! -x "$PY" ]]; then
+if [[ "$PY" == "$VENV/bin/python" && ! -x "$PY" ]]; then
   log "Creating virtualenv in server/.venv"
   "$PYTHON_BIN" -m venv "$VENV"
 fi
-log "Installing backend dependencies"
+"$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)' || die "$PY is older than Python 3.12"
+log "Installing backend dependencies into $PY"
 "$PY" -m pip install --quiet --upgrade pip
 if [[ "${1:-}" == "--dev" ]]; then
   "$PY" -m pip install --quiet -r "$SERVER_DIR/requirements-dev.txt"

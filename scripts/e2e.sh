@@ -30,7 +30,7 @@ export DB_NAME="$E2E_DB" APP_ENV=development DEBUG=false \
   SECRET_KEY="e2e-only-secret-key-0123456789-abcdefghijklmnop" \
   MEDIA_ROOT="$E2E_TMP/media" PRIVATE_ROOT="$E2E_TMP/private" \
   CORS_ORIGINS="http://127.0.0.1:$WEB_PORT"
-(cd "$SERVER_DIR" && "$VENV/bin/alembic" upgrade head >/dev/null 2>&1) || die "Migration failed"
+(cd "$SERVER_DIR" && "$PY" -m alembic upgrade head >/dev/null 2>&1) || die "Migration failed"
 (cd "$SERVER_DIR" && EVARAMU_ADMIN_PASSWORD="$E2E_ADMIN_PASSWORD" "$PY" -m evaramu.cli create-admin \
    --email "$E2E_ADMIN_EMAIL" --name "E2E Administrator") || die "Could not create the test administrator"
 
@@ -42,7 +42,7 @@ cleanup() {
   rm -rf "$E2E_TMP"
 }
 trap cleanup EXIT INT TERM
-(cd "$SERVER_DIR" && exec setsid "$VENV/bin/uvicorn" evaramu.main:app --host 127.0.0.1 --port $API_PORT --log-level warning) &
+(cd "$SERVER_DIR" && exec setsid "$PY" -m uvicorn evaramu.main:app --host 127.0.0.1 --port $API_PORT --log-level warning) &
 pids+=($!)
 (cd "$CLIENT_DIR" && VITE_API_URL="http://127.0.0.1:$API_PORT" exec setsid pnpm exec vite --host 127.0.0.1 --port $WEB_PORT --strictPort >/dev/null) &
 pids+=($!)

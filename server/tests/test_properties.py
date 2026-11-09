@@ -98,6 +98,24 @@ def test_public_filters(client, api):
     assert {c["currency"] for c in f["currencies"]} == {"RWF", "USD"}
 
 
+def test_public_areas_count_available_taken_and_price_range(client, api):
+    prop = api.property(district="Gasabo")
+    prop2 = api.property(code="B02", name="Kicukiro Court", district="Kicukiro", sector="Niboye")
+    api.unit(prop["id"], code="R101", rent="150000", bedrooms=1)
+    api.unit(prop["id"], code="R102", rent="90000", bedrooms=1)
+    api.unit(prop["id"], code="A201", unit_type="apartment", rent="800", currency="USD", bedrooms=2)
+    let = api.unit(prop2["id"], code="H301", unit_type="house", rent="500000", bedrooms=4)
+    api.agreement(api.tenant()["id"], let["id"])
+    areas = client.get("/api/v1/public/areas").json()
+    assert [a["name"] for a in areas] == ["Gasabo", "Kicukiro"]
+    gasabo, kicukiro = areas
+    assert (gasabo["available"], gasabo["taken"]) == (3, 0)
+    assert [(p["currency"], float(p["min"]), float(p["max"])) for p in gasabo["prices"]] == [
+        ("RWF", 90000, 150000), ("USD", 800, 800)]
+    assert (kicukiro["available"], kicukiro["taken"], kicukiro["prices"]) == (0, 1, [])
+    assert "tenant" not in str(areas).lower()
+
+
 def test_archived_property_hides_units(client, api):
     prop = api.property()
     api.unit(prop["id"])

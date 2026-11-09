@@ -21,11 +21,13 @@ from evaramu.core.money import Currency
 from evaramu.core.ratelimit import rate_limit
 from evaramu.core.schemas import Message, MoneyOut, Page
 from evaramu.core.storage import media_url
+from evaramu.modules.agreements.models import AgreementStatus, RentalAgreement
 from evaramu.modules.properties import availability
 from evaramu.modules.properties.models import (
     Property,
     PropertyImage,
     RentalUnit,
+    UnitStatus,
     UnitType,
 )
 from evaramu.modules.system.models import AppSetting, Inquiry, InquiryStatus
@@ -186,6 +188,59 @@ def filters(db: DB):
         "max_bedrooms": beds,
         "total_available": sum(r[3] for r in ranges),
     }
+
+
+class AreaPrice(BaseModel):
+    currency: str
+    min: MoneyOut
+    max: MoneyOut
+
+
+class PublicArea(BaseModel):
+    """One neighbourhood (district) on the website: counts only, never who lives there."""
+
+    name: str
+    city: str
+    #: Homes that can be let now (same rules as the listings).
+    available: int
+    #: Homes currently let (occupied or under an active agreement).
+    taken: int
+    #: Rent range of the available homes, per currency.
+    prices: list[AreaPrice]
+
+
+@router.get("/areas", response_model=list[PublicArea])
+def areas(db: DB):
+    """Neighbourhood summary for the home page: available, taken and rent range per district."""
+    # Let homes are usually unpublished, so "taken" counts every unit that is not archived.
+    live = (RentalUnit.is_archived.is_(False), Property.is_archived.is_(False), Property.district != "")
+    joined = select(RentalUnit).join(Property, Property.id == RentalUnit.property_id)
+
+    avail = db.execute(
+        joined.with_only_columns(Property.district, func.min(Property.city), RentalUnit.currency,
+                                 func.min(RentalUnit.monthly_rent), func.max(RentalUnit.monthly_rent), func.count())
+        .where(availability.public_listing_clause(), *live)
+        .group_by(Property.district, RentalUnit.currency)
+    ).all()
+    active = select(RentalAgreement.id).where(RentalAgreement.unit_id == RentalUnit.id,
+                                              RentalAgreement.status == AgreementStatus.ACTIVE.value).exists()
+    taken = db.execute(
+        joined.with_only_columns(Property.district, func.min(Property.city), func.count())
+        .where(*live, (RentalUnit.status == UnitStatus.OCCUPIED.value) | active)
+        .group_by(Property.district)
+    ).all()
+
+    out: dict[str, dict] = {}
+    for district, city, cur, lo, hi, n in avail:
+        a = out.setdefault(district, {"name": district, "city": city or "", "available": 0, "taken": 0, "prices": []})
+        a["available"] += n
+        a["prices"].append({"currency": cur, "min": lo, "max": hi})
+    for district, city, n in taken:
+        out.setdefault(district, {"name": district, "city": city or "", "available": 0, "taken": 0, "prices": []})
+        out[district]["taken"] = n
+    for a in out.values():
+        a["prices"].sort(key=lambda p: (p["currency"] != "RWF", p["currency"]))
+    return sorted(out.values(), key=lambda a: (-a["available"], -a["taken"], a["name"]))
 
 
 @router.get("/settings")

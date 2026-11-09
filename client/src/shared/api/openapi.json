@@ -6283,6 +6283,32 @@
     }
    }
   },
+  "/api/v1/public/areas": {
+   "get": {
+    "tags": [
+     "public"
+    ],
+    "summary": "Areas",
+    "description": "Neighbourhood summary for the home page: available, taken and rent range per district.",
+    "operationId": "areas_api_v1_public_areas_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PublicArea"
+         },
+         "type": "array",
+         "title": "Response Areas Api V1 Public Areas Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/public/settings": {
    "get": {
     "tags": [
@@ -7132,6 +7158,29 @@
     "type": "object",
     "title": "ApproveIn"
    },
+   "AreaPrice": {
+    "properties": {
+     "currency": {
+      "type": "string",
+      "title": "Currency"
+     },
+     "min": {
+      "type": "string",
+      "title": "Min"
+     },
+     "max": {
+      "type": "string",
+      "title": "Max"
+     }
+    },
+    "type": "object",
+    "required": [
+     "currency",
+     "min",
+     "max"
+    ],
+    "title": "AreaPrice"
+   },
    "AuditOut": {
     "properties": {
      "id": {
@@ -7302,6 +7351,12 @@
       ],
       "title": "Evidence",
       "description": "Optional receipt / screenshot (image or PDF)"
+     },
+     "auto_approve": {
+      "type": "boolean",
+      "title": "Auto Approve",
+      "description": "Approve immediately (needs payments.approve)",
+      "default": false
      }
     },
     "type": "object",
@@ -10373,6 +10428,43 @@
     ],
     "title": "PropertyUsage",
     "description": "What the property is let for. Decides which unit types it may contain."
+   },
+   "PublicArea": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "city": {
+      "type": "string",
+      "title": "City"
+     },
+     "available": {
+      "type": "integer",
+      "title": "Available"
+     },
+     "taken": {
+      "type": "integer",
+      "title": "Taken"
+     },
+     "prices": {
+      "items": {
+       "$ref": "#/components/schemas/AreaPrice"
+      },
+      "type": "array",
+      "title": "Prices"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "city",
+     "available",
+     "taken",
+     "prices"
+    ],
+    "title": "PublicArea",
+    "description": "One neighbourhood (district) on the website: counts only, never who lives there."
    },
    "PublicImage": {
     "properties": {

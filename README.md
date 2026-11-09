@@ -120,6 +120,36 @@ The administrator password is asked for interactively (or read from `EVARAMU_ADM
 * Creating a new migration: `cd server && .venv/bin/alembic revision --autogenerate -m "describe change"`, review it (see the data-safety checklist in each migration's header), then `scripts/migrate.sh`.
 * Upgrades preserve properties, tenants, agreements, invoices, payments and history; this is covered by `tests/test_migrations.py` (clean install, downgrade/upgrade, and upgrading a populated older database).
 
+### Moving from the previous application
+
+If `scripts/migrate.sh` stops with *"is at revision '…', which is not part of this application's
+migrations"*, the database configured in `server/.env` still holds the **previous** application's
+schema (its revisions live in the old `server/alembic/versions`). The two schemas are unrelated, so
+never `alembic stamp` that database. Keep it intact as a backup and give the new application an
+empty database **with the same name**, so `server/.env` stays unchanged:
+
+```bash
+# 0. stop whatever still uses the old database (old API service, workers)
+# 1. back it up (custom-format dump in backups/)
+scripts/backup-db.sh legacy-before-switch
+# 2. show the configured database name and user (the password is never printed)
+bash -c 'source scripts/lib/common.sh; load_db_env; echo "db=$PGDATABASE user=$PGUSER"'
+# 3. as the PostgreSQL superuser: rename the old database, create a fresh one owned by the same user
+sudo -u postgres psql -c 'ALTER DATABASE "<db>" RENAME TO "<db>_legacy_YYYYMMDD";'
+sudo -u postgres psql -c 'CREATE DATABASE "<db>" OWNER "<user>" TEMPLATE template0;'
+# 4. build the new schema, permissions and administrator
+scripts/migrate.sh
+```
+
+Nothing is deleted: the old data stays in `<db>_legacy_YYYYMMDD` and in the dump. To undo, rename the
+databases back. Uploaded files are not touched.
+
+### Which Python the scripts use
+
+The scripts use, in order: `EVARAMU_PYTHON` if set, the active virtualenv / conda environment (not
+`base`) when it has the backend packages, then `server/.venv`. With a conda environment, activate it
+and run `scripts/setup-backend.sh` once to install `server/requirements.txt` into it.
+
 ## Deployment
 
 One-time server setup (Ubuntu/Debian example, app in `/srv/evaramu`, user `evaramu`):

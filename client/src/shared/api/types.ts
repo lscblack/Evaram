@@ -51,6 +51,7 @@ export type AuditOut = S['AuditOut']
 export type InquiryOut = S['InquiryOut']
 
 export type PublicListing = S['PublicListing']
+export type PublicArea = S['PublicArea']
 export type PublicListingDetail = S['PublicListingDetail']
 
 export type UnitStatus = 'available' | 'reserved' | 'occupied' | 'turnover' | 'maintenance' | 'off_market'

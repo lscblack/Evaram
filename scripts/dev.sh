@@ -18,7 +18,7 @@ pids=()
 cleanup() { for p in "${pids[@]}"; do kill "$p" 2>/dev/null || true; done; }
 trap cleanup EXIT INT TERM
 
-(cd "$SERVER_DIR" && exec "$VENV/bin/uvicorn" evaramu.main:app --reload --host 127.0.0.1 --port "$API_PORT") &
+(cd "$SERVER_DIR" && exec "$PY" -m uvicorn evaramu.main:app --reload --host 127.0.0.1 --port "$API_PORT") &
 pids+=($!)
 (cd "$CLIENT_DIR" && VITE_API_URL="http://127.0.0.1:$API_PORT" exec pnpm exec vite --host "${WEB_HOST:-127.0.0.1}" --port "$WEB_PORT" --strictPort) &
 pids+=($!)

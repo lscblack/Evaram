@@ -1427,6 +1427,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Areas
+         * @description Neighbourhood summary for the home page: available, taken and rent range per district.
+         */
+        get: operations["areas_api_v1_public_areas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/settings": {
         parameters: {
             query?: never;
@@ -1751,6 +1771,15 @@ export interface components {
              */
             note: string;
         };
+        /** AreaPrice */
+        AreaPrice: {
+            /** Currency */
+            currency: string;
+            /** Min */
+            min: string;
+            /** Max */
+            max: string;
+        };
         /** AuditOut */
         AuditOut: {
             /** Id */
@@ -1822,6 +1851,12 @@ export interface components {
              * @description Optional receipt / screenshot (image or PDF)
              */
             evidence?: string | null;
+            /**
+             * Auto Approve
+             * @description Approve immediately (needs payments.approve)
+             * @default false
+             */
+            auto_approve: boolean;
         };
         /** Body_upload_images_api_v1_properties__property_id__images_post */
         Body_upload_images_api_v1_properties__property_id__images_post: {
@@ -2994,6 +3029,22 @@ export interface components {
          * @enum {string}
          */
         PropertyUsage: "residential" | "commercial" | "mixed";
+        /**
+         * PublicArea
+         * @description One neighbourhood (district) on the website: counts only, never who lives there.
+         */
+        PublicArea: {
+            /** Name */
+            name: string;
+            /** City */
+            city: string;
+            /** Available */
+            available: number;
+            /** Taken */
+            taken: number;
+            /** Prices */
+            prices: components["schemas"]["AreaPrice"][];
+        };
         /** PublicImage */
         PublicImage: {
             /** Url */
@@ -7229,6 +7280,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    areas_api_v1_public_areas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicArea"][];
                 };
             };
         };

@@ -22,9 +22,9 @@ import {
   X,
 } from 'lucide-react'
 import { api } from '@/shared/api/client'
-import type { Page, PublicFilters, PublicListing } from '@/shared/api/types'
+import type { Page, PublicArea, PublicFilters, PublicListing } from '@/shared/api/types'
 import { settingText, usePublicSettings } from '@/shared/lib/brand'
-import { UNIT_TYPE_LABEL } from '@/shared/lib/format'
+import { formatMoney, UNIT_TYPE_LABEL } from '@/shared/lib/format'
 import { useUrlState } from '@/shared/lib/useUrlState'
 import { Button } from '@/shared/ui/Button'
 import { Pagination } from '@/shared/ui/DataView'
@@ -125,7 +125,7 @@ export default function HomePage() {
         </section>
       ) : null}
 
-      <Neighbourhoods locations={filters.data?.locations ?? []} listings={seen} onPick={(loc) => apply({ ...DEFAULTS, sort: state.sort, location: loc })} />
+      <Neighbourhoods onPick={(loc) => apply({ ...DEFAULTS, sort: state.sort, location: loc })} />
 
       {/* All listings */}
       <section id="properties" className="scroll-mt-20 bg-slate-50/70">
@@ -476,62 +476,90 @@ function Promises() {
   )
 }
 
-function Neighbourhoods({ locations, listings, onPick }: { locations: string[]; listings: PublicListing[]; onPick: (loc: string) => void }) {
-  if (locations.length < 2) return null
-  const shown = locations.slice(0, 5)
-  // Five areas make a bento: one large tile and four small ones.
-  const bento = shown.length === 5
-  const photoFor = (loc: string) =>
-    listings.find((l) => l.cover_url && [l.location, l.district, l.sector, l.city].some((v) => v && (v === loc || v.includes(loc))))?.cover_url
+function Neighbourhoods({ onPick }: { onPick: (loc: string) => void }) {
+  const areas = useQuery({ queryKey: ['public', 'areas'], queryFn: () => api.publicGet<PublicArea[]>('/public/areas') })
+  const list = areas.data ?? []
+  if (list.length < 2) return null
   return (
     <section className="bg-white">
       <div className="mx-auto w-11/12 pb-14 sm:pb-20">
         <SectionHead eyebrow="Neighbourhoods" title="Live where" accent="life happens" description="Pick an area to see the homes we have there." />
+        {/* Columns follow the number of areas so a short row never leaves a gap. */}
         <div
           className={cn(
-            'mt-8 grid auto-rows-[11rem] grid-cols-2 gap-4 sm:auto-rows-[13rem]',
-            bento ? 'lg:grid-cols-4' : shown.length === 2 ? 'lg:auto-rows-[18rem]' : shown.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4',
+            'mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2',
+            list.length === 3 ? 'lg:grid-cols-3' : list.length % 3 === 0 && list.length % 4 !== 0 ? 'lg:grid-cols-3' : 'lg:grid-cols-3 xl:grid-cols-4',
+            list.length === 2 && 'lg:grid-cols-2 xl:grid-cols-2',
           )}
         >
-          {shown.map((loc, i) => {
-            const photo = photoFor(loc)
-            const big = bento && i === 0
-            const [area, ...rest] = loc.split(',')
-            return (
-              <button
-                key={loc}
-                type="button"
-                onClick={() => onPick(loc)}
-                style={{ '--stat-i': i } as React.CSSProperties}
-                className={cn(
-                  'group relative animate-stat-in overflow-hidden rounded-2xl bg-brand-900 text-left text-white',
-                  big && 'col-span-2 row-span-2',
-                  !bento && shown.length % 2 === 1 && i === shown.length - 1 && 'col-span-2 lg:col-span-1',
-                )}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-700 to-brand-950">
-                  <MapPin className="absolute -right-4 -top-4 size-32 text-white/[0.05]" strokeWidth={1.2} />
-                  <div className="absolute -bottom-12 -left-12 size-40 rounded-full border-[22px] border-gold-400/10" />
-                </div>
-                {photo ? (
-                  <img src={photo} alt="" loading="lazy" onError={hideBroken} className="absolute inset-0 size-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                ) : null}
-                <div className="absolute inset-0 bg-gradient-to-t from-brand-950/90 via-brand-950/30 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 sm:p-5">
-                  <span className="min-w-0">
-                    <span className={cn('block truncate font-semibold', big ? 'text-2xl sm:text-3xl' : 'text-lg')}>{area}</span>
-                    {rest.length ? <span className="block truncate text-sm text-white/75">{rest.join(',').trim()}</span> : null}
-                  </span>
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/30 backdrop-blur transition-colors group-hover:bg-white group-hover:text-brand-900">
-                    <ArrowUpRight className="size-4" />
-                  </span>
-                </div>
-              </button>
-            )
-          })}
+          {list.slice(0, 8).map((a, i) => (
+            <AreaCard key={a.name} area={a} index={i} onPick={onPick} />
+          ))}
         </div>
       </div>
     </section>
+  )
+}
+
+function AreaCard({ area, index, onPick }: { area: PublicArea; index: number; onPick: (loc: string) => void }) {
+  const total = area.available + area.taken
+  const letShare = total ? Math.round((area.taken / total) * 100) : 0
+  const full = area.available === 0
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(area.name)}
+      disabled={full}
+      style={{ '--stat-i': index } as React.CSSProperties}
+      aria-label={`${area.name}: ${area.available} available, ${area.taken} taken`}
+      className="group flex animate-stat-in flex-col rounded-2xl border border-slate-200/80 bg-white p-5 text-left shadow-[0_1px_2px_rgb(15_23_42/0.04)] transition duration-300 enabled:hover:-translate-y-1 enabled:hover:shadow-[0_18px_40px_-18px_rgb(3_42_78/0.35)] disabled:cursor-default"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+            <MapPin className="size-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-lg font-semibold text-slate-900">{area.name}</span>
+            <span className="block truncate text-sm text-slate-500">{area.city || 'Kigali'}</span>
+          </span>
+        </span>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors group-enabled:group-hover:border-brand-800 group-enabled:group-hover:bg-brand-800 group-enabled:group-hover:text-white">
+          <ArrowUpRight className="size-4" />
+        </span>
+      </div>
+
+      <dl className="mt-5 grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-emerald-50 px-3 py-2.5">
+          <dt className="text-xs font-medium text-emerald-700">Available</dt>
+          <dd className="text-2xl font-bold tabular text-emerald-800">{area.available}</dd>
+        </div>
+        <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+          <dt className="text-xs font-medium text-slate-500">Taken</dt>
+          <dd className="text-2xl font-bold tabular text-slate-700">{area.taken}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-4" aria-hidden>
+        <div className="h-1.5 overflow-hidden rounded-full bg-emerald-100">
+          <div className="h-full rounded-full bg-slate-400" style={{ width: `${letShare}%` }} />
+        </div>
+        <p className="mt-1.5 text-xs text-slate-500">{total ? `${letShare}% let` : 'No homes yet'}</p>
+      </div>
+
+      <div className="mt-4 border-t border-slate-100 pt-3">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Monthly rent</p>
+        {area.prices.length ? (
+          area.prices.map((p) => (
+            <p key={p.currency} className="mt-0.5 text-sm font-semibold text-slate-900 tabular">
+              {priceRange(p.min, p.max, p.currency)}
+            </p>
+          ))
+        ) : (
+          <p className="mt-0.5 text-sm font-medium text-slate-500">Fully let — ask about upcoming homes</p>
+        )}
+      </div>
+    </button>
   )
 }
 
@@ -740,4 +768,11 @@ function ContactSection() {
 /** A photo file that fails to load is hidden, so the gradient behind it shows instead of a broken image. */
 function hideBroken(e: React.SyntheticEvent<HTMLImageElement>) {
   e.currentTarget.style.display = 'none'
+}
+
+/** "120,000 – 150,000 RWF" / "$950 – $2,400": the currency is written once for RWF. */
+function priceRange(min: string, max: string, currency: string) {
+  if (Number(min) === Number(max)) return formatMoney(min, currency)
+  if (currency === 'USD') return `${formatMoney(min, currency)} – ${formatMoney(max, currency)}`
+  return `${formatMoney(min, currency).replace(` ${currency}`, '')} – ${formatMoney(max, currency)}`
 }
