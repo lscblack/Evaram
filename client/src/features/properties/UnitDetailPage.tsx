@@ -18,7 +18,7 @@ import { PageHeader } from '@/shared/ui/PageHeader'
 import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { PhotoManager } from './PhotoManager'
 import { HistoryTimeline, ListedIndicator } from './shared'
-import { StatusDialog, usePublishToggle } from './UnitActions'
+import { MarketButton, StatusDialog, usePublishToggle } from './UnitActions'
 import { UnitFormDialog } from './UnitFormDialog'
 import { unitColumns, UnitMobileRow } from './unitList'
 import { DeleteRecordButton } from '@/shared/ui/DeleteRecord'
@@ -153,6 +153,7 @@ function UnitView({
             ) : null}
             {manage ? (
               <>
+                <MarketButton unit={unit} />
                 <Button variant="outline" icon={Pencil} onClick={onEdit}>
                   Edit
                 </Button>

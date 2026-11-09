@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { DoorOpen } from 'lucide-react'
 import { api } from '@/shared/api/client'
+import { useAuth } from '@/shared/auth/AuthProvider'
 import type { Page, UnitOut } from '@/shared/api/types'
 import { useUrlState } from '@/shared/lib/useUrlState'
 import { statusLabel } from '@/shared/ui/Badge'
@@ -35,7 +36,8 @@ export default function UnitsPage() {
     placeholderData: keepPreviousData,
   })
 
-  const base = unitColumns()
+  const { can } = useAuth()
+  const base = unitColumns({ manage: can('properties.manage') && state.tab !== 'archived' })
   const columns: Column<UnitOut>[] = [
     base[0],
     {

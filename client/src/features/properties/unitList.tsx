@@ -5,8 +5,10 @@ import { StatusBadge } from '@/shared/ui/Badge'
 import type { Column } from '@/shared/ui/DataView'
 import { Money } from '@/shared/ui/Misc'
 import { ListedIndicator } from './shared'
+import { MarketButton } from './UnitActions'
 
-export function unitColumns(): Column<UnitOut>[] {
+/** Unit table columns; `manage` adds a one-click market action under the website status. */
+export function unitColumns({ manage = false }: { manage?: boolean } = {}): Column<UnitOut>[] {
   return [
     {
       key: 'unit',
@@ -26,7 +28,16 @@ export function unitColumns(): Column<UnitOut>[] {
     },
     { key: 'rent', header: 'Monthly rent', align: 'right', cell: (u) => <Money amount={u.monthly_rent} currency={u.currency} /> },
     { key: 'status', header: 'Status', cell: (u) => <StatusBadge status={u.status} /> },
-    { key: 'web', header: 'Website', cell: (u) => <ListedIndicator listed={!!u.is_publicly_listed} /> },
+    {
+      key: 'web',
+      header: 'Website',
+      cell: (u) => (
+        <div className="flex flex-col items-start gap-1.5">
+          <ListedIndicator listed={!!u.is_publicly_listed} />
+          {manage ? <MarketButton unit={u} size="sm" /> : null}
+        </div>
+      ),
+    },
     {
       key: 'tenant',
       header: 'Tenant',

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CircleOff, Store } from 'lucide-react'
 import { api } from '@/shared/api/client'
 import type { UnitDetail, UnitOut } from '@/shared/api/types'
 import { useApiMutation } from '@/shared/lib/useApiMutation'
@@ -94,5 +95,39 @@ export function usePublishToggle(unit: UnitOut | UnitDetail) {
       invalidate: INVALIDATE,
       toastError: true,
     },
+  )
+}
+
+/** On the market = available and published on the website. */
+export function isOnMarket(unit: UnitOut | UnitDetail) {
+  return unit.status === 'available' && unit.is_published
+}
+
+/**
+ * One click to put a unit on the market (available + published) or take it
+ * off (off market + unpublished). Hidden for occupied, turnover and archived
+ * units: those follow the tenancy workflow.
+ */
+export function MarketButton({ unit, size = 'md' }: { unit: UnitOut | UnitDetail; size?: 'sm' | 'md' }) {
+  const on = isOnMarket(unit)
+  const save = useApiMutation(() => api.post<UnitDetail>(`/units/${unit.id}/market`, { on_market: !on }), {
+    success: on ? `${unit.code} taken off the market` : `${unit.code} is on the market and listed on the website`,
+    invalidate: INVALIDATE,
+    toastError: true,
+  })
+  if (unit.is_archived || unit.occupancy || unit.status === 'occupied' || unit.status === 'turnover') return null
+  return (
+    <Button
+      size={size}
+      variant={on ? 'outline' : 'success'}
+      icon={on ? CircleOff : Store}
+      loading={save.isPending}
+      onClick={(e) => {
+        e.stopPropagation()
+        save.mutate(undefined)
+      }}
+    >
+      {on ? 'Take off market' : 'Put on market'}
+    </Button>
   )
 }

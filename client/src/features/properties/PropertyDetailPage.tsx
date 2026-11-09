@@ -112,7 +112,7 @@ export default function PropertyDetailPage() {
         {tab === 'units' ? (
           <DataView
             rows={p.units ?? []}
-            columns={unitColumns()}
+            columns={unitColumns({ manage })}
             rowKey={(u) => u.id}
             rowHref={(u) => `/admin/units/${u.id}`}
             mobile={(u) => <UnitMobileRow u={u} />}

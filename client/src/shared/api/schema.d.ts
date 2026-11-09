@@ -542,6 +542,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/units/{unit_id}/market": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Unit Market
+         * @description One step: available + published on the website, or off market + unpublished.
+         */
+        post: operations["set_unit_market_api_v1_units__unit_id__market_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/units/{unit_id}/archive": {
         parameters: {
             query?: never;
@@ -3031,6 +3051,14 @@ export interface components {
              * @default
              */
             notes: string;
+        };
+        /**
+         * MarketChange
+         * @description Put a unit on the market (available + published) or take it off.
+         */
+        MarketChange: {
+            /** On Market */
+            on_market: boolean;
         };
         /** MeOut */
         MeOut: {
@@ -5841,6 +5869,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PublishChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_unit_market_api_v1_units__unit_id__market_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unit_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketChange"];
             };
         };
         responses: {

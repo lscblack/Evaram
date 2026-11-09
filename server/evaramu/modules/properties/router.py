@@ -27,6 +27,7 @@ from evaramu.modules.properties.schemas import (
     ImageOut,
     ImageUpdate,
     LocationDefaults,
+    MarketChange,
     PropertyCreate,
     PropertyDetail,
     PropertyOut,
@@ -318,6 +319,30 @@ def publish_unit(unit_id: int, body: PublishChange, request: Request, db: DB, ac
         audit(db, actor=actor, action="unit.published" if body.is_published else "unit.unpublished",
               entity_type="unit", entity_id=unit.id,
               summary=f"{'Published' if body.is_published else 'Unpublished'} unit {unit.code}", request=request)
+    db.commit()
+    return service.unit_detail(db, unit)
+
+
+@router.post("/units/{unit_id}/market", response_model=UnitDetail)
+def set_unit_market(unit_id: int, body: MarketChange, request: Request, db: DB, actor: Manager):
+    """One step: available + published on the website, or off market + unpublished."""
+    unit = service.get_unit(db, unit_id, for_update=True)
+    if unit.is_archived:
+        raise Conflict("Archived units cannot be put on the market")
+    if body.on_market:
+        if unit.status == UnitStatus.TURNOVER.value:
+            raise DomainError("Mark the unit ready to let first (inspection note required)")
+        if unit.monthly_rent <= 0:
+            raise DomainError("Set a monthly rent before putting the unit on the market")
+        if unit.status != UnitStatus.AVAILABLE.value:
+            service.change_status(db, unit, UnitStatus.AVAILABLE.value, "Put on market", actor=actor, request=request)
+    elif unit.status == UnitStatus.AVAILABLE.value:
+        service.change_status(db, unit, UnitStatus.OFF_MARKET.value, "Taken off market", actor=actor, request=request)
+    if unit.is_published != body.on_market:
+        unit.is_published = body.on_market
+        audit(db, actor=actor, action="unit.published" if body.on_market else "unit.unpublished",
+              entity_type="unit", entity_id=unit.id,
+              summary=f"{'Published' if body.on_market else 'Unpublished'} unit {unit.code}", request=request)
     db.commit()
     return service.unit_detail(db, unit)
 

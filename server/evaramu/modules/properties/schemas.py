@@ -102,6 +102,12 @@ class PublishChange(BaseModel):
     is_published: bool
 
 
+class MarketChange(BaseModel):
+    """Put a unit on the market (available + published) or take it off."""
+
+    on_market: bool
+
+
 class PropertyBrief(ORMModel):
     id: int
     code: str

@@ -1,7 +1,7 @@
 /** Paying several months in one payment, and deleting records permanently. */
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
-import { Api, loginUI, todayISO } from './helpers'
+import { Api, API_URL, loginUI, todayISO } from './helpers'
 
 async function tenancy(api: Api, stamp: string, rent = '200000') {
   const prop = await api.post('/properties', { code: `DM${stamp}`, name: `Months House ${stamp}`, property_type: 'house', district: 'Gasabo' })
@@ -128,4 +128,28 @@ test('filter invoices by tenant, pick several and get one combined invoice', asy
   await bar.getByRole('button', { name: 'Send on WhatsApp' }).click()
   const wa = page.getByRole('dialog', { name: 'Send invoice on WhatsApp' })
   await expect(wa.getByRole('link', { name: /Open WhatsApp/ })).toHaveAttribute('href', /combined-invoice-pdf/)
+})
+
+test('put a unit on the market in one click, from the property page', async ({ page, request }) => {
+  const api = await Api.login(request)
+  const stamp = Date.now().toString().slice(-6)
+  const prop = await api.post('/properties', {
+    code: `MK${stamp}`, name: `Market House ${stamp}`, property_type: 'house', district: 'Kicukiro',
+    standalone_unit: { code: `MK${stamp}`, name: `Market House ${stamp}`, unit_type: 'house', bedrooms: 4, monthly_rent: '200000', currency: 'RWF' },
+  })
+  await loginUI(page)
+  await page.goto(`/admin/properties/${prop.id}`)
+  const row = page.locator('table tbody tr').filter({ hasText: `MK${stamp}` })
+  await expect(row.getByText('Not listed')).toBeVisible()
+  await row.getByRole('button', { name: 'Put on market' }).click()
+  await expect(row.getByText('On website')).toBeVisible()
+  await expect(row.getByText('Available')).toBeVisible()
+  await expect(page).toHaveURL(new RegExp(`/admin/properties/${prop.id}$`))
+  const pub = await request.get(`${API_URL}/api/v1/public/listings/MK${stamp}`)
+  expect(pub.status()).toBe(200)
+
+  await page.goto(`/admin/units/${prop.units[0].id}`)
+  await page.getByRole('button', { name: 'Take off market' }).click()
+  await expect(page.getByText('Not listed').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Put on market' })).toBeVisible()
 })

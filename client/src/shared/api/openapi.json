@@ -1924,6 +1924,64 @@
     }
    }
   },
+  "/api/v1/units/{unit_id}/market": {
+   "post": {
+    "tags": [
+     "properties"
+    ],
+    "summary": "Set Unit Market",
+    "description": "One step: available + published on the website, or off market + unpublished.",
+    "operationId": "set_unit_market_api_v1_units__unit_id__market_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "unit_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Unit Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MarketChange"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UnitDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/units/{unit_id}/archive": {
    "post": {
     "tags": [
@@ -10609,6 +10667,20 @@
      "items"
     ],
     "title": "ManualInvoiceIn"
+   },
+   "MarketChange": {
+    "properties": {
+     "on_market": {
+      "type": "boolean",
+      "title": "On Market"
+     }
+    },
+    "type": "object",
+    "required": [
+     "on_market"
+    ],
+    "title": "MarketChange",
+    "description": "Put a unit on the market (available + published) or take it off."
    },
    "MeOut": {
     "properties": {

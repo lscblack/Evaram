@@ -248,3 +248,20 @@ def test_location_defaults_come_from_settings(api, db):
     db.commit()
     d = api.ok(api.get("/properties/location-defaults"))
     assert d == {"city": "Kigali", "district": "Kicukiro", "sector": "Gatenga", "cell": "Nyarurama", "village": "Bisambu"}
+
+
+def test_put_on_market_in_one_step_and_take_off(client, api):
+    prop = api.property(code="H201", name="House 201", property_type="house", standalone_unit={
+        "code": "H201", "name": "House 201", "unit_type": "house", "bedrooms": 4,
+        "monthly_rent": "200000", "currency": "RWF"})
+    uid = prop["units"][0]["id"]
+    assert "H201" not in public_codes(client)
+    u = api.ok(api.post(f"/units/{uid}/market", {"on_market": True}))
+    assert u["status"] == "available" and u["is_published"] and u["is_publicly_listed"]
+    assert "H201" in public_codes(client)
+    u = api.ok(api.post(f"/units/{uid}/market", {"on_market": False}))
+    assert u["status"] == "off_market" and not u["is_published"] and not u["is_publicly_listed"]
+    assert "H201" not in public_codes(client)
+    # Maintenance units come back to market as available.
+    api.ok(api.post(f"/units/{uid}/status", {"status": "maintenance", "reason": "Paint"}))
+    assert api.ok(api.post(f"/units/{uid}/market", {"on_market": True}))["status"] == "available"
