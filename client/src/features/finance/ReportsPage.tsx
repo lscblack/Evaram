@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Download } from 'lucide-react'
+import { AlarmClock, Building2, Download, FileText, HandCoins, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, downloadFile, errorMessage, type Query } from '@/shared/api/client'
 import type { InvoiceReport, MonthlyRow, PaymentReport, Page, TenantOut } from '@/shared/api/types'
 import { formatMoney, formatMoneyCompact, formatMonth, todayISO } from '@/shared/lib/format'
+import { useAuth } from '@/shared/auth/AuthProvider'
 import { useUrlState } from '@/shared/lib/useUrlState'
 import { statusLabel } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
@@ -160,6 +161,8 @@ export default function ReportsPage() {
         </FilterBar>
       </Card>
 
+      <PdfReports range={range} propertyId={state.property_id} currency={state.currency} periodLabel={PERIOD_LABEL[state.preset] ?? 'Custom range'} />
+
       {payments.error ? <ErrorState error={payments.error} onRetry={payments.refetch} /> : null}
 
       <div className="grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
@@ -310,5 +313,104 @@ function TrendChart({ currency, rows }: { currency: string; rows: MonthlyRow[] }
         </ResponsiveContainer>
       </div>
     </div>
+  )
+}
+
+const PERIOD_LABEL: Record<string, string> = {
+  this_month: 'This month',
+  last_month: 'Last month',
+  this_year: 'This year',
+  all: 'All time',
+}
+
+type PdfKind = 'payments-received' | 'overdue' | 'occupancy'
+
+const PDF_REPORTS: { kind: PdfKind; file: string; title: string; description: string; icon: LucideIcon; usesPeriod: boolean; needs?: string }[] = [
+  {
+    kind: 'payments-received',
+    file: 'payments-received',
+    title: 'Payments received',
+    description: 'Total paid, tenants who paid, months paid and paid-through month, units taken.',
+    icon: HandCoins,
+    usesPeriod: true,
+  },
+  {
+    kind: 'overdue',
+    file: 'overdue-tenants',
+    title: 'Overdue tenants',
+    description: 'Who is late, how many months, days late and amount owed, with ageing.',
+    icon: AlarmClock,
+    usesPeriod: false,
+    needs: 'invoices.view',
+  },
+  {
+    kind: 'occupancy',
+    file: 'occupancy',
+    title: 'Occupancy',
+    description: 'Every unit: taken or free, tenant, rent, paid through and balance.',
+    icon: Building2,
+    usesPeriod: false,
+  },
+]
+
+/** Branded PDF reports, downloaded with the page's period, property and currency filters. */
+function PdfReports({
+  range,
+  propertyId,
+  currency,
+  periodLabel,
+}: {
+  range: { date_from: string; date_to: string }
+  propertyId: string
+  currency: string
+  periodLabel: string
+}) {
+  const { can } = useAuth()
+  const [busy, setBusy] = useState<PdfKind | null>(null)
+
+  async function download(r: (typeof PDF_REPORTS)[number]) {
+    const query: Query = { property_id: propertyId, ...(r.kind !== 'occupancy' ? { currency } : {}), ...(r.usesPeriod ? range : {}) }
+    setBusy(r.kind)
+    try {
+      await downloadFile(`/reports/pdf/${r.kind}`, query, `evaramu-${r.file}-${todayISO()}.pdf`)
+      toast.success(`${r.title} report downloaded`)
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <Card className="mb-5">
+      <CardHeader
+        title="PDF reports"
+        description="Printable reports with your logo, company details and the date. They use the property and currency chosen above."
+      />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {PDF_REPORTS.filter((r) => !r.needs || can(r.needs)).map((r) => (
+          <div key={r.kind} className="flex min-w-0 flex-col rounded-xl border border-slate-200 p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+                <r.icon className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-900">{r.title}</p>
+                <p className="mt-0.5 text-sm text-slate-500">{r.description}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+              <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                <FileText className="size-3.5" />
+                {r.usesPeriod ? periodLabel : 'As of today'}
+              </span>
+              <Button size="sm" icon={Download} loading={busy === r.kind} disabled={busy !== null && busy !== r.kind} onClick={() => download(r)}>
+                Download PDF
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }

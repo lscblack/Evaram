@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
 
 from evaramu.core.deps import DB, CurrentUser, require
@@ -20,8 +21,10 @@ from evaramu.modules.billing.models import (
     PaymentStatus,
 )
 from evaramu.modules.billing.router import invoices_out, payments_out
-from evaramu.modules.reports import service
-from evaramu.modules.system.models import AuditLog
+from evaramu.modules.properties.models import Property
+from evaramu.modules.reports import builders, pdf, service, statements
+from evaramu.modules.system.models import AppSetting, AuditLog
+from evaramu.modules.system.services import audit
 
 router = APIRouter(tags=["reports"])
 Reports = Depends(require("reports.view"))
@@ -157,3 +160,76 @@ def outstanding_csv(db: DB, property_id: int | None = None, currency: Currency |
                  "61-90 days", "90+ days", "Total"],
                 [[r["tenant_name"], r["phone"], " ".join(r["units"]), r["currency"], r["invoices"], r["current"],
                   r["d1_30"], r["d31_60"], r["d61_90"], r["d90_plus"], r["total"]] for r in rows])
+
+
+# ---- PDF reports ---------------------------------------------------------------------------------
+
+def _now_kigali() -> datetime:
+    try:
+        return datetime.now(ZoneInfo("Africa/Kigali"))
+    except Exception:  # tz database missing on the host
+        return datetime.now()
+
+
+def _meta(db, user) -> pdf.Meta:
+    def setting(key: str, default: str = "") -> str:
+        s = db.get(AppSetting, key)
+        return str(s.value).strip() if s is not None and s.value not in (None, "") else default
+
+    contact = [setting("contact.address"), " · ".join(x for x in (setting("contact.phone"), setting("contact.email")) if x)]
+    return pdf.Meta(company=setting("company.name", "Evaramu Group Ltd"), contact_lines=[c for c in contact if c],
+                    generated_at=_now_kigali(), generated_by=user.full_name)
+
+
+def _property_name(db, property_id: int | None) -> str | None:
+    if not property_id:
+        return None
+    p = db.get(Property, property_id)
+    if p is None:
+        raise DomainError("Unknown property")
+    return f"{p.code} — {p.name}"
+
+
+def _pdf_response(db, user, request: Request, slug: str, title: str, report: pdf.Report) -> Response:
+    meta = _meta(db, user)
+    content = pdf.render(report, meta)
+    audit(db, actor=user, action="report.downloaded", entity_type="report", entity_id=slug,
+          summary=f"Downloaded the {title} report (PDF)", request=request)
+    db.commit()
+    filename = f"evaramu-{slug}-{meta.generated_at:%Y-%m-%d}.pdf"
+    return Response(content, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/reports/pdf/payments-received", dependencies=[Reports],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def payments_received_pdf(db: DB, user: CurrentUser, request: Request, date_from: date | None = None,
+                          date_to: date | None = None, property_id: int | None = None, currency: Currency | None = None):
+    """Approved payments in a period: totals, tenants who paid, months paid, units taken."""
+    _filters(date_from, date_to, None, None, None, None, None)
+    cur = currency.value if currency else None
+    data = statements.payments_received(db, date_from=date_from, date_to=date_to, property_id=property_id, currency=cur)
+    report = builders.payments_received(data, date_from=date_from, date_to=date_to,
+                                        property_name=_property_name(db, property_id), currency=cur)
+    return _pdf_response(db, user, request, "payments-received", report.title, report)
+
+
+@router.get("/reports/pdf/overdue", dependencies=[Reports, Depends(require("invoices.view"))],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def overdue_pdf(db: DB, user: CurrentUser, request: Request, property_id: int | None = None,
+                currency: Currency | None = None):
+    """Tenants with overdue rent: amount, months, days late, ageing."""
+    today = date.today()
+    cur = currency.value if currency else None
+    data = statements.overdue_tenants(db, today, property_id=property_id, currency=cur)
+    report = builders.overdue_tenants(data, today=today, property_name=_property_name(db, property_id), currency=cur)
+    return _pdf_response(db, user, request, "overdue-tenants", report.title, report)
+
+
+@router.get("/reports/pdf/occupancy", dependencies=[Reports],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def occupancy_pdf(db: DB, user: CurrentUser, request: Request, property_id: int | None = None):
+    """Every unit: taken or free, tenant, rent, paid through, balance."""
+    data = statements.occupancy(db, property_id=property_id)
+    report = builders.occupancy(data, today=date.today(), property_name=_property_name(db, property_id))
+    return _pdf_response(db, user, request, "occupancy", report.title, report)
