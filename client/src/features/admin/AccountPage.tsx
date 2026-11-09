@@ -14,6 +14,7 @@ import { Card, CardHeader, DescriptionList } from '@/shared/ui/Card'
 import { Field, FormError, Input } from '@/shared/ui/Form'
 import { Avatar } from '@/shared/ui/Misc'
 import { PageHeader } from '@/shared/ui/PageHeader'
+import { PasskeysCard } from './Passkeys'
 import { PASSWORD_HINT, passwordProblem } from './passwords'
 
 const schema = z
@@ -87,6 +88,7 @@ export default function AccountPage() {
             </Button>
           </form>
         </Card>
+        <PasskeysCard />
       </div>
     </>
   )

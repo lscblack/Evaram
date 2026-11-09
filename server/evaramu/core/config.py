@@ -11,6 +11,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -66,6 +67,26 @@ class Settings(BaseSettings):
 
     PUBLIC_SITE_URL: str = "http://localhost:5173"
 
+    # ---- email (sign-in codes) ----
+    #: smtp = send through SMTP_*; file = write .eml files to MAIL_OUTBOX_DIR (development/tests only);
+    #: disabled = the "email me a code" option is hidden.
+    MAIL_BACKEND: Literal["smtp", "file", "disabled"] = "disabled"
+    MAIL_FROM: str = ""
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: SecretStr = SecretStr("")
+    SMTP_SECURITY: Literal["starttls", "ssl", "none"] = "starttls"
+    MAIL_OUTBOX_DIR: Path = Field(default=SERVER_ROOT / "storage" / "outbox")
+    LOGIN_CODE_TTL_MINUTES: int = 10
+
+    # ---- passkeys (WebAuthn) ----
+    #: Domain the passkeys belong to (e.g. evaramu.rw). Default: host of PUBLIC_SITE_URL.
+    WEBAUTHN_RP_ID: str = ""
+    WEBAUTHN_RP_NAME: str = "Evaramu"
+    #: Comma-separated site origins allowed to use passkeys. Default: origin of PUBLIC_SITE_URL.
+    WEBAUTHN_ORIGINS: str = ""
+
     # ---- bootstrap administrator (optional) ----
     # When both are set, `cli ensure-admin` (run by scripts/migrate.sh) creates
     # this account if it does not exist yet. An existing account is never
@@ -81,6 +102,10 @@ class Settings(BaseSettings):
             self.MEDIA_ROOT = (SERVER_ROOT / self.MEDIA_ROOT).resolve()
         if not self.PRIVATE_ROOT.is_absolute():
             self.PRIVATE_ROOT = (SERVER_ROOT / self.PRIVATE_ROOT).resolve()
+        if not self.MAIL_OUTBOX_DIR.is_absolute():
+            self.MAIL_OUTBOX_DIR = (SERVER_ROOT / self.MAIL_OUTBOX_DIR).resolve()
+        if self.MAIL_BACKEND == "smtp" and not (self.SMTP_HOST and self.MAIL_FROM):
+            raise ValueError("MAIL_BACKEND=smtp needs SMTP_HOST and MAIL_FROM")
         if self.APP_ENV == "production":
             if self.SECRET_KEY in _INSECURE_SECRETS or len(self.SECRET_KEY) < 32:
                 raise ValueError(
@@ -88,11 +113,28 @@ class Settings(BaseSettings):
                 )
             if self.DEBUG:
                 raise ValueError("DEBUG must be false in production")
+            if self.MAIL_BACKEND == "file":
+                raise ValueError("MAIL_BACKEND=file is for development only; use smtp or disabled in production")
         return self
 
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
+
+    @property
+    def webauthn_rp_id(self) -> str:
+        return self.WEBAUTHN_RP_ID or (urlsplit(self.PUBLIC_SITE_URL).hostname or "localhost")
+
+    @property
+    def webauthn_origins(self) -> list[str]:
+        if self.WEBAUTHN_ORIGINS.strip():
+            return [o.strip().rstrip("/") for o in self.WEBAUTHN_ORIGINS.split(",") if o.strip()]
+        u = urlsplit(self.PUBLIC_SITE_URL)
+        return [f"{u.scheme}://{u.netloc}"]
+
+    @property
+    def mail_enabled(self) -> bool:
+        return self.MAIL_BACKEND != "disabled"
 
     @property
     def cors_origins(self) -> list[str]:

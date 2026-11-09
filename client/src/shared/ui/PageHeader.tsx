@@ -26,13 +26,14 @@ export function PageHeader({
           {back.label}
         </Link>
       ) : null}
+      {/* Buttons wrap within at most 60% of the row, so a long set never covers the title. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
+        <div className="min-w-0 sm:flex-1">
           <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
           {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
           {meta ? <div className="mt-2 flex flex-wrap items-center gap-2">{meta}</div> : null}
         </div>
-        {actions ? <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">{actions}</div> : null}
+        {actions ? <div className="flex flex-wrap gap-2 sm:max-w-[60%] sm:justify-end">{actions}</div> : null}
       </div>
     </div>
   )

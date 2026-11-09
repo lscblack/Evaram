@@ -18,6 +18,7 @@ import { Money } from '@/shared/ui/Misc'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { FullPageSpinner } from '@/shared/ui/Spinner'
 import { amountError, periodLabel } from './components'
+import { InvoicePdfButton, WhatsAppInvoiceButton } from './InvoiceShare'
 import { RecordPaymentDialog } from './RecordPaymentDialog'
 
 export default function InvoiceDetailPage() {
@@ -54,7 +55,9 @@ export default function InvoiceDetailPage() {
           }
           actions={
             <>
-              <Button variant="outline" icon={Printer} onClick={() => window.print()}>
+              <InvoicePdfButton id={inv.id} number={inv.invoice_number} />
+              {!isVoid ? <WhatsAppInvoiceButton id={inv.id} /> : null}
+              <Button variant="ghost" icon={Printer} onClick={() => window.print()}>
                 Print
               </Button>
               {canPay ? (

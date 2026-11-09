@@ -13,6 +13,8 @@ interface AuthState {
   user: Me | null
   status: 'loading' | 'authenticated' | 'anonymous'
   login: (email: string, password: string) => Promise<void>
+  /** Finish any sign-in (email code, passkey) that returned a token. */
+  acceptSession: (r: TokenOut) => void
   logout: () => Promise<void>
   can: (...permissions: string[]) => boolean
   setUser: (u: Me) => void
@@ -47,12 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [qc])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const r = await api.publicPost<TokenOut>('/auth/login', { email, password })
+  const acceptSession = useCallback((r: TokenOut) => {
     setAccessToken(r.access_token)
     setUser(r.user)
     setStatus('authenticated')
   }, [])
+
+  const login = useCallback(
+    async (email: string, password: string) => acceptSession(await api.publicPost<TokenOut>('/auth/login', { email, password })),
+    [acceptSession],
+  )
 
   const logout = useCallback(async () => {
     try {
@@ -70,7 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user],
   )
 
-  const value = useMemo(() => ({ user, status, login, logout, can, setUser }), [user, status, login, logout, can])
+  const value = useMemo(
+    () => ({ user, status, login, acceptSession, logout, can, setUser }),
+    [user, status, login, acceptSession, logout, can],
+  )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

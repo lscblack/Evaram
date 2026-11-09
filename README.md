@@ -108,6 +108,8 @@ The administrator password is asked for interactively (or read from `EVARAMU_ADM
 | `LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES` | no | account lockout (5 attempts / 15 min) |
 | `PUBLIC_SITE_URL` | no | public URL of the site |
 | `TEST_DB_NAME` | no | test database (default `<DB_NAME>_test`; must end in `_test`) |
+| `MAIL_BACKEND`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURITY` | for email codes | `MAIL_BACKEND=smtp` turns on "Email me a sign-in code" (6 digits, 10 minutes, single use). `disabled` hides it; `file` (development only) writes `.eml` files to `MAIL_OUTBOX_DIR` |
+| `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGINS` | no | passkeys; default to the host and origin of `PUBLIC_SITE_URL` — set `PUBLIC_SITE_URL=https://evaramu.rw` in production. Passkeys only work over HTTPS (or on `localhost`), never on a bare IP address |
 
 `client/.env`: `VITE_API_URL` — **required** backend origin (e.g. `https://evaramu.rw` or `https://api.evaramu.rw`). The frontend calls `${VITE_API_URL}/api/v1` and loads uploads from `${VITE_API_URL}/media`; there is no built-in default and `vite dev/build` stop if it is missing. It is baked in at build time, so rebuild after changing it. When it is a different origin from the site, add the site's origin to the backend `CORS_ORIGINS`, and keep both on the same domain (a subdomain is fine) so the `SameSite=Strict` refresh cookie is sent.
 

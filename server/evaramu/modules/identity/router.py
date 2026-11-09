@@ -122,6 +122,12 @@ def change_password(body: PasswordChange, request: Request, response: Response, 
     return Message(detail="Password changed. Please sign in again.")
 
 
+# Email codes and passkeys live in their own module, under /auth as well.
+from evaramu.modules.identity import passwordless  # noqa: E402
+
+auth_router.include_router(passwordless.router)
+
+
 # ---------------------------------------------------------------- users ----
 
 

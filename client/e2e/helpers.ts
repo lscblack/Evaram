@@ -6,9 +6,9 @@ export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'E2e!Admin-Passw
 
 export async function loginUI(page: Page) {
   await page.goto('/login')
-  await page.getByLabel('Email').fill(ADMIN_EMAIL)
-  await page.getByLabel('Password').fill(ADMIN_PASSWORD)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByLabel('Email', { exact: true }).fill(ADMIN_EMAIL)
+  await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page).toHaveURL(/\/admin/)
 }
 

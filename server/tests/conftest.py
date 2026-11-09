@@ -31,6 +31,10 @@ os.environ.update({
     "MEDIA_ROOT": str(_tmp / "media"),
     "PRIVATE_ROOT": str(_tmp / "private"),
     "SECRET_KEY": "test-secret-key-that-is-long-enough-0123456789",
+    "MAIL_BACKEND": "file",
+    "MAIL_OUTBOX_DIR": str(_tmp / "outbox"),
+    "MAIL_FROM": "Evaramu <no-reply@example.com>",
+    "PUBLIC_SITE_URL": "http://localhost:5173",
 })
 
 from alembic import command  # noqa: E402

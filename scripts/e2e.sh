@@ -29,7 +29,9 @@ PGOPTIONS="-c client_min_messages=warning" psql -X -q -d postgres \
 export DB_NAME="$E2E_DB" APP_ENV=development DEBUG=false \
   SECRET_KEY="e2e-only-secret-key-0123456789-abcdefghijklmnop" \
   MEDIA_ROOT="$E2E_TMP/media" PRIVATE_ROOT="$E2E_TMP/private" \
-  CORS_ORIGINS="http://127.0.0.1:$WEB_PORT"
+  CORS_ORIGINS="http://localhost:$WEB_PORT" \
+  PUBLIC_SITE_URL="http://localhost:$WEB_PORT" \
+  MAIL_BACKEND=file MAIL_OUTBOX_DIR="$E2E_TMP/outbox" MAIL_FROM="Evaramu <no-reply@example.com>"
 (cd "$SERVER_DIR" && "$PY" -m alembic upgrade head >/dev/null 2>&1) || die "Migration failed"
 (cd "$SERVER_DIR" && EVARAMU_ADMIN_PASSWORD="$E2E_ADMIN_PASSWORD" "$PY" -m evaramu.cli create-admin \
    --email "$E2E_ADMIN_EMAIL" --name "E2E Administrator") || die "Could not create the test administrator"
@@ -44,11 +46,13 @@ cleanup() {
 trap cleanup EXIT INT TERM
 (cd "$SERVER_DIR" && exec setsid "$PY" -m uvicorn evaramu.main:app --host 127.0.0.1 --port $API_PORT --log-level warning) &
 pids+=($!)
-(cd "$CLIENT_DIR" && VITE_API_URL="http://127.0.0.1:$API_PORT" exec setsid pnpm exec vite --host 127.0.0.1 --port $WEB_PORT --strictPort >/dev/null) &
+(cd "$CLIENT_DIR" && VITE_API_URL="http://localhost:$API_PORT" exec setsid pnpm exec vite --host 127.0.0.1 --port $WEB_PORT --strictPort >/dev/null) &
 pids+=($!)
 API_URL="http://127.0.0.1:$API_PORT" "$ROOT_DIR/scripts/health-check.sh" >/dev/null || die "API did not start"
 for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$WEB_PORT/" >/dev/null 2>&1 && break; sleep 1; done
 
 log "Running Playwright"
 cd "$CLIENT_DIR"
-E2E_BASE_URL="http://127.0.0.1:$WEB_PORT" E2E_API_URL="http://127.0.0.1:$API_PORT" pnpm exec playwright test "$@"
+# The browser uses "localhost" (passkeys are not allowed on an IP address); the servers listen on 127.0.0.1.
+E2E_BASE_URL="http://localhost:$WEB_PORT" E2E_API_URL="http://localhost:$API_PORT" E2E_OUTBOX="$E2E_TMP/outbox" \
+  pnpm exec playwright test "$@"

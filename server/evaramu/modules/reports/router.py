@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select
 
+from evaramu.core.clock import now_local
 from evaramu.core.deps import DB, CurrentUser, require
 from evaramu.core.errors import DomainError
 from evaramu.core.money import Currency
@@ -164,13 +164,6 @@ def outstanding_csv(db: DB, property_id: int | None = None, currency: Currency |
 
 # ---- PDF reports ---------------------------------------------------------------------------------
 
-def _now_kigali() -> datetime:
-    try:
-        return datetime.now(ZoneInfo("Africa/Kigali"))
-    except Exception:  # tz database missing on the host
-        return datetime.now()
-
-
 def _meta(db, user) -> pdf.Meta:
     def setting(key: str, default: str = "") -> str:
         s = db.get(AppSetting, key)
@@ -178,7 +171,7 @@ def _meta(db, user) -> pdf.Meta:
 
     contact = [setting("contact.address"), " · ".join(x for x in (setting("contact.phone"), setting("contact.email")) if x)]
     return pdf.Meta(company=setting("company.name", "Evaramu Group Ltd"), contact_lines=[c for c in contact if c],
-                    generated_at=_now_kigali(), generated_by=user.full_name)
+                    generated_at=now_local(), generated_by=user.full_name)
 
 
 def _property_name(db, property_id: int | None) -> str | None:

@@ -216,6 +216,320 @@
     ]
    }
   },
+  "/api/v1/auth/methods": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Sign In Methods",
+    "operationId": "sign_in_methods_api_v1_auth_methods_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SignInMethods"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/email-code": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Request Email Code",
+    "operationId": "request_email_code_api_v1_auth_email_code_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CodeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Message"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/email-code/verify": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Verify Email Code",
+    "operationId": "verify_email_code_api_v1_auth_email_code_verify_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CodeVerify"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TokenOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/passkeys": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "List Passkeys",
+    "operationId": "list_passkeys_api_v1_auth_passkeys_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PasskeyOut"
+         },
+         "type": "array",
+         "title": "Response List Passkeys Api V1 Auth Passkeys Get"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/v1/auth/passkeys/register/options": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Passkey Register Options",
+    "operationId": "passkey_register_options_api_v1_auth_passkeys_register_options_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PasskeyOptionsOut"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/v1/auth/passkeys/register": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Passkey Register",
+    "operationId": "passkey_register_api_v1_auth_passkeys_register_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PasskeyRegister"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PasskeyOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/v1/auth/passkeys/{passkey_id}": {
+   "delete": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Passkey Delete",
+    "operationId": "passkey_delete_api_v1_auth_passkeys__passkey_id__delete",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "passkey_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Passkey Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Message"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/passkeys/login/options": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Passkey Login Options",
+    "operationId": "passkey_login_options_api_v1_auth_passkeys_login_options_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PasskeyOptionsOut"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/auth/passkeys/login": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Passkey Login",
+    "operationId": "passkey_login_api_v1_auth_passkeys_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PasskeyLogin"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TokenOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/users": {
    "get": {
     "tags": [
@@ -3737,6 +4051,137 @@
          "$ref": "#/components/schemas/InvoiceDetail"
         }
        }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/invoices/{invoice_id}/pdf": {
+   "get": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Invoice Pdf Download",
+    "description": "The invoice as a branded PDF.",
+    "operationId": "invoice_pdf_download_api_v1_invoices__invoice_id__pdf_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "invoice_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Invoice Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/pdf": {}
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/invoices/{invoice_id}/share": {
+   "post": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Invoice Share",
+    "description": "A link the tenant can open without signing in (valid 30 days), plus a ready WhatsApp message.",
+    "operationId": "invoice_share_api_v1_invoices__invoice_id__share_post",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "invoice_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Invoice Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InvoiceShareOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/public/invoice-pdf/{token}": {
+   "get": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Invoice Pdf Public",
+    "description": "Opened from the WhatsApp link: no sign-in, the signed token is the permission.",
+    "operationId": "invoice_pdf_public_api_v1_public_invoice_pdf__token__get",
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Token"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/pdf": {}
       }
      },
      "422": {
@@ -7638,6 +8083,20 @@
     ],
     "title": "Body_upload_images_api_v1_properties__property_id__images_post"
    },
+   "CodeRequest": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "format": "email",
+      "title": "Email"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email"
+    ],
+    "title": "CodeRequest"
+   },
    "CodeSuggestion": {
     "properties": {
      "code": {
@@ -7650,6 +8109,26 @@
      "code"
     ],
     "title": "CodeSuggestion"
+   },
+   "CodeVerify": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "format": "email",
+      "title": "Email"
+     },
+     "code": {
+      "type": "string",
+      "pattern": "^\\s*\\d{6}\\s*$",
+      "title": "Code"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "code"
+    ],
+    "title": "CodeVerify"
    },
    "Currency": {
     "type": "string",
@@ -9132,6 +9611,45 @@
     ],
     "title": "InvoiceOut"
    },
+   "InvoiceShareOut": {
+    "properties": {
+     "token": {
+      "type": "string",
+      "title": "Token"
+     },
+     "path": {
+      "type": "string",
+      "title": "Path"
+     },
+     "filename": {
+      "type": "string",
+      "title": "Filename"
+     },
+     "whatsapp_number": {
+      "type": "string",
+      "title": "Whatsapp Number"
+     },
+     "message": {
+      "type": "string",
+      "title": "Message"
+     },
+     "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Expires At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "token",
+     "path",
+     "filename",
+     "whatsapp_number",
+     "message",
+     "expires_at"
+    ],
+    "title": "InvoiceShareOut"
+   },
    "InvoiceStatus": {
     "type": "string",
     "enum": [
@@ -9745,6 +10263,113 @@
      "page_size"
     ],
     "title": "Page[UnitOut]"
+   },
+   "PasskeyLogin": {
+    "properties": {
+     "challenge_id": {
+      "type": "string",
+      "maxLength": 64,
+      "title": "Challenge Id"
+     },
+     "credential": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Credential"
+     }
+    },
+    "type": "object",
+    "required": [
+     "challenge_id",
+     "credential"
+    ],
+    "title": "PasskeyLogin"
+   },
+   "PasskeyOptionsOut": {
+    "properties": {
+     "challenge_id": {
+      "type": "string",
+      "title": "Challenge Id"
+     },
+     "options": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Options"
+     }
+    },
+    "type": "object",
+    "required": [
+     "challenge_id",
+     "options"
+    ],
+    "title": "PasskeyOptionsOut"
+   },
+   "PasskeyOut": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "last_used_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Used At"
+     },
+     "backed_up": {
+      "type": "boolean",
+      "title": "Backed Up"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "created_at",
+     "last_used_at",
+     "backed_up"
+    ],
+    "title": "PasskeyOut"
+   },
+   "PasskeyRegister": {
+    "properties": {
+     "challenge_id": {
+      "type": "string",
+      "maxLength": 64,
+      "title": "Challenge Id"
+     },
+     "credential": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Credential"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 80,
+      "title": "Name",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "challenge_id",
+     "credential"
+    ],
+    "title": "PasskeyRegister"
    },
    "PasswordChange": {
     "properties": {
@@ -11475,6 +12100,29 @@
      "signature"
     ],
     "title": "SignIn"
+   },
+   "SignInMethods": {
+    "properties": {
+     "password": {
+      "type": "boolean",
+      "title": "Password",
+      "default": true
+     },
+     "email_code": {
+      "type": "boolean",
+      "title": "Email Code"
+     },
+     "passkey": {
+      "type": "boolean",
+      "title": "Passkey",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "email_code"
+    ],
+    "title": "SignInMethods"
    },
    "SignatureOut": {
     "properties": {

@@ -1,24 +1,27 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+import jwt
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from evaramu.core.clock import now_local
 from evaramu.core.config import get_settings
 from evaramu.core.deps import DB, CurrentUser, Paging, require
 from evaramu.core.errors import Conflict, DomainError, Forbidden, NotFound
 from evaramu.core.money import Currency
+from evaramu.core.ratelimit import rate_limit
 from evaramu.core.schemas import Page
 from evaramu.core.storage import evidence_path, save_evidence
 from evaramu.modules.agreements.models import RentalAgreement
-from evaramu.modules.billing import ledger, service
+from evaramu.modules.billing import invoice_pdf, ledger, service
 from evaramu.modules.billing.models import (
     FinancialAdjustment,
     Invoice,
@@ -195,6 +198,80 @@ def create_invoice(body: ManualInvoiceIn, request: Request, db: DB, actor: Invoi
 @router.get("/invoices/{invoice_id}", response_model=InvoiceDetail, dependencies=[Depends(require("invoices.view"))])
 def get_invoice(invoice_id: int, db: DB):
     return invoice_detail(db, service.get_invoice(db, invoice_id))
+
+
+# ---- invoice PDF: download, and a signed link for sending on WhatsApp -------------------------------
+
+SHARE_DAYS = 30
+SHARE_AUDIENCE = "invoice-pdf"
+
+
+def _invoice_pdf_response(db: Session, inv: Invoice, inline: bool = False) -> Response:
+    content = invoice_pdf.render_invoice(db, inv, now_local())
+    disposition = "inline" if inline else "attachment"
+    return Response(content, media_type="application/pdf", headers={
+        "Content-Disposition": f'{disposition}; filename="invoice-{inv.invoice_number}.pdf"',
+        "Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+
+
+def whatsapp_number(phone: str) -> str:
+    """International digits for wa.me links: '+250 788 123 456' / '0788123456' -> '250788123456'."""
+    digits = "".join(ch for ch in phone if ch.isdigit())
+    if digits.startswith("0") and len(digits) == 10:
+        digits = "250" + digits[1:]
+    return digits
+
+
+class InvoiceShareOut(BaseModel):
+    token: str
+    #: Path under the API origin; the client prefixes VITE_API_URL.
+    path: str
+    filename: str
+    whatsapp_number: str
+    message: str
+    expires_at: datetime
+
+
+@router.get("/invoices/{invoice_id}/pdf", dependencies=[Depends(require("invoices.view"))],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def invoice_pdf_download(invoice_id: int, db: DB):
+    """The invoice as a branded PDF."""
+    return _invoice_pdf_response(db, service.get_invoice(db, invoice_id))
+
+
+@router.post("/invoices/{invoice_id}/share", response_model=InvoiceShareOut)
+def invoice_share(invoice_id: int, request: Request, db: DB, actor: Annotated[User, Depends(require("invoices.view"))]):
+    """A link the tenant can open without signing in (valid 30 days), plus a ready WhatsApp message."""
+    inv = service.get_invoice(db, invoice_id)
+    expires = datetime.now(UTC) + timedelta(days=SHARE_DAYS)
+    token = jwt.encode({"sub": str(inv.id), "aud": SHARE_AUDIENCE, "exp": expires, "n": inv.invoice_number},
+                       get_settings().SECRET_KEY, algorithm="HS256")
+    balance = inv.balance_due
+    amount = f"{balance:,.0f} RWF" if inv.currency == "RWF" else f"${balance:,.2f}"
+    period = f" for {inv.period_start:%B %Y}" if inv.period_start else ""
+    message = (f"Hello {inv.tenant.full_name}, here is your invoice {inv.invoice_number}{period}"
+               + (f". Amount due: {amount} by {inv.due_date:%d %b %Y}" if balance > 0 else ". It is fully paid, thank you")
+               + ".")
+    audit(db, actor=actor, action="invoice.shared", entity_type="invoice", entity_id=inv.id,
+          summary=f"Created a share link for invoice {inv.invoice_number}", request=request)
+    db.commit()
+    return InvoiceShareOut(token=token, path=f"/api/v1/public/invoice-pdf/{token}",
+                           filename=f"invoice-{inv.invoice_number}.pdf",
+                           whatsapp_number=whatsapp_number(inv.tenant.phone), message=message, expires_at=expires)
+
+
+@router.get("/public/invoice-pdf/{token}", dependencies=[Depends(rate_limit("invoice-pdf", 30, 60))],
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def invoice_pdf_public(token: str, db: DB):
+    """Opened from the WhatsApp link: no sign-in, the signed token is the permission."""
+    try:
+        claims = jwt.decode(token, get_settings().SECRET_KEY, algorithms=["HS256"], audience=SHARE_AUDIENCE)
+        inv = db.get(Invoice, int(claims["sub"]))
+    except (jwt.PyJWTError, KeyError, ValueError):
+        inv = None
+    if inv is None or inv.invoice_number != claims.get("n"):
+        raise NotFound("This invoice link has expired or is not valid. Ask for a new one.")
+    return _invoice_pdf_response(db, inv, inline=True)
 
 
 @router.post("/invoices/{invoice_id}/adjustments", response_model=InvoiceDetail, status_code=201)
