@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { AlarmClock, Building2, Download, FileText, HandCoins, type LucideIcon } from 'lucide-react'
+import { AlarmClock, Building2, Download, FileText, HandCoins, RectangleHorizontal, RectangleVertical, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, downloadFile, errorMessage, type Query } from '@/shared/api/client'
 import type { InvoiceReport, MonthlyRow, PaymentReport, Page, TenantOut } from '@/shared/api/types'
@@ -349,7 +349,7 @@ const PDF_REPORTS: { kind: PdfKind; file: string; title: string; description: st
     kind: 'occupancy',
     file: 'occupancy',
     title: 'Occupancy',
-    description: 'Every unit: taken or free, tenant, rent, paid through and balance.',
+    description: 'Every unit: taken or free, tenant, rent, payment method and balance.',
     icon: Building2,
     usesPeriod: false,
   },
@@ -383,6 +383,7 @@ function PdfReports({
       ...(r.usesPeriod ? range : {}),
       cards: choice.cards.join(','),
       sections: choice.sections.join(','),
+      orientation: choice.orientation,
     }
     setBusy(r.kind)
     try {
@@ -442,11 +443,17 @@ function PdfReports({
 
 type PdfOption = { key: string; label: string }
 type PdfOptions = Record<string, { cards: PdfOption[]; sections: PdfOption[] }>
-type Choice = { cards: string[]; sections: string[] }
+type Orientation = 'landscape' | 'portrait'
+type Choice = { cards: string[]; sections: string[]; orientation: Orientation }
+
+const ORIENTATIONS: { value: Orientation; label: string; hint: string; icon: LucideIcon }[] = [
+  { value: 'landscape', label: 'Landscape', hint: 'Wide — best for tables', icon: RectangleHorizontal },
+  { value: 'portrait', label: 'Portrait', hint: 'Tall — smaller text', icon: RectangleVertical },
+]
 
 /** Everything is ticked each time: a table left out once must not silently go missing from later reports. */
 function allChoice(opts: { cards: PdfOption[]; sections: PdfOption[] }): Choice {
-  return { cards: opts.cards.map((o) => o.key), sections: opts.sections.map((o) => o.key) }
+  return { cards: opts.cards.map((o) => o.key), sections: opts.sections.map((o) => o.key), orientation: 'landscape' }
 }
 
 function ChooseContents({
@@ -466,6 +473,7 @@ function ChooseContents({
 }) {
   const [cards, setCards] = useState<string[]>(initial.cards)
   const [sections, setSections] = useState<string[]>(initial.sections)
+  const [orientation, setOrientation] = useState<Orientation>(initial.orientation)
   const empty = !cards.length && !sections.length
   const toggle = (list: string[], set: (v: string[]) => void, key: string) =>
     set(list.includes(key) ? list.filter((k) => k !== key) : [...list, key])
@@ -513,13 +521,40 @@ function ChooseContents({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button icon={Download} loading={busy} disabled={empty} onClick={() => onGenerate({ cards, sections })}>
+          <Button icon={Download} loading={busy} disabled={empty} onClick={() => onGenerate({ cards, sections, orientation })}>
             Generate PDF
           </Button>
         </>
       }
     >
       <div className="space-y-5">
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold text-slate-900">Page orientation</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {ORIENTATIONS.map((o) => (
+              <label
+                key={o.value}
+                className={cn(
+                  'flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                  orientation === o.value ? 'border-brand-300 bg-brand-50/60 text-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="pdf-orientation"
+                  className="size-4 border-slate-300 accent-brand-800"
+                  checked={orientation === o.value}
+                  onChange={() => setOrientation(o.value)}
+                />
+                <o.icon className="size-4 shrink-0 text-slate-500" aria-hidden />
+                <span>
+                  {o.label}
+                  <span className="ml-1.5 text-xs text-slate-500">{o.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         {group('Summary cards', options.cards, cards, setCards)}
         {group('Tables', options.sections, sections, setSections)}
         {empty ? <p className="text-sm text-red-700">Choose at least one card or table.</p> : null}

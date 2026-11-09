@@ -997,6 +997,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/invoices/combined-pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Combined Invoice Pdf
+         * @description The chosen invoices (one tenant, one currency) as a single PDF invoice.
+         */
+        get: operations["combined_invoice_pdf_api_v1_invoices_combined_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/combined-share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Combined Invoice Share */
+        post: operations["combined_invoice_share_api_v1_invoices_combined_share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/combined-invoice-pdf/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Combined Invoice Public */
+        get: operations["combined_invoice_public_api_v1_public_combined_invoice_pdf__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invoices/generate": {
         parameters: {
             query?: never;
@@ -1563,7 +1617,7 @@ export interface paths {
         };
         /**
          * Occupancy Pdf
-         * @description Every unit: taken or free, tenant, rent, paid through, balance.
+         * @description Every unit: taken or free, tenant, rent, payment method, balance.
          */
         get: operations["occupancy_pdf_api_v1_reports_pdf_occupancy_get"];
         put?: never;
@@ -2320,6 +2374,11 @@ export interface components {
             email: string;
             /** Code */
             code: string;
+        };
+        /** CombinedIn */
+        CombinedIn: {
+            /** Invoice Ids */
+            invoice_ids: number[];
         };
         /** CoverageMonth */
         CoverageMonth: {
@@ -6946,6 +7005,102 @@ export interface operations {
             };
         };
     };
+    combined_invoice_pdf_api_v1_invoices_combined_pdf_get: {
+        parameters: {
+            query: {
+                /** @description Comma-separated invoice ids */
+                ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    combined_invoice_share_api_v1_invoices_combined_share_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CombinedIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceShareOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    combined_invoice_public_api_v1_public_combined_invoice_pdf__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     generate_api_v1_invoices_generate_post: {
         parameters: {
             query?: never;
@@ -7997,6 +8152,10 @@ export interface operations {
                 currency?: components["schemas"]["Currency"] | null;
                 /** @description Comma-separated keys from /reports/pdf/options; omit for all */
                 cards?: string | null;
+                /** @description Comma-separated keys from /reports/pdf/options; omit for all */
+                sections?: string | null;
+                /** @description Page orientation: landscape (default) or portrait */
+                orientation?: "landscape" | "portrait";
             };
             header?: never;
             path?: never;
@@ -8031,6 +8190,10 @@ export interface operations {
                 currency?: components["schemas"]["Currency"] | null;
                 /** @description Comma-separated keys from /reports/pdf/options; omit for all */
                 cards?: string | null;
+                /** @description Comma-separated keys from /reports/pdf/options; omit for all */
+                sections?: string | null;
+                /** @description Page orientation: landscape (default) or portrait */
+                orientation?: "landscape" | "portrait";
             };
             header?: never;
             path?: never;
@@ -8064,6 +8227,10 @@ export interface operations {
                 property_id?: number | null;
                 /** @description Comma-separated keys from /reports/pdf/options; omit for all */
                 cards?: string | null;
+                /** @description Comma-separated keys from /reports/pdf/options; omit for all */
+                sections?: string | null;
+                /** @description Page orientation: landscape (default) or portrait */
+                orientation?: "landscape" | "portrait";
             };
             header?: never;
             path?: never;

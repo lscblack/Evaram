@@ -1,4 +1,4 @@
-"""PDF rendering for the downloadable reports (ReportLab, A4 landscape).
+"""PDF rendering for the downloadable reports (ReportLab, A4 landscape or portrait).
 
 Every page carries the company logo and details, the report title and the
 generation date; the first page opens with summary cards. All text from the
@@ -8,11 +8,12 @@ database is escaped before it reaches ReportLab's mini-markup.
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, unescape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
@@ -20,6 +21,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import CondPageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
@@ -35,7 +37,8 @@ ZEBRA = colors.HexColor("#f8fafc")
 RED = colors.HexColor("#b42318")
 GREEN = colors.HexColor("#067647")
 
-PAGE = landscape(A4)
+#: Page sizes a report can be printed on; landscape is the default.
+PAGES = {"landscape": landscape(A4), "portrait": A4}
 MARGIN_X = 1.5 * cm
 TOP = 3.0 * cm
 BOTTOM = 1.8 * cm
@@ -55,6 +58,15 @@ S = {
     "td_br": ParagraphStyle("tdbr", fontName="Helvetica-Bold", fontSize=8.5, leading=10.5, textColor=INK, alignment=TA_RIGHT),
     "note": ParagraphStyle("note", fontName="Helvetica", fontSize=7.5, leading=10, textColor=MUTED, alignment=TA_LEFT),
     "empty": ParagraphStyle("empty", fontName="Helvetica-Oblique", fontSize=9.5, leading=13, textColor=MUTED),
+}
+
+#: Smaller table and card text for the narrower portrait page, so wide tables don't wrap badly.
+COMPACT = {
+    **S,
+    **{k: ParagraphStyle(f"{S[k].name}_c", parent=S[k], fontSize=7, leading=9) for k in ("th", "th_r")},
+    **{k: ParagraphStyle(f"{S[k].name}_c", parent=S[k], fontSize=7.5, leading=9.5)
+       for k in ("td", "td_r", "td_b", "td_br")},
+    "kpi_value": ParagraphStyle("kv_c", parent=S["kpi_value"], fontSize=12, leading=15),
 }
 
 
@@ -128,13 +140,13 @@ class Meta:
 
 # ---- building blocks ----------------------------------------------------------------------------
 
-def _kpi_row(kpis: list[Kpi], width: float) -> Table:
+def _kpi_row(kpis: list[Kpi], width: float, st: dict = S) -> Table:
     tone = {"navy": NAVY, "red": RED, "green": GREEN}
     cells = []
     for k in kpis:
-        value_style = ParagraphStyle("v", parent=S["kpi_value"], textColor=tone.get(k.tone, NAVY))
-        cells.append([Paragraph(text(k.label).upper(), S["kpi_label"]), Spacer(1, 3),
-                      Paragraph(k.value, value_style)] + ([Spacer(1, 2), Paragraph(k.note, S["kpi_note"])] if k.note else []))
+        value_style = ParagraphStyle("v", parent=st["kpi_value"], textColor=tone.get(k.tone, NAVY))
+        cells.append([Paragraph(text(k.label).upper(), st["kpi_label"]), Spacer(1, 3),
+                      Paragraph(k.value, value_style)] + ([Spacer(1, 2), Paragraph(k.note, st["kpi_note"])] if k.note else []))
     gap = 0.25 * cm
     n = len(kpis)
     col = (width - gap * (n - 1)) / n
@@ -156,7 +168,39 @@ def _kpi_row(kpis: list[Kpi], width: float) -> Table:
     return t
 
 
-def _table(sec: Section, width: float) -> list:
+CELL_PAD = 6
+
+
+def _fit_widths(sec: Section, width: float, st: dict) -> list[float]:
+    """Column widths from the weights, but never narrower than the column's longest word.
+
+    Without this a narrow column (e.g. on a portrait page) breaks words like "Apartment" or a phone
+    number in the middle. Columns that need more room take it from the columns that have room to spare.
+    """
+    total_w = sum(c.width for c in sec.columns)
+    widths = [width * c.width / total_w for c in sec.columns]
+    size = max(st["td"].fontSize, st["th"].fontSize)
+
+    def longest_word(values: list[str]) -> float:
+        words = (w for v in values for w in unescape(re.sub(r"<[^>]+>", " ", v)).split())
+        return max((stringWidth(w, "Helvetica-Bold", size) for w in words), default=0.0)
+
+    mins = [longest_word([c.header, *(row[i] for row in sec.rows + sec.totals)]) + 2 * CELL_PAD + 1
+            for i, c in enumerate(sec.columns)]
+    if sum(mins) >= width:  # not enough room for everyone: share by need
+        return [width * m / sum(mins) for m in mins]
+    fixed: set[int] = set()
+    while True:
+        short = {i for i, (w, m) in enumerate(zip(widths, mins, strict=True)) if i not in fixed and w < m}
+        if not short:
+            return widths
+        fixed |= short
+        room = width - sum(mins[i] for i in fixed)
+        free_w = sum(sec.columns[i].width for i in range(len(widths)) if i not in fixed)
+        widths = [mins[i] if i in fixed else room * sec.columns[i].width / free_w for i in range(len(widths))]
+
+
+def _table(sec: Section, width: float, st: dict = S) -> list:
     out: list = [Paragraph(text(sec.title), S["h2"])]
     if sec.intro:
         out.append(Paragraph(sec.intro, S["sub"]))
@@ -164,18 +208,17 @@ def _table(sec: Section, width: float) -> list:
     if not sec.rows:
         out.append(Paragraph(text(sec.empty), S["empty"]))
         return out
-    total_w = sum(c.width for c in sec.columns)
-    widths = [width * c.width / total_w for c in sec.columns]
+    widths = _fit_widths(sec, width, st)
     right = [c.align == "right" for c in sec.columns]
-    head = [Paragraph(text(c.header), S["th_r"] if r else S["th"]) for c, r in zip(sec.columns, right, strict=True)]
-    body = [[Paragraph(v, S["td_r"] if r else S["td"]) for v, r in zip(row, right, strict=True)] for row in sec.rows]
-    foot = [[Paragraph(v, S["td_br"] if r else S["td_b"]) for v, r in zip(row, right, strict=True)] for row in sec.totals]
+    head = [Paragraph(text(c.header), st["th_r"] if r else st["th"]) for c, r in zip(sec.columns, right, strict=True)]
+    body = [[Paragraph(v, st["td_r"] if r else st["td"]) for v, r in zip(row, right, strict=True)] for row in sec.rows]
+    foot = [[Paragraph(v, st["td_br"] if r else st["td_b"]) for v, r in zip(row, right, strict=True)] for row in sec.totals]
     t = Table([head, *body, *foot], colWidths=widths, repeatRows=1)
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), NAVY),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), CELL_PAD), ("RIGHTPADDING", (0, 0), (-1, -1), CELL_PAD),
         ("LINEBELOW", (0, 1), (-1, len(body)), 0.4, LINE),
     ]
     for i in range(1, len(body) + 1):
@@ -211,7 +254,7 @@ class _NumberedCanvas(rl_canvas.Canvas):
         super().save()
 
     def _decorate(self, total: int) -> None:
-        w, h = PAGE
+        w, h = self._pagesize
         m = self._meta
         # Header: logo left, company details right, gold rule.
         if LOGO.exists():
@@ -242,21 +285,23 @@ class _NumberedCanvas(rl_canvas.Canvas):
         self.drawRightString(w - MARGIN_X, 0.85 * cm, f"Page {self._pageNumber} of {total}")
 
 
-def render(report: Report, meta: Meta) -> bytes:
+def render(report: Report, meta: Meta, orientation: str = "landscape") -> bytes:
+    page = PAGES[orientation]
+    st = COMPACT if orientation == "portrait" else S
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=PAGE, leftMargin=MARGIN_X, rightMargin=MARGIN_X, topMargin=TOP,
+    doc = SimpleDocTemplate(buf, pagesize=page, leftMargin=MARGIN_X, rightMargin=MARGIN_X, topMargin=TOP,
                             bottomMargin=BOTTOM, title=f"{report.title} — {meta.company}", author=meta.company,
                             subject=report.subtitle, creator="Evaramu")
-    width = PAGE[0] - 2 * MARGIN_X
+    width = page[0] - 2 * MARGIN_X
     story: list = [Paragraph(text(report.title), S["title"]), Spacer(1, 3),
                    Paragraph(report.subtitle, S["sub"]), Spacer(1, 12)]
     if report.kpis:
-        story += [_kpi_row(report.kpis, width), Spacer(1, 8)]
+        story += [_kpi_row(report.kpis, width, st), Spacer(1, 8)]
     if report.secondary_kpis:
-        story += [_kpi_row(report.secondary_kpis, width), Spacer(1, 6)]
+        story += [_kpi_row(report.secondary_kpis, width, st), Spacer(1, 6)]
     for sec in report.sections:
         # Never leave a section heading alone at the bottom of a page.
-        story += [Spacer(1, 8), CondPageBreak(2.8 * cm), *_table(sec, width)]
+        story += [Spacer(1, 8), CondPageBreak(2.8 * cm), *_table(sec, width, st)]
     if report.notes:
         story.append(Spacer(1, 12))
         story += [Paragraph(n, S["note"]) for n in report.notes]

@@ -3973,6 +3973,137 @@
     }
    }
   },
+  "/api/v1/invoices/combined-pdf": {
+   "get": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Combined Invoice Pdf",
+    "description": "The chosen invoices (one tenant, one currency) as a single PDF invoice.",
+    "operationId": "combined_invoice_pdf_api_v1_invoices_combined_pdf_get",
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "ids",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "maxLength": 600,
+       "description": "Comma-separated invoice ids",
+       "title": "Ids"
+      },
+      "description": "Comma-separated invoice ids"
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/pdf": {}
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/invoices/combined-share": {
+   "post": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Combined Invoice Share",
+    "operationId": "combined_invoice_share_api_v1_invoices_combined_share_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CombinedIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InvoiceShareOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
+  "/api/v1/public/combined-invoice-pdf/{token}": {
+   "get": {
+    "tags": [
+     "billing"
+    ],
+    "summary": "Combined Invoice Public",
+    "operationId": "combined_invoice_public_api_v1_public_combined_invoice_pdf__token__get",
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Token"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/pdf": {}
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/invoices/generate": {
    "post": {
     "tags": [
@@ -6195,6 +6326,41 @@
        "title": "Cards"
       },
       "description": "Comma-separated keys from /reports/pdf/options; omit for all"
+     },
+     {
+      "name": "sections",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 500
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Comma-separated keys from /reports/pdf/options; omit for all",
+       "title": "Sections"
+      },
+      "description": "Comma-separated keys from /reports/pdf/options; omit for all"
+     },
+     {
+      "name": "orientation",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "landscape",
+        "portrait"
+       ],
+       "type": "string",
+       "description": "Page orientation: landscape (default) or portrait",
+       "default": "landscape",
+       "title": "Orientation"
+      },
+      "description": "Page orientation: landscape (default) or portrait"
      }
     ],
     "responses": {
@@ -6281,6 +6447,41 @@
        "title": "Cards"
       },
       "description": "Comma-separated keys from /reports/pdf/options; omit for all"
+     },
+     {
+      "name": "sections",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 500
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Comma-separated keys from /reports/pdf/options; omit for all",
+       "title": "Sections"
+      },
+      "description": "Comma-separated keys from /reports/pdf/options; omit for all"
+     },
+     {
+      "name": "orientation",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "landscape",
+        "portrait"
+       ],
+       "type": "string",
+       "description": "Page orientation: landscape (default) or portrait",
+       "default": "landscape",
+       "title": "Orientation"
+      },
+      "description": "Page orientation: landscape (default) or portrait"
      }
     ],
     "responses": {
@@ -6309,7 +6510,7 @@
      "reports"
     ],
     "summary": "Occupancy Pdf",
-    "description": "Every unit: taken or free, tenant, rent, paid through, balance.",
+    "description": "Every unit: taken or free, tenant, rent, payment method, balance.",
     "operationId": "occupancy_pdf_api_v1_reports_pdf_occupancy_get",
     "security": [
      {
@@ -6351,6 +6552,41 @@
        "title": "Cards"
       },
       "description": "Comma-separated keys from /reports/pdf/options; omit for all"
+     },
+     {
+      "name": "sections",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 500
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Comma-separated keys from /reports/pdf/options; omit for all",
+       "title": "Sections"
+      },
+      "description": "Comma-separated keys from /reports/pdf/options; omit for all"
+     },
+     {
+      "name": "orientation",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "landscape",
+        "portrait"
+       ],
+       "type": "string",
+       "description": "Page orientation: landscape (default) or portrait",
+       "default": "landscape",
+       "title": "Orientation"
+      },
+      "description": "Page orientation: landscape (default) or portrait"
      }
     ],
     "responses": {
@@ -8602,6 +8838,22 @@
      "code"
     ],
     "title": "CodeVerify"
+   },
+   "CombinedIn": {
+    "properties": {
+     "invoice_ids": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Invoice Ids"
+     }
+    },
+    "type": "object",
+    "required": [
+     "invoice_ids"
+    ],
+    "title": "CombinedIn"
    },
    "CoverageMonth": {
     "properties": {

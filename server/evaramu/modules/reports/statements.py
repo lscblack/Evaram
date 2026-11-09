@@ -7,7 +7,7 @@ the same rule as the website's neighbourhood counts.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
 
@@ -22,6 +22,7 @@ from evaramu.modules.billing.models import (
     InvoiceStatus,
     Payment,
     PaymentAllocation,
+    PaymentMethod,
     PaymentStatus,
 )
 from evaramu.modules.properties.models import Property, RentalUnit, UnitStatus
@@ -70,19 +71,16 @@ def units_taken(db: Session, property_id: int | None = None) -> dict:
             "occupancy_rate": round(taken / total * 100, 1) if total else 0.0}
 
 
-def _paid_through(db: Session, tenant_ids: set[int]) -> dict[tuple[int, str], date]:
-    """Latest month end that is fully paid, per tenant and currency."""
-    if not tenant_ids:
+def _latest_method(db: Session, agreement_ids: set[int]) -> dict[int, str]:
+    """Payment method of the latest approved payment, per agreement."""
+    if not agreement_ids:
         return {}
     rows = db.execute(
-        select(Invoice.tenant_id, Invoice.currency, Invoice.period_end)
-        .where(Invoice.tenant_id.in_(tenant_ids), Invoice.kind == InvoiceKind.RENT.value,
-               Invoice.status == InvoiceStatus.PAID.value, Invoice.period_end.is_not(None))).all()
-    out: dict[tuple[int, str], date] = {}
-    for tid, cur, end in rows:
-        if end > out.get((tid, cur), date.min):
-            out[(tid, cur)] = end
-    return out
+        select(Payment.agreement_id, PaymentMethod.label)
+        .join(PaymentMethod, PaymentMethod.code == Payment.method_code)
+        .where(Payment.agreement_id.in_(agreement_ids), Payment.status == PaymentStatus.APPROVED.value)
+        .order_by(Payment.payment_date, Payment.id)).all()
+    return {agreement_id: label for agreement_id, label in rows}  # later rows win
 
 
 def payments_received(db: Session, *, date_from: date | None, date_to: date | None,
@@ -97,7 +95,7 @@ def payments_received(db: Session, *, date_from: date | None, date_to: date | No
         stmt = stmt.where(Payment.unit_id.in_(select(RentalUnit.id).where(RentalUnit.property_id == property_id)))
     if currency:
         stmt = stmt.where(Payment.currency == currency)
-    payments = list(db.execute(stmt.order_by(Payment.payment_date)).unique().scalars())
+    payments = list(db.execute(stmt.order_by(Payment.payment_date, Payment.id)).unique().scalars())
 
     # Rent months these payments went to: fully paid months count as whole, the rest as part-paid.
     months: dict[tuple[int, str], dict[int, str]] = defaultdict(dict)
@@ -116,18 +114,19 @@ def payments_received(db: Session, *, date_from: date | None, date_to: date | No
         key = (p.tenant_id, p.currency)
         r = rows.setdefault(key, {
             "tenant": p.tenant.full_name, "phone": p.tenant.phone, "units": set(), "currency": p.currency,
-            "payments": 0, "amount": ZERO, "last_payment": p.payment_date,
+            "payments": 0, "amount": ZERO, "last_payment": p.payment_date, "methods": Counter(),
         })
         r["units"].add(p.unit.code)
         r["payments"] += 1
         r["amount"] += p.amount
         r["last_payment"] = max(r["last_payment"], p.payment_date)
-    through = _paid_through(db, {k[0] for k in rows})
+        r["methods"][p.method.label] += 1
     for key, r in rows.items():
         statuses = months.get(key, {}).values()
         r["months_full"] = sum(1 for s in statuses if s == InvoiceStatus.PAID.value)
         r["months_part"] = sum(1 for s in statuses if s != InvoiceStatus.PAID.value)
-        r["paid_through"] = through.get(key)
+        # Most-used method first; ties keep the order they were first used in.
+        r["methods"] = [label for label, _ in r["methods"].most_common()]
         r["units"] = sorted(r["units"])
 
     totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
@@ -185,10 +184,9 @@ def overdue_tenants(db: Session, today: date, *, property_id: int | None = None,
 
 
 def occupancy(db: Session, *, property_id: int | None = None) -> dict:
-    """Every unit with its status, tenant, rent, paid-through month and balance."""
+    """Every unit with its status, tenant, rent, latest payment method and balance."""
     active = _active_agreements(db, property_id)
-    tenant_ids = {a.tenant_id for a in active.values()}
-    through = _paid_through(db, tenant_ids)
+    methods = _latest_method(db, {a.id for a in active.values()})
     balances: dict[int, dict[str, Decimal]] = defaultdict(lambda: defaultdict(lambda: ZERO))
     if active:
         for unit_id, cur, bal in db.execute(
@@ -207,7 +205,7 @@ def occupancy(db: Session, *, property_id: int | None = None) -> dict:
             "status": "Taken" if taken else STATUS_LABEL.get(u.status, u.status),
             "taken": taken, "tenant": a.tenant.full_name if a else "", "phone": a.tenant.phone if a else "",
             "rent": a.monthly_rent if a else u.monthly_rent, "currency": a.currency if a else u.currency,
-            "paid_through": through.get((a.tenant_id, a.currency)) if a else None,
+            "method": methods.get(a.id) if a else None,
             "balance": balances[u.id].get(a.currency, ZERO) if a else ZERO,
         })
     return {"rows": rows, "expected_rent": dict(sorted(expected.items())), "units": units_taken(db, property_id)}

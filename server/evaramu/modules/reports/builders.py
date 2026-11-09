@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 
-from evaramu.modules.reports.pdf import Column, Kpi, Report, Section, day, money, month, text
+from evaramu.modules.reports.pdf import Column, Kpi, Report, Section, day, money, text
 
 UNIT_LABEL = {"room": "Room", "house": "House", "apartment": "Apartment", "studio": "Studio", "commercial": "Shop room"}
 
@@ -83,7 +83,7 @@ def payments_received(data: dict, *, date_from: date | None, date_to: date | Non
         months = str(r["months_full"]) + (f" + {r['months_part']} part" if r["months_part"] else "")
         rows.append([
             f"<b>{text(r['tenant'])}</b>", text(r["phone"]), text(", ".join(r["units"])), str(r["payments"]),
-            months, month(r["paid_through"]), day(r["last_payment"]), f"<b>{money(r['amount'], r['currency'])}</b>",
+            months, text(", ".join(r["methods"])) or "—", day(r["last_payment"]), f"<b>{money(r['amount'], r['currency'])}</b>",
         ])
     totals = []
     for c, a in data["totals"].items():
@@ -103,14 +103,14 @@ def payments_received(data: dict, *, date_from: date | None, date_to: date | Non
         sections=[Section(
             title="Tenants who paid",
             columns=[Column("Tenant", 2.4), Column("Phone", 1.4), Column("Unit(s)", 1.5), Column("Payments", 0.9, "right"),
-                     Column("Months paid", 1.1, "right"), Column("Paid through", 1.1), Column("Last payment", 1.1),
+                     Column("Months paid", 1.1, "right"), Column("Payment method", 1.5), Column("Last payment", 1.1),
                      Column("Amount paid", 1.5, "right")],
             rows=rows, totals=totals, empty="No approved payments in this period.", key="tenants",
         )],
         notes=[
             "<b>Months paid</b>: rent months these payments fully settled; “part” means a month only partly paid.",
-            "<b>Paid through</b>: the latest rent month the tenant has fully paid. Amounts are shown in the currency "
-            "they were paid in; RWF and USD are never added together.",
+            "<b>Payment method</b>: how the tenant paid in this period, most-used first. Amounts are shown in the "
+            "currency they were paid in; RWF and USD are never added together.",
         ],
     )
 
@@ -170,7 +170,7 @@ def occupancy(data: dict, *, today: date, property_name: str | None) -> Report:
         rows.append([
             text(r["property"]), f"<b>{text(r['unit'])}</b>", UNIT_LABEL.get(r["type"], text(r["type"])), status,
             text(r["tenant"]) or "—", text(r["phone"]) or "—", money(r["rent"], r["currency"]),
-            month(r["paid_through"]) if r["taken"] else "—", balance,
+            text(r["method"]) if r["taken"] and r["method"] else "—", balance,
         ])
     units = data["units"]
     return Report(
@@ -186,8 +186,9 @@ def occupancy(data: dict, *, today: date, property_name: str | None) -> Report:
             title="All units",
             columns=[Column("Property", 1.9), Column("Unit", 1.2), Column("Type", 0.9), Column("Status", 1.1),
                      Column("Tenant", 2.0), Column("Phone", 1.3), Column("Monthly rent", 1.3, "right"),
-                     Column("Paid through", 1.1), Column("Balance", 1.3, "right")],
+                     Column("Payment method", 1.3), Column("Balance", 1.3, "right")],
             rows=rows, empty="No units yet.", key="units",
         )],
-        notes=["<b>Taken</b>: occupied or under an active agreement. <b>Balance</b>: unpaid amount on open invoices."],
+        notes=["<b>Taken</b>: occupied or under an active agreement. <b>Payment method</b>: how the tenant paid "
+               "their latest approved payment. <b>Balance</b>: unpaid amount on open invoices."],
     )

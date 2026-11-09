@@ -41,7 +41,6 @@ def test_payments_received_months_paid_and_units_taken(api):
     assert d["totals"] == {"RWF": Decimal("200000.00")} and d["payment_count"] == 1 and d["tenant_count"] == 1
     row = d["rows"][0]
     assert (row["tenant"], row["units"], row["months_full"], row["months_part"]) == ("Jean Mugisha", ["R101"], 1, 1)
-    assert row["paid_through"] is not None and row["paid_through"] < MONTH_START  # last month fully paid
     u = d["units"]
     assert (u["total"], u["taken"], u["free"]) == (3, 2, 1)
     assert {t["type"]: (t["taken"], t["total"]) for t in u["by_type"]} == {"room": (1, 2), "apartment": (1, 1)}
@@ -164,3 +163,61 @@ def test_every_report_card_has_a_key(api):
         sections = {o["key"] for o in builders.OPTIONS[slug]["sections"]}
         assert all(k.key in cards for k in rep.kpis + rep.secondary_kpis), slug
         assert all(s.key in sections for s in rep.sections), slug
+
+
+def test_payment_method_replaces_paid_through(api, client):
+    setup(api)
+    # A second approved payment by another method: the tenant used both, most-used first.
+    with SessionLocal() as db:
+        agreement_id = db.execute(text(
+            "SELECT a.id FROM rental_agreements a JOIN tenants t ON t.id = a.tenant_id "
+            "WHERE t.full_name = 'Jean Mugisha'")).scalar()
+    p = api.ok(api.pay(agreement_id, 1000, method="bank_transfer"), 201)
+    api.ok(api.approve(p["id"]))
+
+    with SessionLocal() as db:
+        received = statements.payments_received(db, date_from=None, date_to=None)
+        occ = statements.occupancy(db)
+    assert received["rows"][0]["methods"] == ["MTN MoMo", "Bank transfer"]
+    units = {r["unit"]: r for r in occ["rows"]}
+    assert units["R101"]["method"] == "Bank transfer"  # the latest approved payment
+    assert units["A201"]["method"] is None and units["R102"]["method"] is None
+
+    for slug in ("payments-received", "occupancy"):
+        txt = pdf_text(client.get(f"/api/v1/reports/pdf/{slug}", headers=api.h).content)
+        assert "Payment method" in txt and "Paid through" not in txt, slug
+    txt = pdf_text(client.get("/api/v1/reports/pdf/payments-received", headers=api.h).content)
+    assert "MTN MoMo, Bank transfer" in " ".join(txt.split())  # the cell may wrap the text
+
+
+def test_pdf_orientation(api, client):
+    setup(api)
+
+    def size(params=None):
+        r = client.get("/api/v1/reports/pdf/occupancy", headers=api.h, params=params or {})
+        assert r.status_code == 200, r.text
+        box = PdfReader(io.BytesIO(r.content)).pages[0].mediabox
+        return float(box.width), float(box.height)
+
+    w, h = size()
+    assert w > h  # landscape stays the default
+    w, h = size({"orientation": "landscape"})
+    assert w > h
+    for slug in ("payments-received", "overdue", "occupancy"):
+        r = client.get(f"/api/v1/reports/pdf/{slug}", headers=api.h, params={"orientation": "portrait"})
+        box = PdfReader(io.BytesIO(r.content)).pages[0].mediabox
+        assert float(box.width) < float(box.height), slug
+    assert client.get("/api/v1/reports/pdf/occupancy", headers=api.h,
+                      params={"orientation": "sideways"}).status_code == 422
+
+
+def test_narrow_columns_never_break_words():
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    sec = pdf.Section(title="t", columns=[pdf.Column("Tenant", 4), pdf.Column("Type", 0.5), pdf.Column("Phone", 0.5)],
+                      rows=[["A very long tenant name", "<b>Apartment</b>", "+250788000001"]])
+    widths = pdf._fit_widths(sec, 300, pdf.COMPACT)
+    assert abs(sum(widths) - 300) < 0.01
+    size = pdf.COMPACT["td"].fontSize
+    for w, word in zip(widths[1:], ("Apartment", "+250788000001"), strict=True):
+        assert w >= stringWidth(word, "Helvetica-Bold", size) + 2 * pdf.CELL_PAD
