@@ -17,10 +17,19 @@ test('download the payments, overdue and occupancy PDF reports', async ({ page }
     ['Occupancy', 'occupancy'],
   ]) {
     const tile = page.locator('div.rounded-xl').filter({ has: page.getByText(title, { exact: true }) })
-    const [download] = await Promise.all([page.waitForEvent('download'), tile.getByRole('button', { name: 'Download PDF' }).click()])
+    await tile.getByRole('button', { name: 'Download PDF' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('Summary cards', { exact: true })).toBeVisible()
+    if (title === 'Payments received') {
+      // Leave out a card and the table: the PDF is still generated with the rest.
+      await dialog.getByLabel('Rent months paid').uncheck()
+      await dialog.getByLabel('Table of tenants who paid').uncheck()
+    }
+    const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: 'Generate PDF' }).click()])
     expect(download.suggestedFilename()).toBe(`evaramu-${file}-${todayISO()}.pdf`)
     const bytes = await readFile((await download.path())!)
     expect(bytes.subarray(0, 4).toString()).toBe('%PDF')
     await expect(page.getByText(`${title} report downloaded`)).toBeVisible()
+    await expect(dialog).toBeHidden()
   }
 })

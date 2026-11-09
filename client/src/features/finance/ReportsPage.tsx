@@ -11,11 +11,13 @@ import { useUrlState } from '@/shared/lib/useUrlState'
 import { statusLabel } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader } from '@/shared/ui/Card'
+import { Dialog } from '@/shared/ui/Dialog'
 import { EmptyState, ErrorState } from '@/shared/ui/EmptyState'
 import { Select } from '@/shared/ui/Form'
 import { FilterBar, Money } from '@/shared/ui/Misc'
 import { PageHeader } from '@/shared/ui/PageHeader'
 import { SkeletonRows } from '@/shared/ui/Spinner'
+import { cn } from '@/shared/ui/cn'
 import { CurrencySelect, DateRange, PropertySelect, usePaymentMethods } from './components'
 
 function iso(d: Date) {
@@ -367,12 +369,26 @@ function PdfReports({
 }) {
   const { can } = useAuth()
   const [busy, setBusy] = useState<PdfKind | null>(null)
+  const [picking, setPicking] = useState<(typeof PDF_REPORTS)[number] | null>(null)
+  const options = useQuery({
+    queryKey: ['reports', 'pdf-options'],
+    queryFn: () => api.get<PdfOptions>('/reports/pdf/options'),
+    staleTime: Infinity,
+  })
 
-  async function download(r: (typeof PDF_REPORTS)[number]) {
-    const query: Query = { property_id: propertyId, ...(r.kind !== 'occupancy' ? { currency } : {}), ...(r.usesPeriod ? range : {}) }
+  async function download(r: (typeof PDF_REPORTS)[number], choice: Choice) {
+    const query: Query = {
+      property_id: propertyId,
+      ...(r.kind !== 'occupancy' ? { currency } : {}),
+      ...(r.usesPeriod ? range : {}),
+      cards: choice.cards.join(','),
+      sections: choice.sections.join(','),
+    }
     setBusy(r.kind)
     try {
       await downloadFile(`/reports/pdf/${r.kind}`, query, `evaramu-${r.file}-${todayISO()}.pdf`)
+      saveChoice(r.kind, choice)
+      setPicking(null)
       toast.success(`${r.title} report downloaded`)
     } catch (e) {
       toast.error(errorMessage(e))
@@ -404,13 +420,132 @@ function PdfReports({
                 <FileText className="size-3.5" />
                 {r.usesPeriod ? periodLabel : 'As of today'}
               </span>
-              <Button size="sm" icon={Download} loading={busy === r.kind} disabled={busy !== null && busy !== r.kind} onClick={() => download(r)}>
+              <Button size="sm" icon={Download} disabled={busy !== null || !options.data} onClick={() => setPicking(r)}>
                 Download PDF
               </Button>
             </div>
           </div>
         ))}
       </div>
+      {picking && options.data?.[picking.kind] ? (
+        <ChooseContents
+          title={picking.title}
+          options={options.data[picking.kind]!}
+          initial={loadChoice(picking.kind, options.data[picking.kind]!)}
+          busy={busy === picking.kind}
+          onClose={() => setPicking(null)}
+          onGenerate={(c) => download(picking, c)}
+        />
+      ) : null}
     </Card>
+  )
+}
+
+type PdfOption = { key: string; label: string }
+type PdfOptions = Record<string, { cards: PdfOption[]; sections: PdfOption[] }>
+type Choice = { cards: string[]; sections: string[] }
+
+const CHOICE_KEY = (kind: string) => `evaramu.report-choice.${kind}`
+
+/** Last choice for this report (per browser); everything on by default. */
+function loadChoice(kind: string, opts: { cards: PdfOption[]; sections: PdfOption[] }): Choice {
+  const all = { cards: opts.cards.map((o) => o.key), sections: opts.sections.map((o) => o.key) }
+  try {
+    const saved = JSON.parse(localStorage.getItem(CHOICE_KEY(kind)) || 'null') as Choice | null
+    if (!saved) return all
+    return {
+      cards: saved.cards.filter((k) => all.cards.includes(k)),
+      sections: saved.sections.filter((k) => all.sections.includes(k)),
+    }
+  } catch {
+    return all
+  }
+}
+
+function saveChoice(kind: string, c: Choice) {
+  try {
+    localStorage.setItem(CHOICE_KEY(kind), JSON.stringify(c))
+  } catch {
+    /* private mode: the choice is not remembered */
+  }
+}
+
+function ChooseContents({
+  title,
+  options,
+  initial,
+  busy,
+  onClose,
+  onGenerate,
+}: {
+  title: string
+  options: { cards: PdfOption[]; sections: PdfOption[] }
+  initial: Choice
+  busy: boolean
+  onClose: () => void
+  onGenerate: (c: Choice) => void
+}) {
+  const [cards, setCards] = useState<string[]>(initial.cards)
+  const [sections, setSections] = useState<string[]>(initial.sections)
+  const empty = !cards.length && !sections.length
+  const toggle = (list: string[], set: (v: string[]) => void, key: string) =>
+    set(list.includes(key) ? list.filter((k) => k !== key) : [...list, key])
+
+  const group = (label: string, opts: PdfOption[], list: string[], set: (v: string[]) => void) => (
+    <fieldset>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <legend className="text-sm font-semibold text-slate-900">{label}</legend>
+        <span className="flex gap-3 text-xs font-medium">
+          <button type="button" className="text-brand-700 hover:text-brand-900" onClick={() => set(opts.map((o) => o.key))}>All</button>
+          <button type="button" className="text-slate-500 hover:text-slate-800" onClick={() => set([])}>None</button>
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {opts.map((o) => (
+          <label
+            key={o.key}
+            className={cn(
+              'flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+              list.includes(o.key) ? 'border-brand-300 bg-brand-50/60 text-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+            )}
+          >
+            <input
+              type="checkbox"
+              className="size-4 rounded border-slate-300 accent-brand-800"
+              checked={list.includes(o.key)}
+              onChange={() => toggle(list, set, o.key)}
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      size="lg"
+      title={`${title} — choose what to include`}
+      description="Pick the summary cards and tables for this PDF. Your choice is remembered for next time."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button icon={Download} loading={busy} disabled={empty} onClick={() => onGenerate({ cards, sections })}>
+            Generate PDF
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {group('Summary cards', options.cards, cards, setCards)}
+        {group('Tables', options.sections, sections, setSections)}
+        {empty ? <p className="text-sm text-red-700">Choose at least one card or table.</p> : null}
+        <p className="text-xs text-slate-500">Unit-type cards (rooms, houses…) only appear when you have units of that type.</p>
+      </div>
+    </Dialog>
   )
 }

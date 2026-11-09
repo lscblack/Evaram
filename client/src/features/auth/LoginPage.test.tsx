@@ -66,4 +66,13 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     await waitFor(() => expect(screen.getByText('Dashboard home')).toBeInTheDocument())
   })
+
+  it('warns when the API is an older version without the new sign-in options', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
+      String(input).endsWith('/auth/methods') ? json(404, { detail: 'Not Found' }) : json(401, { detail: 'no session' }),
+    )
+    renderLogin()
+    expect(await screen.findByText('The server is not fully updated')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in with a passkey' })).not.toBeInTheDocument()
+  })
 })

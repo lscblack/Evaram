@@ -12,7 +12,14 @@ for i in $(seq 1 "$retries"); do
     ok "API healthy: $body"
     break
   fi
-  [[ "$i" == "$retries" ]] && die "API did not become healthy at $API_URL"
+  if [[ "$i" == "$retries" ]]; then
+    # The previous application answered /health at the root and has no /api/v1/health.
+    if curl -fsS --max-time 5 "$API_URL/health" 2>/dev/null | grep -q '"status"'; then
+      die "$API_URL is still running the PREVIOUS application (it has /health but no /api/v1/health).
+      Stop the old service and start this one: uvicorn evaramu.main:app (see README > Deployment)."
+    fi
+    die "API did not become healthy at $API_URL"
+  fi
   sleep 2
 done
 

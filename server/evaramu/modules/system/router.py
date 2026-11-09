@@ -31,7 +31,7 @@ router = APIRouter(tags=["system"])
 def health(db: DB):
     db.execute(text("SELECT 1"))
     revision = db.execute(text("SELECT version_num FROM alembic_version")).scalar()
-    return {"status": "ok", "database": "ok", "version": __version__, "migration": revision}
+    return {"status": "ok", "app": "evaramu-platform", "database": "ok", "version": __version__, "migration": revision}
 
 
 # ----------------------------------------------------------- notifications ----

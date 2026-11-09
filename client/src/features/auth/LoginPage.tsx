@@ -20,7 +20,7 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
-import { api, errorMessage } from '@/shared/api/client'
+import { API_ORIGIN, ApiError, api, errorMessage } from '@/shared/api/client'
 import type { PasskeyOptionsOut, SignInMethods, TokenOut } from '@/shared/api/types'
 import { useAuth } from '@/shared/auth/AuthProvider'
 import { LOGO } from '@/shared/lib/brand'
@@ -49,6 +49,8 @@ export default function LoginPage() {
     staleTime: 5 * 60_000,
     retry: false,
   })
+  // The new sign-in options exist only on the current API; a 404 means the server is still on an older version.
+  const outdated = methods.error instanceof ApiError && methods.error.status === 404
   const emailCode = !!methods.data?.email_code
   const passkey = (methods.data?.passkey ?? false) && browserSupportsWebAuthn()
 
@@ -73,6 +75,15 @@ export default function LoginPage() {
 
         <div className="flex flex-1 items-center justify-center py-10">
           <div key={mode} className="w-full max-w-sm animate-fade-slide">
+            {outdated ? (
+              <div role="status" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <p className="font-semibold">The server is not fully updated</p>
+                <p className="mt-0.5 text-amber-800">
+                  This page is talking to an older version of the API at {API_ORIGIN.replace(/^https?:\/\//, '')}, so passkeys and email
+                  codes are unavailable and sign-in may fail. Ask your administrator to finish the update.
+                </p>
+              </div>
+            ) : null}
             {mode === 'password' ? (
               <PasswordSignIn
                 email={email}

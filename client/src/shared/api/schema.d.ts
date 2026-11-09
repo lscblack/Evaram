@@ -1416,6 +1416,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/pdf/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pdf Options
+         * @description Cards and tables each PDF report can include (all included unless chosen otherwise).
+         */
+        get: operations["pdf_options_api_v1_reports_pdf_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/pdf/payments-received": {
         parameters: {
             query?: never;
@@ -7600,6 +7620,28 @@ export interface operations {
             };
         };
     };
+    pdf_options_api_v1_reports_pdf_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     payments_received_pdf_api_v1_reports_pdf_payments_received_get: {
         parameters: {
             query?: {
@@ -7607,6 +7649,8 @@ export interface operations {
                 date_to?: string | null;
                 property_id?: number | null;
                 currency?: components["schemas"]["Currency"] | null;
+                /** @description Comma-separated keys from /reports/pdf/options; omit for all */
+                cards?: string | null;
             };
             header?: never;
             path?: never;
@@ -7639,6 +7683,8 @@ export interface operations {
             query?: {
                 property_id?: number | null;
                 currency?: components["schemas"]["Currency"] | null;
+                /** @description Comma-separated keys from /reports/pdf/options; omit for all */
+                cards?: string | null;
             };
             header?: never;
             path?: never;
@@ -7670,6 +7716,8 @@ export interface operations {
         parameters: {
             query?: {
                 property_id?: number | null;
+                /** @description Comma-separated keys from /reports/pdf/options; omit for all */
+                cards?: string | null;
             };
             header?: never;
             path?: never;

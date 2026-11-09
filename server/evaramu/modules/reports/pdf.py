@@ -87,6 +87,7 @@ class Kpi:
     value: str
     note: str = ""
     tone: str = "navy"   # navy | red | green
+    key: str = ""        # lets the user choose which cards appear
 
 
 @dataclass
@@ -104,6 +105,7 @@ class Section:
     totals: list[list[str]] = field(default_factory=list)
     intro: str = ""
     empty: str = "Nothing to show."
+    key: str = ""
 
 
 @dataclass

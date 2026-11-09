@@ -106,3 +106,46 @@ def test_money_and_date_formats():
     assert pdf.money(Decimal("1250000"), "RWF") == "1,250,000 RWF"
     assert pdf.money(Decimal("950"), "USD") == "$950.00"
     assert pdf.day(date(2026, 11, 9)) == "9 Nov 2026" and pdf.month(date(2026, 12, 31)) == "Dec 2026"
+
+
+def test_choose_cards_and_tables(api, client):
+    setup(api)
+    opts = client.get("/api/v1/reports/pdf/options", headers=api.h).json()
+    assert {o["key"] for o in opts["payments-received"]["cards"]} >= {"total_paid", "units_taken", "type_room"}
+
+    with SessionLocal() as db:
+        d = statements.payments_received(db, date_from=None, date_to=None)
+    full = builders.payments_received(d, date_from=None, date_to=None, property_name=None, currency=None)
+    # Every card and table the builder makes is one the user can choose.
+    keys = {k.key for k in full.kpis + full.secondary_kpis}
+    assert keys and keys <= {o["key"] for o in opts["payments-received"]["cards"]}
+    picked = builders.choose(full, {"total_paid", "type_room"}, set())
+    assert [k.key for k in picked.kpis + picked.secondary_kpis] == ["total_paid", "type_room"] and picked.sections == []
+
+    r = client.get("/api/v1/reports/pdf/payments-received", headers=api.h,
+                   params={"cards": "total_paid,units_taken", "sections": "tenants"})
+    assert r.status_code == 200 and r.content.startswith(b"%PDF")
+    r = client.get("/api/v1/reports/pdf/payments-received", headers=api.h, params={"cards": "", "sections": ""})
+    assert r.status_code == 400 and "at least one" in r.json()["detail"]
+    for slug in ("overdue", "occupancy"):
+        r = client.get(f"/api/v1/reports/pdf/{slug}", headers=api.h, params={"cards": "units_taken"})
+        assert r.status_code == 200
+
+
+def test_every_report_card_has_a_key(api):
+    setup(api)
+    from datetime import date as _d
+    with SessionLocal() as db:
+        built = {
+            "payments-received": builders.payments_received(statements.payments_received(db, date_from=None, date_to=None),
+                                                            date_from=None, date_to=None, property_name=None, currency=None),
+            "overdue": builders.overdue_tenants(statements.overdue_tenants(db, _d.today()), today=_d.today(),
+                                                property_name=None, currency=None),
+            "occupancy": builders.occupancy(statements.occupancy(db), today=_d.today(), property_name=None),
+        }
+        db.rollback()
+    for slug, rep in built.items():
+        cards = {o["key"] for o in builders.OPTIONS[slug]["cards"]}
+        sections = {o["key"] for o in builders.OPTIONS[slug]["sections"]}
+        assert all(k.key in cards for k in rep.kpis + rep.secondary_kpis), slug
+        assert all(s.key in sections for s in rep.sections), slug

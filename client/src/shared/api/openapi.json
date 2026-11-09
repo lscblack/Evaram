@@ -5823,6 +5823,35 @@
     }
    }
   },
+  "/api/v1/reports/pdf/options": {
+   "get": {
+    "tags": [
+     "reports"
+    ],
+    "summary": "Pdf Options",
+    "description": "Cards and tables each PDF report can include (all included unless chosen otherwise).",
+    "operationId": "pdf_options_api_v1_reports_pdf_options_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object",
+         "title": "Response Pdf Options Api V1 Reports Pdf Options Get"
+        }
+       }
+      }
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ]
+   }
+  },
   "/api/v1/reports/pdf/payments-received": {
    "get": {
     "tags": [
@@ -5902,6 +5931,25 @@
        ],
        "title": "Currency"
       }
+     },
+     {
+      "name": "cards",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 500
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Comma-separated keys from /reports/pdf/options; omit for all",
+       "title": "Cards"
+      },
+      "description": "Comma-separated keys from /reports/pdf/options; omit for all"
      }
     ],
     "responses": {
@@ -5969,6 +6017,25 @@
        ],
        "title": "Currency"
       }
+     },
+     {
+      "name": "cards",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 500
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Comma-separated keys from /reports/pdf/options; omit for all",
+       "title": "Cards"
+      },
+      "description": "Comma-separated keys from /reports/pdf/options; omit for all"
      }
     ],
     "responses": {
@@ -6020,6 +6087,25 @@
        ],
        "title": "Property Id"
       }
+     },
+     {
+      "name": "cards",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "maxLength": 500
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Comma-separated keys from /reports/pdf/options; omit for all",
+       "title": "Cards"
+      },
+      "description": "Comma-separated keys from /reports/pdf/options; omit for all"
      }
     ],
     "responses": {
