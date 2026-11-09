@@ -40,6 +40,8 @@ const TaxonomyAdminPage = lazy(() => import('@/pages/admin/TaxonomyAdminPage'))
 const ContentAdminPage = lazy(() => import('@/pages/admin/ContentAdminPage'))
 const ServicesAdminPage = lazy(() => import('@/pages/admin/ServicesAdminPage'))
 const ConsultationsAdminPage = lazy(() => import('@/pages/admin/ConsultationsAdminPage'))
+const ConstructionAdminPage = lazy(() => import('@/pages/admin/ConstructionAdminPage'))
+const ConstructionProjectsPage = lazy(() => import('@/pages/ConstructionProjectsPage'))
 const InsightsAdminPage = lazy(() => import('@/pages/admin/InsightsAdminPage'))
 const VoicesAdminPage = lazy(() => import('@/pages/admin/VoicesAdminPage'))
 const InboxAdminPage = lazy(() => import('@/pages/admin/InboxAdminPage'))
@@ -68,6 +70,7 @@ export default function App() {
             <Route path="content" element={<ContentAdminPage />} />
             <Route path="services" element={<ServicesAdminPage />} />
             <Route path="consultations" element={<ConsultationsAdminPage />} />
+            <Route path="construction" element={<ConstructionAdminPage />} />
             <Route path="insights" element={<InsightsAdminPage />} />
             <Route path="testimonials" element={<VoicesAdminPage />} />
             <Route path="inbox" element={<InboxAdminPage />} />
@@ -100,6 +103,7 @@ export default function App() {
                 <Route path="/properties/:id" element={<PropertyDetailPage />} />
                 <Route path="/wealth-cycle" element={<WealthCyclePage />} />
                 <Route path="/construction" element={<ConstructionPage />} />
+                <Route path="/construction/projects" element={<ConstructionProjectsPage />} />
                 <Route path="/services" element={<ServicesPage />} />
                 <Route path="/sell" element={<SellPage />} />
                 <Route path="/join" element={<JoinPage />} />

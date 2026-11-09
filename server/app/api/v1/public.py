@@ -507,7 +507,7 @@ async def property_detail(
         is_negotiable=prop.is_negotiable,
         details=prop.details,
         parcel_information=prop.parcel_information,
-        amenities=prop.amenities,
+        amenities=prop.amenities, rental_units=prop.rental_units,
         video_link=prop.video_link,
         video_360_url=prop.video_360_url,
         vr_tour_url=prop.vr_tour_url,

@@ -1,0 +1,170 @@
+@import 'tailwindcss';
+
+/*
+ * Evaramu brand tokens — sampled from the supplied logos:
+ *   navy  #032A4E  (wordmark, building)
+ *   gold  #BC7A26  (base sweep, accent)
+ * Every colour in the UI comes from these scales or the neutral slate scale.
+ */
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+
+  --color-brand-50: #f2f6fa;
+  --color-brand-100: #e1eaf3;
+  --color-brand-200: #c3d4e6;
+  --color-brand-300: #93b2d1;
+  --color-brand-400: #5d88b5;
+  --color-brand-500: #386797;
+  --color-brand-600: #1f4e7c;
+  --color-brand-700: #123d66;
+  --color-brand-800: #0a3359;
+  --color-brand-900: #032a4e;
+  --color-brand-950: #021b33;
+
+  --color-gold-50: #fcf7ef;
+  --color-gold-100: #f7ead6;
+  --color-gold-200: #eed2a8;
+  --color-gold-300: #e2b474;
+  --color-gold-400: #d3964a;
+  --color-gold-500: #bc7a26;
+  --color-gold-600: #a0651d;
+  --color-gold-700: #7f4f19;
+  --color-gold-800: #66401a;
+  --color-gold-900: #543618;
+
+  --radius-card: 0.75rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+  /* Tabular figures everywhere money is shown. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* KPI cards: staggered entrance. `--stat-i` is the card's position in its grid. */
+@keyframes stat-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-stat-in {
+  animation: stat-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--stat-i, 0) * 45ms);
+}
+
+/* Public site: hero entrance and slow photo drift. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes drift {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@utility animate-rise {
+  animation: rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--rise-i, 0) * 90ms);
+}
+@utility animate-drift {
+  animation: drift 1600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-stat-in,
+  .animate-rise,
+  .animate-drift {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Agreement documents — the same markup is shown on screen, signed and printed.
+   --------------------------------------------------------------------------- */
+.doc-sheet {
+  /* Matches the landlord's own agreement: clean sans body, light serif title. */
+  font-family: var(--font-sans);
+  color: #1e293b;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere; /* long blanks, codes and names never widen the page */
+}
+@media (max-width: 639px) {
+  .doc-sheet { font-size: 14px; }
+  .doc-sheet .doc-title { font-size: 1.45rem; }
+}
+.doc-sheet .doc-title {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 2.1rem;
+  line-height: 1.15;
+  font-weight: 400;
+  color: #0f172a;
+  letter-spacing: 0.005em;
+  margin: 0 0 1.4rem;
+}
+.doc-sheet h2 { font-size: 1.15rem; font-weight: 700; margin: 1.25rem 0 0.5rem; }
+.doc-sheet h3 { font-size: 1rem; font-weight: 700; margin: 1rem 0 0.4rem; }
+.doc-sheet p { margin: 0 0 0.8rem; }
+.doc-sheet strong { color: #0f172a; }
+.doc-sheet ul, .doc-sheet ol { margin: 0 0 0.85rem; padding-left: 1.4rem; }
+.doc-sheet ul { list-style: disc; }
+.doc-sheet ol { list-style: decimal; }
+.doc-sheet li { margin: 0.15rem 0; }
+.doc-sheet strong { font-weight: 700; }
+.doc-sheet .doc-fill {
+  font-weight: 600;
+  background: color-mix(in oklab, var(--color-gold-100, #fdf0dc) 70%, transparent);
+  border-bottom: 1px solid var(--color-gold-400, #d9a35a);
+  padding: 0 0.15em;
+  border-radius: 2px;
+}
+.doc-sheet .doc-blank { color: #94a3b8; letter-spacing: 0.05em; }
+.doc-sheet.is-final .doc-fill { background: none; border-bottom: none; padding: 0; }
+
+@media print {
+  @page { size: A4; margin: 18mm 16mm; }
+  html, body { background: #fff !important; }
+  .print-hide { display: none !important; }
+  .doc-page { box-shadow: none !important; border: 0 !important; padding: 0 !important; margin: 0 !important; max-width: none !important; width: auto !important; }
+  .doc-sheet { font-size: 11pt; }
+  .doc-sheet .doc-title { font-size: 22pt; }
+  .doc-sheet p, .doc-sheet li { orphans: 3; widows: 3; }
+  .doc-running-title { display: none !important; } /* the page header carries it */
+  .doc-sheet .doc-fill { background: none; border-bottom: none; padding: 0; }
+  .doc-signatures { break-inside: avoid; }
+}

@@ -1,0 +1,10 @@
+backups/
+
+# Runtime data — never commit
+server/storage/
+server/.deployed-fingerprint
+client/dist/
+client/dist.next/
+client/dist.prev/
+client/test-results/
+client/playwright-report/

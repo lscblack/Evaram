@@ -153,6 +153,10 @@ def to_card(row: Any) -> PropertyCard:
         boundary_points=prop.boundary_points if prop.show_on_map else None,
         master_plan_zone=prop.master_plan_zone,
         outline_as_cover=prop.outline_as_cover,
+        available_units=(
+            sum(1 for u in prop.rental_units if u.get("is_available", True))
+            if prop.rental_units else None
+        ),
         has_vr_tour=bool(prop.vr_tour_url),
         has_360_video=bool(prop.video_360_url),
         created_at=prop.created_at,
@@ -187,7 +191,22 @@ async def count_for(db: AsyncSession, stmt: Select) -> int:
 def refresh_derived(prop: Property) -> None:
     """Keeps the denormalised search haystack in step with the record."""
     settle_zone_split(prop)
+    settle_rent(prop)
     prop.search_text = prop.build_search_text()
+
+
+def settle_rent(prop: Property) -> None:
+    """The headline rent of a listing let by the unit is its cheapest open unit.
+
+    Only where no figure was typed — an agent who quotes a rent for the whole
+    building means it.
+    """
+    units = prop.rental_units or []
+    if prop.rent_amount is not None or not units:
+        return
+    rents = [u["rent"] for u in units if u.get("rent") is not None and u.get("is_available", True)]
+    if rents:
+        prop.rent_amount = min(rents)
 
 
 def settle_zone_split(prop: Property) -> None:

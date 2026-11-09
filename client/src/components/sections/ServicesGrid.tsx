@@ -4,7 +4,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import { Icon } from '@/components/ui/Icon'
 import { SectionHeading } from '@/components/ui/SectionHeading'
-import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { fadeUp, revealEarly, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { ApiServiceLine } from '@/types/api'
@@ -46,7 +46,8 @@ export function ServicesGrid() {
         />
 
         <motion.div
-          {...revealProps}
+          key={services.length}
+          {...revealEarly}
           variants={stagger(0.05)}
           className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
         >

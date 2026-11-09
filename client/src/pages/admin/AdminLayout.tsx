@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Briefcase,
   CalendarClock,
+  HardHat,
   HandCoins,
   Building2,
   FileText,
@@ -23,7 +24,7 @@ import {
 import { Logo } from '@/components/ui/Logo'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { RouteLoader } from '@/components/layout/RouteLoader'
-import { useAuth } from '@/lib/auth'
+import { CONSTRUCTION_ROLES, REALTY_ROLES, useAuth } from '@/lib/auth'
 import { ensureFontLoaded, useSiteConfig } from '@/lib/siteConfig'
 import { EASE, routeTransition } from '@/lib/motion'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,8 @@ interface NavEntry {
   end?: boolean
   /** Minimum role required to see the entry. */
   minimum?: UserRole
+  /** Or, for entries that belong to one side of the business, exactly who. */
+  roles?: UserRole[]
 }
 
 const NAV: { group: string; items: NavEntry[] }[] = [
@@ -48,10 +51,16 @@ const NAV: { group: string; items: NavEntry[] }[] = [
   {
     group: 'Catalogue',
     items: [
-      { to: '/admin/properties', label: 'Properties', icon: Building2 },
-      { to: '/admin/offers', label: 'Offers & sales', icon: Gavel },
+      { to: '/admin/properties', label: 'Properties', icon: Building2, roles: REALTY_ROLES },
+      { to: '/admin/offers', label: 'Offers & sales', icon: Gavel, roles: REALTY_ROLES },
       { to: '/admin/deals', label: 'Clients & deals', icon: HandCoins, minimum: 'admin' },
       { to: '/admin/taxonomy', label: 'Categories & forms', icon: Shapes, minimum: 'admin' },
+    ],
+  },
+  {
+    group: 'Construction',
+    items: [
+      { to: '/admin/construction', label: 'Construction jobs', icon: HardHat, roles: CONSTRUCTION_ROLES },
     ],
   },
   {
@@ -104,7 +113,13 @@ export default function AdminLayout() {
   // them; the nav below hides everything their role cannot reach.
   if (!can('agent')) return <Navigate to="/" replace />
   if (!can('admin') && location.pathname === '/admin') {
-    return <Navigate to="/admin/properties" replace />
+    // Each side of the business lands on its own queue.
+    return (
+      <Navigate
+        to={user.role === 'construction_manager' ? '/admin/construction' : '/admin/properties'}
+        replace
+      />
+    )
   }
 
   const sidebar = (
@@ -123,7 +138,10 @@ export default function AdminLayout() {
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {NAV.map((section) => {
-          const items = section.items.filter((item) => !item.minimum || can(item.minimum))
+          const items = section.items.filter(
+            (item) =>
+              (!item.minimum || can(item.minimum)) && (!item.roles || item.roles.includes(user.role)),
+          )
           if (items.length === 0) return null
           return (
             <div key={section.group} className="mb-5">

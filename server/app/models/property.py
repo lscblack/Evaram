@@ -212,6 +212,10 @@ class Property(Base, UUIDPrimaryKey, TimestampMixin):
     parcel_information: Mapped[dict | None] = mapped_column(JSONB)
     tags: Mapped[list[str] | None] = mapped_column(JSONB)
     amenities: Mapped[list[str] | None] = mapped_column(JSONB)
+    #: For rentals with more than one thing to let — a block of flats, a house
+    #: let by the room: `[{"label", "kind", "bedrooms", "bathrooms", "size_sqm",
+    #: "rent", "furnished", "available_from", "is_available", "notes"}, …]`.
+    rental_units: Mapped[list | None] = mapped_column(JSONB)
 
     # ---------------- immersive media ----------------
     video_link: Mapped[str | None] = mapped_column(String(512))

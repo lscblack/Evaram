@@ -1,28 +1,15 @@
-fastapi==0.118.0
-uvicorn[standard]==0.37.0
-sqlalchemy[asyncio]==2.0.44
-asyncpg==0.30.0
-alembic==1.16.5
-# Alembic runs synchronously, including the startup migration in app.core.bootstrap.
-psycopg2-binary==2.9.10
-pydantic==2.12.0
-pydantic-settings==2.11.0
-python-jose[cryptography]==3.5.0
-argon2-cffi==25.1.0
-python-multipart==0.0.20
+# Evaramu Property & Rent Management Platform — runtime dependencies.
+# Pinned so `scripts/deploy.sh` produces the same environment every time.
+fastapi==0.162.2
+starlette==1.10.0
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.1.8
+psycopg[binary]==3.3.8
+alembic==1.20.1
+pydantic==2.14.3
+pydantic-settings==2.16.2
 email-validator==2.3.0
-aiosmtplib==4.0.2
-jinja2==3.1.6
-slowapi==0.1.9
-orjson==3.11.3
-python-slugify==8.0.4
-pillow==11.3.0
-httpx==0.28.1
-greenlet==3.2.4
-
-# Parcel geography. GeoAlchemy2 maps the PostGIS columns, shapely does the
-# shape maths that does not need a database round trip, and ijson streams the
-# 124 MB village-boundary file that would otherwise be parsed whole.
-GeoAlchemy2==0.20.0
-shapely==2.1.2
-ijson==3.5.1
+argon2-cffi==25.1.0
+PyJWT==2.15.1
+python-multipart==0.0.33
+pillow==13.0.0

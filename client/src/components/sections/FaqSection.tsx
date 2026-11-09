@@ -4,7 +4,7 @@ import { Minus, Plus } from 'lucide-react'
 import type { ApiFaq } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
-import { EASE, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { EASE, fadeUp, revealEarly, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 
 export function FaqSection({
@@ -55,7 +55,8 @@ export function FaqSection({
           </div>
 
           <motion.dl
-            {...revealProps}
+            key={faqs.length}
+            {...revealEarly}
             variants={stagger(0.06)}
             className="lg:col-span-7"
           >

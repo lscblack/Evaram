@@ -12,7 +12,7 @@ import { useBlock, useBlockItems, useQuery } from '@/lib/queries'
 import { useSite } from '@/lib/siteConfig'
 import type { ApiTeamMember } from '@/types/api'
 
-import { fadeRight, fadeUp, revealProps, stagger } from '@/lib/motion'
+import { fadeRight, fadeUp, revealEarly, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 
 /** Fallback for `about` → `divisions` — the shipped copy. */
@@ -455,7 +455,8 @@ export default function AboutPage() {
           />
 
           <motion.div
-            {...revealProps}
+            key={team.length}
+            {...revealEarly}
             variants={stagger(0.08)}
             className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
           >

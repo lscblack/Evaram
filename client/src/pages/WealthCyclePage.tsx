@@ -10,7 +10,7 @@ import { FaqSection } from '@/components/sections/FaqSection'
 
 import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiCycleStep, ApiFaq, ApiTestimonial } from '@/types/api'
-import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { fadeUp, revealEarly, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 
 
@@ -82,7 +82,8 @@ export default function WealthCyclePage() {
           />
 
           <motion.ol
-            {...revealProps}
+            key={steps.length}
+            {...revealEarly}
             variants={stagger(0.08)}
             className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3"
           >

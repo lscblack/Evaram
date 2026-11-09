@@ -1,0 +1,9 @@
+[Unit]
+Description=Evaramu database backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=evaramu
+WorkingDirectory=/srv/evaramu
+ExecStart=/srv/evaramu/scripts/backup-db.sh nightly

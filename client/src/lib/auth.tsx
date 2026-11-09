@@ -2,7 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { api, tokens } from '@/lib/api'
 import type { AuthUser, LoginChallenge, TokenPair, UserRole } from '@/types/api'
 
-const RANK: Record<UserRole, number> = { user: 0, agent: 1, admin: 2, super_admin: 3 }
+const RANK: Record<UserRole, number> = {
+  user: 0,
+  agent: 1,
+  construction_manager: 1,
+  admin: 2,
+  super_admin: 3,
+}
+
+/** Roles that work the real-estate side of the console. */
+export const REALTY_ROLES: UserRole[] = ['agent', 'admin', 'super_admin']
+/** Roles that work the construction side. */
+export const CONSTRUCTION_ROLES: UserRole[] = ['construction_manager', 'admin', 'super_admin']
 
 interface AuthContextValue {
   user: AuthUser | null

@@ -13,7 +13,7 @@ import type { ApiFaq, ApiTeamMember } from '@/types/api'
 import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captcha'
 import { api } from '@/lib/api'
 import { useBlock, useBlockItems, useLocalizedQuery, useQuery } from '@/lib/queries'
-import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { fadeUp, revealEarly, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { useFormErrors } from '@/lib/formErrors'
 import { cn, formatCompactCurrency, formatCurrency } from '@/lib/utils'
@@ -617,7 +617,8 @@ export default function JoinPage() {
           />
 
           <motion.div
-            {...revealProps}
+            key={team.length}
+            {...revealEarly}
             variants={stagger(0.08)}
             className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
           >

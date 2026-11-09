@@ -4,7 +4,7 @@ import { useBlock, useLocalizedQuery } from '@/lib/queries'
 import type { ApiPackage } from '@/types/api'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { Button } from '@/components/ui/Button'
-import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { fadeUp, revealEarly, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { cn, formatCurrency } from '@/lib/utils'
 
@@ -46,7 +46,8 @@ export function ConstructionPreview() {
         />
 
         <motion.div
-          {...revealProps}
+          key={packages.length}
+          {...revealEarly}
           variants={stagger(0.1)}
           className="mt-14 grid gap-6 lg:grid-cols-3"
         >

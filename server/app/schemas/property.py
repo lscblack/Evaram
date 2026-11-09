@@ -68,6 +68,27 @@ class PropertyAgent(ORMModel):
     languages: list[str] | None = None
 
 
+#: `NUMERIC(16, 2)` holds fourteen integer digits; a figure past that is a
+#: typo, and is refused here rather than surfacing as a database error.
+MAX_MONEY = 10**14 - 1
+
+
+class RentalUnit(BaseModel):
+    """One thing to let inside a rental listing — a flat, a room, a shop."""
+
+    label: str = Field(min_length=1, max_length=80)
+    kind: Literal["house", "apartment", "studio", "room", "office", "shop", "other"] = "apartment"
+    bedrooms: int | None = Field(default=None, ge=0, le=50)
+    bathrooms: int | None = Field(default=None, ge=0, le=50)
+    size_sqm: float | None = Field(default=None, ge=0)
+    #: Per month, in the listing's currency.
+    rent: float | None = Field(default=None, ge=0, le=MAX_MONEY)
+    furnished: bool = False
+    available_from: date | None = None
+    is_available: bool = True
+    notes: str | None = Field(default=None, max_length=400)
+
+
 class MasterPlanShare(BaseModel):
     """One zone's share of a parcel that the Master Plan divides."""
 
@@ -118,6 +139,8 @@ class PropertyCard(ORMModel):
     master_plan_zone: str | None = None
     #: Whether that outline may be drawn where the photograph would go.
     outline_as_cover: bool = True
+    #: How many units or rooms are open to let, where the listing has several.
+    available_units: int | None = None
     has_vr_tour: bool = False
     has_360_video: bool = False
     created_at: datetime
@@ -148,6 +171,7 @@ class PropertyDetail(PropertyCard):
     details: dict | None = None
     parcel_information: dict | None = None
     amenities: list[str] | None = None
+    rental_units: list[RentalUnit] | None = None
     video_link: str | None = None
     video_360_url: str | None = None
     vr_tour_url: str | None = None
@@ -215,11 +239,6 @@ class PropertyDetailAdmin(PropertyDetail):
 
 
 # ---------------------------------------------------------------- write
-#: `NUMERIC(16, 2)` holds fourteen integer digits; a figure past that is a
-#: typo, and is refused here rather than surfacing as a database error.
-MAX_MONEY = 10**14 - 1
-
-
 class PropertyBase(BaseModel):
     reference_number: str = Field(min_length=2, max_length=40)
     upi: str | None = Field(default=None, max_length=64)
@@ -273,6 +292,7 @@ class PropertyBase(BaseModel):
     parcel_information: dict[str, Any] | None = None
     tags: list[str] | None = None
     amenities: list[str] | None = None
+    rental_units: list[RentalUnit] | None = Field(default=None, max_length=60)
 
     video_link: str | None = None
     video_360_url: str | None = None
@@ -391,6 +411,7 @@ class PropertyUpdate(BaseModel):
     parcel_information: dict[str, Any] | None = None
     tags: list[str] | None = None
     amenities: list[str] | None = None
+    rental_units: list[RentalUnit] | None = Field(default=None, max_length=60)
     video_link: str | None = None
     video_360_url: str | None = None
     vr_tour_url: str | None = None

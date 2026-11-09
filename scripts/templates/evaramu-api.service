@@ -1,0 +1,29 @@
+# systemd unit for the Evaramu API.
+#   sudo cp scripts/templates/evaramu-api.service /etc/systemd/system/
+#   (edit User and paths) ; sudo systemctl daemon-reload ; sudo systemctl enable --now evaramu-api
+[Unit]
+Description=Evaramu Property & Rent Management API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=evaramu
+Group=evaramu
+WorkingDirectory=/srv/evaramu/server
+# Configuration is read from /srv/evaramu/server/.env (chmod 600).
+ExecStart=/srv/evaramu/server/.venv/bin/uvicorn evaramu.main:app \
+    --host 127.0.0.1 --port 8000 --workers 3 \
+    --proxy-headers --forwarded-allow-ips 127.0.0.1 \
+    --no-server-header
+Restart=on-failure
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/evaramu/server/storage
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Check, HardHat, Send, Star, TriangleAlert, Users } from 'lucide-react'
 import { Seo, breadcrumbJsonLd, faqJsonLd } from '@/components/Seo'
@@ -13,7 +14,7 @@ import { Captcha, EMPTY_CAPTCHA, type CaptchaValue } from '@/components/ui/Captc
 import { api } from '@/lib/api'
 import { useBlock, useBlockItems, useLocalizedQuery, useQuery } from '@/lib/queries'
 import type { ApiFaq, ApiPackage, ApiTeamMember } from '@/types/api'
-import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { fadeUp, revealEarly, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { cn, formatCurrency } from '@/lib/utils'
 
@@ -92,14 +93,23 @@ export default function ConstructionPage() {
     setBriefError(null)
     const pkg = packages.find((p) => p.id === (selected ?? activePackage?.id))
     try {
-      await api.post('/public/contact', {
+      // Straight into the construction manager's queue as an enquiry, rather
+      // than the general inbox — it is a job from the first minute.
+      await api.post('/public/construction/requests', {
         full_name: brief.name,
-        email: brief.email,
+        email: brief.email || null,
         phone: brief.phone,
-        topic: `Construction — ${brief.project_type}`,
-        budget: pkg ? pkg.name : 'Not specified',
-        based_in: brief.location || null,
-        message: brief.notes || 'Project brief submitted from the construction page.',
+        kind: /renovat/i.test(brief.project_type)
+          ? 'renovation'
+          : /supervis/i.test(brief.project_type)
+            ? 'supervision'
+            : 'construction',
+        project_type: brief.project_type,
+        package: pkg ? pkg.name : null,
+        location: brief.location || null,
+        message: [brief.area ? `Plot / built area: ${brief.area}` : null, brief.notes || null]
+          .filter(Boolean)
+          .join('\n') || null,
         ...briefCaptcha,
       })
       setBriefSent(true)
@@ -241,7 +251,8 @@ export default function ConstructionPage() {
           />
 
           <motion.div
-            {...revealProps}
+            key={packages.length}
+            {...revealEarly}
             variants={stagger(0.1)}
             className="mt-14 grid gap-6 lg:grid-cols-3"
           >
@@ -528,6 +539,13 @@ export default function ConstructionPage() {
                 <p className="mt-4 text-center text-[0.75rem] text-white/40">
                   Free, and with no obligation to build with us.
                 </p>
+                <Link
+                  to="/construction/projects"
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 text-[0.8125rem] font-semibold text-gold-300 transition-colors hover:text-gold-200"
+                >
+                  See the projects we have built
+                  <ArrowRight className="size-3.5" strokeWidth={2.3} />
+                </Link>
               </div>
             </div>
           </div>

@@ -1,0 +1,11 @@
+# Daily maintenance: expire ended agreements, generate the month's rent
+# invoices, flag overdue invoices, create alerts. Idempotent.
+[Unit]
+Description=Evaramu daily rent jobs
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=evaramu
+WorkingDirectory=/srv/evaramu/server
+ExecStart=/srv/evaramu/server/.venv/bin/python -m evaramu.cli run-daily

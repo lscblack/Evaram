@@ -11,7 +11,7 @@ import { DiasporaSection } from '@/components/sections/DiasporaSection'
 
 import { useBlock, useBlockItems, useLocalizedQuery } from '@/lib/queries'
 import type { ApiFaq, ApiServiceLine } from '@/types/api'
-import { fadeUp, revealProps, stagger } from '@/lib/motion'
+import { fadeUp, revealEarly, revealProps, stagger } from '@/lib/motion'
 import { useT } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -126,8 +126,13 @@ export default function ServicesPage() {
             description="Each of these works on its own. Together they are the Wealth Cycle — which is the only reason a client of ours can go from one property to four in three years."
           />
 
+          {/* Keyed on the count: the reveal fires once, and if it fires while
+              the list is still loading the cards mount hidden and stay that
+              way. A new key remounts the grid — and re-reveals it — when the
+              services arrive. */}
           <motion.div
-            {...revealProps}
+            key={services.length}
+            {...revealEarly}
             variants={stagger(0.08)}
             className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3"
           >

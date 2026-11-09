@@ -21,10 +21,17 @@ from app.models.mixins import TimestampMixin, UUIDPrimaryKey
 
 
 class UserRole(str, enum.Enum):
-    """Ordered least → most privileged; `rank` drives the RBAC comparisons."""
+    """Ordered least → most privileged; `rank` drives the RBAC comparisons.
+
+    Two roles share a rank: an agent runs the real-estate side and a
+    construction manager runs the construction side. Neither outranks the
+    other, so what each may touch is decided by `can_list` / `can_build`
+    rather than by rank. Admins may do both.
+    """
 
     USER = "user"
     AGENT = "agent"
+    CONSTRUCTION_MANAGER = "construction_manager"
     ADMIN = "admin"
     SUPER_ADMIN = "super_admin"
 
@@ -32,10 +39,21 @@ class UserRole(str, enum.Enum):
     def rank(self) -> int:
         return _ROLE_RANK[self]
 
+    @property
+    def can_list(self) -> bool:
+        """May file and manage property listings."""
+        return self in (UserRole.AGENT, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+
+    @property
+    def can_build(self) -> bool:
+        """May record and manage construction work."""
+        return self in (UserRole.CONSTRUCTION_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+
 
 _ROLE_RANK = {
     UserRole.USER: 0,
     UserRole.AGENT: 1,
+    UserRole.CONSTRUCTION_MANAGER: 1,
     UserRole.ADMIN: 2,
     UserRole.SUPER_ADMIN: 3,
 }

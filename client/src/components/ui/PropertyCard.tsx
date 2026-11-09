@@ -49,6 +49,9 @@ export function PropertyCard({
 
   /** Up to three specs, chosen by what this property actually has. */
   const specs = [
+    property.available_units != null
+      ? { label: 'To let', value: `${property.available_units} unit${property.available_units === 1 ? '' : 's'}` }
+      : null,
     { label: 'Plot', value: formatArea(property.size) },
     builtArea ? { label: 'Built', value: `${builtArea} m²` } : null,
     bedrooms ? { label: 'Beds', value: String(bedrooms) } : null,

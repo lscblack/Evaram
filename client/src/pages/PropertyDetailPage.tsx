@@ -700,6 +700,81 @@ export default function PropertyDetailPage() {
                 </motion.div>
               )}
 
+              {/* units and rooms to let — a block of flats or a house let by the
+                  room is one listing with several things a tenant can take */}
+              {property.rental_units && property.rental_units.length > 0 && (
+                <motion.div {...revealProps} variants={fadeUp} className="mt-12">
+                  <SectionHeading
+                    eyebrow="To let"
+                    title={
+                      property.rental_units.filter((u) => u.is_available).length
+                        ? `${property.rental_units.filter((u) => u.is_available).length} of ${property.rental_units.length}`
+                        : 'Fully let —'
+                    }
+                    accent={
+                      property.rental_units.filter((u) => u.is_available).length
+                        ? 'available now.'
+                        : 'ask about the waiting list.'
+                    }
+                    description="Each unit is listed with its own size and rent. Ask your consultant to hold one while you arrange a viewing."
+                  />
+                  <div className="mt-8 overflow-hidden rounded-3xl border border-line bg-surface">
+                    <table className="w-full text-left text-[0.875rem]">
+                      <thead className="bg-canvas-alt text-[0.6875rem] font-bold tracking-wide text-ink-muted uppercase">
+                        <tr>
+                          <th className="px-5 py-3">Unit</th>
+                          <th className="hidden px-4 py-3 sm:table-cell">Layout</th>
+                          <th className="hidden px-4 py-3 md:table-cell">Size</th>
+                          <th className="px-4 py-3">Rent / month</th>
+                          <th className="px-5 py-3 text-right">Availability</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line">
+                        {property.rental_units.map((unit, i) => (
+                          <tr key={`${unit.label}-${i}`} className={cn(!unit.is_available && 'text-ink-muted')}>
+                            <td className="px-5 py-3.5">
+                              <p className="font-semibold text-ink">{unit.label}</p>
+                              <p className="text-[0.75rem] text-ink-muted capitalize">
+                                {unit.kind}
+                                {unit.furnished ? ' · furnished' : ''}
+                                {unit.notes ? ` · ${unit.notes}` : ''}
+                              </p>
+                            </td>
+                            <td className="hidden px-4 py-3.5 sm:table-cell">
+                              {[
+                                unit.bedrooms != null ? `${unit.bedrooms} bed` : null,
+                                unit.bathrooms != null ? `${unit.bathrooms} bath` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ') || '—'}
+                            </td>
+                            <td className="hidden px-4 py-3.5 md:table-cell">
+                              {unit.size_sqm != null ? `${unit.size_sqm} sqm` : '—'}
+                            </td>
+                            <td className="px-4 py-3.5 font-semibold text-ink tabular-nums">
+                              {unit.rent != null ? formatCurrency(unit.rent, property.currency) : 'On request'}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              {unit.is_available ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[0.6875rem] font-bold text-emerald-700 uppercase">
+                                  {unit.available_from && unit.available_from > new Date().toISOString().slice(0, 10)
+                                    ? `From ${formatDate(unit.available_from)}`
+                                    : 'Available'}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-canvas-alt px-2.5 py-1 text-[0.6875rem] font-bold text-ink-muted uppercase">
+                                  Let
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
+              )}
+
               {/* location — only where the interactive map is withheld, since it
                   answers the same question far better wherever it is shown */}
               {!property.show_on_map && (

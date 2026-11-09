@@ -1,0 +1,10 @@
+# Nightly database backup (pairs with evaramu-backup.service).
+[Unit]
+Description=Nightly Evaramu database backup
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

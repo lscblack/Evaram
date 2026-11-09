@@ -1,0 +1,10 @@
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["F", "E9", "B", "I"]
+ignore = ["B008"]
+
+[lint.isort]
+known-third-party = ["alembic"]
+known-first-party = ["evaramu"]

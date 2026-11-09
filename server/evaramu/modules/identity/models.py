@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from evaramu.db.base import Base, TimestampMixin
+
+role_permissions = Table(
+    "role_permissions",
+    Base.metadata,
+    Column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column("permission_id", ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True)
+    group: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str] = mapped_column(String(255))
+
+
+class Role(TimestampMixin, Base):
+    __tablename__ = "roles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    description: Mapped[str] = mapped_column(String(255), default="")
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    permissions: Mapped[list[Permission]] = relationship(
+        secondary=role_permissions, lazy="selectin", order_by=Permission.code
+    )
+    users: Mapped[list["User"]] = relationship(back_populates="role")
+
+
+class User(TimestampMixin, Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    full_name: Mapped[str] = mapped_column(String(160))
+    phone: Mapped[str | None] = mapped_column(String(32))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role_id: Mapped[int] = mapped_column(ForeignKey("roles.id", ondelete="RESTRICT"), index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: Incremented on password change / deactivation to invalidate tokens.
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    role: Mapped[Role] = relationship(back_populates="users", lazy="joined")
+
+    @property
+    def permission_codes(self) -> set[str]:
+        return {p.code for p in self.role.permissions}
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    user_agent: Mapped[str | None] = mapped_column(Text)

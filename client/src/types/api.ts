@@ -138,6 +138,8 @@ export interface ApiPropertyCard {
   master_plan_zone: string | null
   /** Whether that outline may stand in for the cover photograph. */
   outline_as_cover: boolean
+  /** How many units or rooms are open to let, where the listing has several. */
+  available_units: number | null
   has_vr_tour: boolean
   has_360_video: boolean
   created_at: string
@@ -227,6 +229,23 @@ export interface ApiSaleRecordDetail extends ApiSaleRecord {
   snapshot: Record<string, unknown> | null
 }
 
+export type RentalUnitKind = 'house' | 'apartment' | 'studio' | 'room' | 'office' | 'shop' | 'other'
+
+/** One thing to let inside a rental listing — a flat, a room, a shop. */
+export interface RentalUnit {
+  label: string
+  kind: RentalUnitKind
+  bedrooms: number | null
+  bathrooms: number | null
+  size_sqm: number | null
+  /** Per month, in the listing's currency. */
+  rent: number | null
+  furnished: boolean
+  available_from: string | null
+  is_available: boolean
+  notes: string | null
+}
+
 export interface MasterPlanShare {
   /** The stored zone value, e.g. `R1B — Rural residential zone`. */
   zone: string
@@ -255,6 +274,7 @@ export interface ApiPropertyDetail extends ApiPropertyCard {
   details: Record<string, unknown> | null
   parcel_information: Record<string, string | number> | null
   amenities: string[] | null
+  rental_units: RentalUnit[] | null
   video_link: string | null
   video_360_url: string | null
   vr_tour_url: string | null
@@ -518,7 +538,11 @@ export interface AvailabilityDay {
 }
 
 /* ---------------------------------------------------------------- auth */
-export type UserRole = 'user' | 'agent' | 'admin' | 'super_admin'
+/**
+ * `agent` and `construction_manager` are peers: one runs real estate, the
+ * other construction. Neither outranks the other; admins may do both.
+ */
+export type UserRole = 'user' | 'agent' | 'construction_manager' | 'admin' | 'super_admin'
 
 export interface AuthUser {
   id: string
@@ -925,4 +949,107 @@ export interface ParcelComparison {
   scores: Record<string, number>
   winner: string | null
   tied: boolean
+}
+
+/* ------------------------------------------------------------ construction */
+export type ProjectKind =
+  | 'land_survey'
+  | 'architectural_drawing'
+  | 'structural_design'
+  | 'bill_of_quantities'
+  | 'permit'
+  | 'construction'
+  | 'renovation'
+  | 'supervision'
+  | 'interior'
+  | 'other'
+
+export type ProjectStatus =
+  | 'enquiry'
+  | 'quoted'
+  | 'approved'
+  | 'in_progress'
+  | 'on_hold'
+  | 'completed'
+  | 'cancelled'
+
+export interface ProjectPhoto {
+  url: string
+  caption: string | null
+}
+
+export interface ProjectUpdate {
+  id: string
+  author_id: string | null
+  author_name: string | null
+  note: string
+  status: ProjectStatus | null
+  progress_percent: number | null
+  created_at: string
+}
+
+/** One construction job — the manager's job card. */
+export interface ConstructionProject {
+  id: string
+  reference: string
+  title: string
+  kind: ProjectKind
+  description: string | null
+  status: ProjectStatus
+  client_name: string | null
+  client_phone: string | null
+  client_email: string | null
+  client_id: string | null
+  district: string | null
+  sector: string | null
+  address: string | null
+  property_id: string | null
+  engineer_id: string | null
+  engineer_name: string | null
+  currency: string
+  quote_amount: number | null
+  amount_paid: number | null
+  started_on: string | null
+  due_on: string | null
+  completed_on: string | null
+  progress_percent: number
+  is_showcased: boolean
+  showcase_summary: string | null
+  photos: ProjectPhoto[] | null
+  source: string
+  notes: string | null
+  created_by_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ConstructionProjectDetail extends ConstructionProject {
+  updates: ProjectUpdate[]
+}
+
+export interface ConstructionQueueSummary {
+  open: number
+  by_status: Record<ProjectStatus, number>
+  due_this_week: number
+  overdue: number
+  unassigned: number
+}
+
+export interface ConstructionStaff {
+  id: string
+  full_name: string
+  job_title: string | null
+  role: UserRole
+}
+
+/** A finished project as the public portfolio shows it. */
+export interface ShowcaseProject {
+  reference: string
+  title: string
+  kind: ProjectKind
+  district: string | null
+  sector: string | null
+  completed_on: string | null
+  summary: string | null
+  photos: ProjectPhoto[]
 }

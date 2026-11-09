@@ -1,0 +1,459 @@
+"""Invoicing and the manual payment-approval workflow.
+
+Payment workflow
+----------------
+1. ``record_payment`` stores the payment as **pending** with the requested
+   invoice allocation. Nothing about any balance changes.
+2. Pending payments appear in the approval queue; approvers are notified.
+3. ``approve_payment`` (payments.approve) locks the payment and the affected
+   invoices, re-validates the allocation against *current* balances, applies
+   any remainder oldest-invoice-first, marks the payment approved and
+   recomputes every affected invoice — all in one transaction.
+4. ``reject_payment`` requires a reason and never touches balances.
+5. ``reverse_payment`` undoes an approved payment by status change (the row
+   and its allocations are kept for the audit trail) and recomputes balances.
+Approved payments are never deleted or edited.
+"""
+
+from __future__ import annotations
+
+import calendar
+from datetime import UTC, date, datetime
+from decimal import Decimal
+
+from fastapi import Request
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from evaramu.core.errors import Conflict, DomainError, NotFound
+from evaramu.core.money import quantize, validate_amount
+from evaramu.modules.agreements.models import AgreementStatus, RentalAgreement
+from evaramu.modules.billing import ledger
+from evaramu.modules.billing.models import (
+    AdjustmentKind,
+    FinancialAdjustment,
+    Invoice,
+    InvoiceItem,
+    InvoiceItemKind,
+    InvoiceKind,
+    InvoiceStatus,
+    Payment,
+    PaymentAllocation,
+    PaymentMethod,
+    PaymentStatus,
+)
+from evaramu.modules.identity.models import User
+from evaramu.modules.system.services import audit, next_number, notify
+
+ZERO = Decimal("0")
+
+
+def _amount(value: Decimal, currency: str) -> Decimal:
+    try:
+        return validate_amount(value, currency)
+    except ValueError as exc:
+        raise DomainError(str(exc)) from exc
+
+
+def get_invoice(db: Session, invoice_id: int, *, for_update: bool = False) -> Invoice:
+    stmt = select(Invoice).where(Invoice.id == invoice_id)
+    if for_update:
+        stmt = stmt.with_for_update(of=Invoice)
+    inv = db.execute(stmt).unique().scalar_one_or_none()
+    if inv is None:
+        raise NotFound("Invoice not found")
+    return inv
+
+
+def get_payment(db: Session, payment_id: int, *, for_update: bool = False) -> Payment:
+    stmt = select(Payment).where(Payment.id == payment_id)
+    if for_update:
+        stmt = stmt.with_for_update(of=Payment)
+    p = db.execute(stmt).unique().scalar_one_or_none()
+    if p is None:
+        raise NotFound("Payment not found")
+    return p
+
+
+# ------------------------------------------------------------ invoicing ----
+
+
+def month_bounds(year: int, month: int) -> tuple[date, date]:
+    last = calendar.monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last)
+
+
+def rent_for_period(ag: RentalAgreement, year: int, month: int) -> tuple[date, date, Decimal] | None:
+    """Covered dates and (prorated) rent for one calendar month, or None."""
+    first, last = month_bounds(year, month)
+    start = max(first, ag.start_date)
+    end_limit = ag.end_date
+    if ag.terminated_on and (end_limit is None or ag.terminated_on < end_limit):
+        end_limit = ag.terminated_on
+    end = min(last, end_limit) if end_limit else last
+    if end < start:
+        return None
+    days_in_month = (last - first).days + 1
+    covered = (end - start).days + 1
+    if covered == days_in_month:
+        amount = ag.monthly_rent
+    else:
+        amount = quantize(ag.monthly_rent * Decimal(covered) / Decimal(days_in_month), ag.currency)
+    return start, end, amount
+
+
+def _create_invoice(db: Session, ag: RentalAgreement, *, kind: str, period: tuple[date, date] | None,
+                    issue_date: date, due_date: date, items: list[tuple[str, str, Decimal]],
+                    notes: str, actor: User | None, today: date) -> Invoice:
+    inv = Invoice(
+        invoice_number=next_number(db, "INV", period=issue_date),
+        kind=kind, agreement_id=ag.id, tenant_id=ag.tenant_id, unit_id=ag.unit_id,
+        period_start=period[0] if period else None, period_end=period[1] if period else None,
+        issue_date=issue_date, due_date=max(due_date, issue_date), currency=ag.currency,
+        previous_balance=ledger.outstanding_for_agreement(db, ag.id, ag.currency),
+        status=InvoiceStatus.UNPAID.value, notes=notes, void_reason="",
+        created_by_id=actor.id if actor else None,
+        amount_charged=ZERO, amount_credited=ZERO, amount_paid=ZERO,
+    )
+    for item_kind, desc, amount in items:
+        inv.items.append(InvoiceItem(kind=item_kind, description=desc[:255], amount=amount))
+    db.add(inv)
+    ledger.recompute_invoice(db, inv, today)
+    return inv
+
+
+def generate_rent_invoices(db: Session, year: int, month: int, *, actor: User | None,
+                           today: date | None = None, agreement_id: int | None = None) -> dict:
+    """Create the month's rent invoice for every active agreement that does not
+    have one yet. Safe to run repeatedly (idempotent)."""
+    today = today or date.today()
+    first, last = month_bounds(year, month)
+    stmt = select(RentalAgreement).where(
+        RentalAgreement.status == AgreementStatus.ACTIVE.value,
+        RentalAgreement.start_date <= last,
+        (RentalAgreement.end_date.is_(None)) | (RentalAgreement.end_date >= first),
+    )
+    if agreement_id:
+        stmt = stmt.where(RentalAgreement.id == agreement_id)
+    created: list[Invoice] = []
+    skipped = 0
+    for ag in db.execute(stmt.order_by(RentalAgreement.id)).unique().scalars():
+        covered = rent_for_period(ag, year, month)
+        if covered is None:
+            skipped += 1
+            continue
+        start, end, amount = covered
+        exists = db.execute(select(Invoice.id).where(
+            Invoice.agreement_id == ag.id, Invoice.kind == InvoiceKind.RENT.value,
+            Invoice.period_start == start, Invoice.status != InvoiceStatus.VOID.value,
+        )).first()
+        if exists:
+            skipped += 1
+            continue
+        due = date(year, month, min(ag.due_day, calendar.monthrange(year, month)[1]))
+        label = f"Rent {first.strftime('%B %Y')} — {ag.unit.code}"
+        if (start, end) != (first, last):
+            label += f" ({start.day}–{end.day} {first.strftime('%b')}, prorated)"
+        try:
+            with db.begin_nested():
+                inv = _create_invoice(
+                    db, ag, kind=InvoiceKind.RENT.value, period=(start, end), issue_date=start,
+                    due_date=due, items=[(InvoiceItemKind.RENT.value, label, amount)], notes="",
+                    actor=actor, today=today,
+                )
+        except IntegrityError:
+            skipped += 1  # created concurrently by another run
+            continue
+        created.append(inv)
+    if created:
+        audit(db, actor=actor, action="invoices.generated", entity_type="invoice", entity_id=None,
+              summary=f"Generated {len(created)} rent invoice(s) for {first.strftime('%B %Y')}")
+    return {"created": created, "skipped": skipped, "period": first.strftime("%Y-%m")}
+
+
+def create_manual_invoice(db: Session, ag: RentalAgreement, *, issue_date: date, due_date: date,
+                          items: list[dict], notes: str, actor: User, request: Request | None,
+                          today: date | None = None) -> Invoice:
+    if ag.status == AgreementStatus.DRAFT.value:
+        raise Conflict("Invoices can only be raised on activated agreements")
+    if due_date < issue_date:
+        raise DomainError("Due date cannot be before the issue date")
+    if not items:
+        raise DomainError("Add at least one line item")
+    lines = [(InvoiceItemKind.CHARGE.value, i["description"], _amount(i["amount"], ag.currency)) for i in items]
+    inv = _create_invoice(db, ag, kind=InvoiceKind.OTHER.value, period=None, issue_date=issue_date,
+                          due_date=due_date, items=lines, notes=notes, actor=actor, today=today or date.today())
+    audit(db, actor=actor, action="invoice.created", entity_type="invoice", entity_id=inv.id,
+          summary=f"Raised invoice {inv.invoice_number} for {inv.amount_charged} {inv.currency}", request=request)
+    return inv
+
+
+def add_adjustment(db: Session, inv: Invoice, *, kind: str, amount: Decimal, reason: str, actor: User,
+                   request: Request | None, today: date | None = None) -> FinancialAdjustment:
+    today = today or date.today()
+    if inv.status == InvoiceStatus.VOID.value:
+        raise Conflict("Void invoices cannot be adjusted")
+    if not reason.strip():
+        raise DomainError("A reason is required for every adjustment")
+    amount = _amount(amount, inv.currency)
+    if kind == AdjustmentKind.CREDIT.value and amount > inv.balance_due:
+        raise Conflict(f"A credit cannot exceed the outstanding balance ({inv.balance_due} {inv.currency})")
+    adj = FinancialAdjustment(invoice_id=inv.id, tenant_id=inv.tenant_id, kind=kind, amount=amount,
+                              currency=inv.currency, reason=reason, created_by_id=actor.id)
+    db.add(adj)
+    if kind == AdjustmentKind.DEBIT.value:
+        inv.items.append(InvoiceItem(kind=InvoiceItemKind.ADJUSTMENT.value,
+                                     description=f"Adjustment: {reason}"[:255], amount=amount))
+    ledger.recompute_invoice(db, inv, today)
+    audit(db, actor=actor, action=f"invoice.{kind}", entity_type="invoice", entity_id=inv.id,
+          summary=f"{kind.title()} of {amount} {inv.currency} on {inv.invoice_number}: {reason}", request=request)
+    return adj
+
+
+def void_invoice(db: Session, inv: Invoice, *, reason: str, actor: User, request: Request | None) -> None:
+    if inv.status == InvoiceStatus.VOID.value:
+        raise Conflict("Invoice is already void")
+    if not reason.strip():
+        raise DomainError("A reason is required to void an invoice")
+    live = db.execute(
+        select(func.count()).select_from(PaymentAllocation)
+        .join(Payment, Payment.id == PaymentAllocation.payment_id)
+        .where(PaymentAllocation.invoice_id == inv.id,
+               Payment.status.in_([PaymentStatus.APPROVED.value, PaymentStatus.PENDING.value]))
+    ).scalar_one()
+    if live:
+        raise Conflict("This invoice has pending or approved payments. Reverse/reject them, "
+                       "or use a credit adjustment instead.")
+    if inv.amount_credited > 0:
+        raise Conflict("This invoice has credit adjustments; it cannot be voided")
+    inv.status = InvoiceStatus.VOID.value
+    inv.void_reason = reason
+    inv.voided_at = datetime.now(UTC)
+    inv.voided_by_id = actor.id
+    audit(db, actor=actor, action="invoice.voided", entity_type="invoice", entity_id=inv.id,
+          summary=f"Voided {inv.invoice_number}: {reason}", request=request)
+
+
+# -------------------------------------------------------------- payments ----
+
+
+def _check_method(db: Session, code: str) -> None:
+    m = db.execute(select(PaymentMethod).where(PaymentMethod.code == code)).scalar_one_or_none()
+    if m is None or not m.is_active:
+        raise DomainError("Choose an active payment method")
+
+
+def record_payment(db: Session, data: dict, *, actor: User, request: Request | None,
+                   notify_approvers: bool = True) -> Payment:
+    ag = db.execute(select(RentalAgreement).where(RentalAgreement.id == data["agreement_id"])).unique().scalar_one_or_none()
+    if ag is None:
+        raise NotFound("Rental agreement not found")
+    if ag.status == AgreementStatus.DRAFT.value:
+        raise Conflict("Payments can only be recorded against activated agreements")
+    currency = data.get("currency") or ag.currency
+    if currency != ag.currency:
+        raise DomainError(f"This agreement is billed in {ag.currency}; record the payment in {ag.currency}")
+    amount = _amount(data["amount"], currency)
+    _check_method(db, data["method_code"])
+    if data["payment_date"] > date.today():
+        raise DomainError("Payment date cannot be in the future")
+    reference = (data.get("transaction_reference") or "").strip()
+    if reference:
+        dup = db.execute(select(Payment.payment_number).where(
+            Payment.method_code == data["method_code"],
+            func.lower(Payment.transaction_reference) == reference.lower(),
+            Payment.status.in_([PaymentStatus.PENDING.value, PaymentStatus.APPROVED.value]),
+        )).scalar_one_or_none()
+        if dup:
+            raise Conflict(f"Transaction reference {reference} is already recorded on payment {dup}",
+                           code="duplicate_reference")
+    payment = Payment(
+        payment_number=next_number(db, "PAY", period=data["payment_date"]),
+        tenant_id=ag.tenant_id, agreement_id=ag.id, unit_id=ag.unit_id, amount=amount, currency=currency,
+        payment_date=data["payment_date"], method_code=data["method_code"], transaction_reference=reference,
+        notes=data.get("notes") or "", status=PaymentStatus.PENDING.value, recorded_by_id=actor.id,
+        evidence_key=data.get("evidence_key"), evidence_name=data.get("evidence_name"),
+        rejection_reason="", reversal_reason="",
+    )
+    requested = data.get("allocations") or []
+    total = ZERO
+    seen: set[int] = set()
+    for alloc in requested:
+        inv = get_invoice(db, alloc["invoice_id"])
+        if inv.id in seen:
+            raise DomainError("Each invoice can appear only once in the allocation")
+        seen.add(inv.id)
+        if inv.tenant_id != ag.tenant_id or inv.currency != currency:
+            raise DomainError(f"Invoice {inv.invoice_number} belongs to another tenant or currency")
+        if inv.status in (InvoiceStatus.VOID.value, InvoiceStatus.PAID.value):
+            raise DomainError(f"Invoice {inv.invoice_number} is {inv.status}")
+        a = _amount(alloc["amount"], currency)
+        if a > inv.balance_due:
+            raise DomainError(f"Allocation to {inv.invoice_number} exceeds its balance ({inv.balance_due})")
+        total += a
+        payment.allocations.append(PaymentAllocation(invoice_id=inv.id, amount=a))
+    if total > amount:
+        raise DomainError("Allocations add up to more than the amount received")
+    db.add(payment)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        raise Conflict("This transaction reference is already recorded", code="duplicate_reference") from exc
+    audit(db, actor=actor, action="payment.recorded", entity_type="payment", entity_id=payment.id,
+          summary=f"Recorded pending payment {payment.payment_number}: {amount} {currency} via "
+                  f"{data['method_code']} from {ag.tenant.full_name}", request=request)
+    if notify_approvers:
+        notify_pending(db, payment)
+    return payment
+
+
+def notify_pending(db: Session, payment: Payment) -> None:
+    notify(db, permission="payments.approve", kind="payment_pending",
+           title=f"Payment awaiting approval: {payment.amount:,} {payment.currency}",
+           body=f"{payment.tenant.full_name} · {payment.unit.code} · {payment.payment_number}",
+           link="/admin/finance/approvals", dedupe_key=f"payment-pending-{payment.id}")
+
+
+def possible_duplicates(db: Session, p: Payment) -> list[Payment]:
+    """Approved payments that look like the same money recorded twice."""
+    return list(db.execute(select(Payment).where(
+        Payment.id != p.id, Payment.status == PaymentStatus.APPROVED.value,
+        Payment.tenant_id == p.tenant_id, Payment.amount == p.amount, Payment.currency == p.currency,
+        Payment.payment_date == p.payment_date, Payment.method_code == p.method_code,
+    )).unique().scalars())
+
+
+def _allocate(db: Session, p: Payment, *, today: date, auto: bool) -> set[int]:
+    """Cap requested allocations at current balances, then auto-apply the rest
+    oldest-first. Returns ids of every invoice to recompute."""
+    touched: set[int] = set()
+    remaining = p.amount
+    invoice_ids = sorted(a.invoice_id for a in p.allocations)
+    locked = {i.id: i for i in db.execute(
+        select(Invoice).where(Invoice.id.in_(invoice_ids)).order_by(Invoice.id).with_for_update(of=Invoice)
+    ).unique().scalars()} if invoice_ids else {}
+    for alloc in list(p.allocations):
+        inv = locked[alloc.invoice_id]
+        cap = min(alloc.amount, inv.balance_due if inv.status != InvoiceStatus.VOID.value else ZERO, remaining)
+        if cap <= 0:
+            p.allocations.remove(alloc)
+            continue
+        alloc.amount = cap
+        remaining -= cap
+        touched.add(inv.id)
+    db.flush()
+    if auto and remaining > 0:
+        for inv in ledger.open_invoices(db, tenant_id=p.tenant_id, currency=p.currency,
+                                        agreement_id=p.agreement_id, lock=True):
+            if remaining <= 0:
+                break
+            existing = next((a for a in p.allocations if a.invoice_id == inv.id), None)
+            room = inv.balance_due - (existing.amount if existing else ZERO)
+            if room <= 0:
+                continue
+            take = min(room, remaining)
+            if existing:
+                existing.amount += take
+            else:
+                p.allocations.append(PaymentAllocation(invoice_id=inv.id, amount=take))
+            remaining -= take
+            touched.add(inv.id)
+    return touched
+
+
+def approve_payment(db: Session, p: Payment, *, actor: User, confirm_duplicate: bool, auto_allocate: bool,
+                    note: str, request: Request | None, today: date | None = None) -> Payment:
+    today = today or date.today()
+    if p.status != PaymentStatus.PENDING.value:
+        raise Conflict(f"Only pending payments can be approved (this one is {p.status})", code="not_pending")
+    dups = possible_duplicates(db, p)
+    if dups and not confirm_duplicate:
+        raise Conflict(
+            "An approved payment with the same tenant, amount, date and method already exists. "
+            "Confirm that this is a separate payment to approve it.",
+            code="possible_duplicate",
+            details={"payments": [d.payment_number for d in dups]},
+        )
+    touched = _allocate(db, p, today=today, auto=auto_allocate)
+    p.status = PaymentStatus.APPROVED.value
+    p.reviewed_by_id = actor.id
+    p.reviewed_at = datetime.now(UTC)
+    if note.strip():
+        p.notes = (p.notes + "\n" if p.notes else "") + f"Approval note: {note.strip()}"
+    db.flush()
+    for inv_id in touched:
+        ledger.recompute_invoice(db, get_invoice(db, inv_id), today)
+    audit(db, actor=actor, action="payment.approved", entity_type="payment", entity_id=p.id,
+          summary=f"Approved {p.payment_number}: {p.amount} {p.currency}"
+                  + (f" (confirmed not a duplicate of {', '.join(d.payment_number for d in dups)})" if dups else ""),
+          changes={"allocations": [{"invoice_id": a.invoice_id, "amount": str(a.amount)} for a in p.allocations]},
+          request=request)
+    return p
+
+
+def reject_payment(db: Session, p: Payment, *, actor: User, reason: str, request: Request | None) -> Payment:
+    if p.status != PaymentStatus.PENDING.value:
+        raise Conflict(f"Only pending payments can be rejected (this one is {p.status})", code="not_pending")
+    if len(reason.strip()) < 3:
+        raise DomainError("A rejection reason is required")
+    p.status = PaymentStatus.REJECTED.value
+    p.rejection_reason = reason.strip()
+    p.reviewed_by_id = actor.id
+    p.reviewed_at = datetime.now(UTC)
+    audit(db, actor=actor, action="payment.rejected", entity_type="payment", entity_id=p.id,
+          summary=f"Rejected {p.payment_number}: {reason.strip()}", request=request)
+    return p
+
+
+def reverse_payment(db: Session, p: Payment, *, actor: User, reason: str, request: Request | None,
+                    today: date | None = None) -> Payment:
+    today = today or date.today()
+    if p.status != PaymentStatus.APPROVED.value:
+        raise Conflict("Only approved payments can be reversed", code="not_approved")
+    if len(reason.strip()) < 3:
+        raise DomainError("A reversal reason is required")
+    invoice_ids = sorted({a.invoice_id for a in p.allocations})
+    if invoice_ids:
+        db.execute(select(Invoice.id).where(Invoice.id.in_(invoice_ids)).order_by(Invoice.id).with_for_update())
+    p.status = PaymentStatus.REVERSED.value
+    p.reversal_reason = reason.strip()
+    p.reversed_by_id = actor.id
+    p.reversed_at = datetime.now(UTC)
+    db.flush()
+    for inv_id in invoice_ids:
+        ledger.recompute_invoice(db, get_invoice(db, inv_id), today)
+    audit(db, actor=actor, action="payment.reversed", entity_type="payment", entity_id=p.id,
+          summary=f"Reversed {p.payment_number} ({p.amount} {p.currency}): {reason.strip()}", request=request)
+    return p
+
+
+def apply_credit(db: Session, p: Payment, *, actor: User, request: Request | None, today: date | None = None) -> Payment:
+    """Apply the unallocated part of an approved payment to open invoices."""
+    today = today or date.today()
+    if p.status != PaymentStatus.APPROVED.value:
+        raise Conflict("Only approved payments carry credit")
+    if p.unapplied_amount <= 0:
+        raise Conflict("This payment is fully allocated")
+    remaining = p.unapplied_amount
+    touched: set[int] = set()
+    for inv in ledger.open_invoices(db, tenant_id=p.tenant_id, currency=p.currency,
+                                    agreement_id=p.agreement_id, lock=True):
+        if remaining <= 0:
+            break
+        take = min(inv.balance_due, remaining)
+        existing = next((a for a in p.allocations if a.invoice_id == inv.id), None)
+        if existing:
+            existing.amount += take
+        else:
+            p.allocations.append(PaymentAllocation(invoice_id=inv.id, amount=take))
+        remaining -= take
+        touched.add(inv.id)
+    if not touched:
+        raise Conflict("There are no open invoices in this currency to apply the credit to")
+    db.flush()
+    for inv_id in touched:
+        ledger.recompute_invoice(db, get_invoice(db, inv_id), today)
+    audit(db, actor=actor, action="payment.credit_applied", entity_type="payment", entity_id=p.id,
+          summary=f"Applied credit from {p.payment_number} to {len(touched)} invoice(s)", request=request)
+    return p

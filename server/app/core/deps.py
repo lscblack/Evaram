@@ -81,6 +81,21 @@ def require_role(minimum: UserRole) -> Callable[[User], User]:
     return _guard
 
 
-require_agent = require_role(UserRole.AGENT)
+def require_capability(check: Callable[[UserRole], bool], label: str) -> Callable[[User], User]:
+    """A guard by what a role may do rather than by how high it ranks —
+    an agent and a construction manager are peers with different jobs."""
+
+    async def _guard(user: User = Depends(get_current_user)) -> User:
+        if not check(user.role):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, f"This action requires {label}")
+        return user
+
+    return _guard
+
+
+require_agent = require_capability(lambda r: r.can_list, "a real-estate agent or an admin")
+require_construction = require_capability(
+    lambda r: r.can_build, "a construction manager or an admin"
+)
 require_admin = require_role(UserRole.ADMIN)
 require_super_admin = require_role(UserRole.SUPER_ADMIN)

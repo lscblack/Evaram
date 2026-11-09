@@ -71,3 +71,4 @@ from app.models.facility import (  # noqa: F401
     FacilityKind,
 )
 from app.models import crm  # noqa: F401 — registers Client, Commission, Investment
+from app.models import construction  # noqa: F401 — registers ConstructionProject, ConstructionUpdate

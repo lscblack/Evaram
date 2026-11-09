@@ -11,6 +11,7 @@ import {
   Panel,
 } from '@/components/admin/ui'
 import { MediaUploader, type StagedFile } from '@/components/admin/MediaUploader'
+import { RentalUnitsEditor, type UnitDraft } from '@/components/admin/RentalUnitsEditor'
 import { DynamicField, type FieldValue, type FormValues } from '@/components/ui/DynamicField'
 import { MoneyInput } from '@/components/ui/MoneyInput'
 import { FORMAT_NAMES, parseBoundary } from '@/lib/boundary'
@@ -98,6 +99,8 @@ export default function PropertyUploadPage() {
   const [subcategoryId, setSubcategoryId] = useState('')
   const [values, setValues] = useState<FormValues>({})
   const [emptyLand, setEmptyLand] = useState(false)
+  /** The flats, rooms or shops let inside a rental listing, one row each. */
+  const [units, setUnits] = useState<UnitDraft[]>([])
   const [core, setCore] = useState({
     reference_number: '',
     upi: '',
@@ -110,6 +113,7 @@ export default function PropertyUploadPage() {
     location: '',
     intent: 'sale',
     price: '',
+    rent_amount: '',
     size: '',
     owner_name: '',
     owner_contact: '',
@@ -367,7 +371,9 @@ export default function PropertyUploadPage() {
       location: '',
       size: '',
       price: '',
+      rent_amount: '',
     }))
+    setUnits([])
     setDeal((d) => ({ ...d, owner_price: '', commission_amount: '' }))
     setMinBid('')
     setGeo({ latitude: '', longitude: '', boundary: '' })
@@ -432,6 +438,20 @@ export default function PropertyUploadPage() {
     setSubcategoryId(p.subcategory_id)
     setValues((p.details as FormValues) ?? {})
     setEmptyLand(Boolean((p.details as Record<string, unknown> | null)?.empty_land))
+    setUnits(
+      (p.rental_units ?? []).map((u) => ({
+        label: u.label,
+        kind: u.kind,
+        bedrooms: u.bedrooms != null ? String(u.bedrooms) : '',
+        bathrooms: u.bathrooms != null ? String(u.bathrooms) : '',
+        size_sqm: u.size_sqm != null ? String(u.size_sqm) : '',
+        rent: u.rent != null ? String(Math.round(u.rent)) : '',
+        furnished: u.furnished,
+        available_from: u.available_from ?? '',
+        is_available: u.is_available,
+        notes: u.notes ?? '',
+      })),
+    )
     setCore({
       reference_number: p.reference_number,
       upi: p.upi ?? '',
@@ -444,6 +464,7 @@ export default function PropertyUploadPage() {
       location: p.location ?? '',
       intent: p.intent,
       price: p.price != null ? String(Math.round(p.price)) : '',
+      rent_amount: p.rent_amount != null ? String(Math.round(p.rent_amount)) : '',
       size: p.size != null ? String(p.size) : '',
       owner_name: p.owner_name ?? '',
       owner_contact: p.owner_contact ?? '',
@@ -614,6 +635,24 @@ export default function PropertyUploadPage() {
         location: core.location || null,
         intent: core.intent,
         price: derivedPrice ?? (core.price ? Number(core.price) : null),
+        rent_amount: core.intent !== 'sale' && core.rent_amount ? Number(core.rent_amount) : null,
+        rental_units:
+          core.intent !== 'sale' && units.length
+            ? units
+                .filter((u) => u.label.trim())
+                .map((u) => ({
+                  label: u.label.trim(),
+                  kind: u.kind,
+                  bedrooms: u.bedrooms ? Number(u.bedrooms) : null,
+                  bathrooms: u.bathrooms ? Number(u.bathrooms) : null,
+                  size_sqm: u.size_sqm ? Number(u.size_sqm) : null,
+                  rent: u.rent ? Number(u.rent) : null,
+                  furnished: u.furnished,
+                  available_from: u.available_from || null,
+                  is_available: u.is_available,
+                  notes: u.notes.trim() || null,
+                }))
+            : null,
         size: core.size ? Number(core.size) : null,
         owner_name: core.owner_name || null,
         owner_contact: core.owner_contact || null,
@@ -1463,6 +1502,23 @@ export default function PropertyUploadPage() {
             </div>
           </Panel>
 
+          {/* ---- what is to let ---- */}
+          {core.intent !== 'sale' && (
+            <Panel title="Units & rooms to let">
+              <div className="space-y-3 p-5">
+                <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
+                  A block of flats, a compound of houses, or a house let by the room — one
+                  row per thing a tenant can take, with its own size, rent and availability.
+                  Leave this empty when the whole property is let as one.
+                </p>
+                <RentalUnitsEditor
+                  units={units}
+                  onChange={setUnits}
+                />
+              </div>
+            </Panel>
+          )}
+
           {/* ---- photographs ---- */}
           <Panel title="Photographs">
             <div className="p-5">
@@ -1591,6 +1647,23 @@ export default function PropertyUploadPage() {
                   onChange={(v) => setCore((c) => ({ ...c, price: v }))}
                 />
               </Field>
+              {core.intent !== 'sale' && (
+                <Field
+                  label="Monthly rent"
+                  hint={
+                    units.some((u) => u.rent)
+                      ? 'Left blank, the cheapest available unit below is quoted as “rent from”.'
+                      : 'What the tenant pays per month.'
+                  }
+                >
+                  <MoneyInput
+                    currency="RWF"
+                    className={FIELD}
+                    value={core.rent_amount}
+                    onChange={(v) => setCore((c) => ({ ...c, rent_amount: v }))}
+                  />
+                </Field>
+              )}
               <Field label="Plot size (sqm)">
                 <input
                   type="number"

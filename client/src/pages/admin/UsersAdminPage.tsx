@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 import { TeamProfileDrawer } from '@/components/admin/TeamProfileDrawer'
 import type { AdminUser, Page, UserRole } from '@/types/api'
 
-const ROLES: UserRole[] = ['user', 'agent', 'admin', 'super_admin']
+const ROLES: UserRole[] = ['user', 'agent', 'construction_manager', 'admin', 'super_admin']
 const STATUSES = ['active', 'pending', 'suspended']
 
 const ROLE_TONE: Record<string, 'good' | 'warn' | 'info' | 'neutral'> = {
@@ -266,7 +266,7 @@ export default function UsersAdminPage() {
               >
                 {ROLES.filter((r) => r !== 'super_admin' || can('super_admin')).map((r) => (
                   <option key={r} value={r}>
-                    {r.replace('_', ' ')}
+                    {r.replace(/_/g, ' ')}
                   </option>
                 ))}
               </select>
@@ -431,7 +431,7 @@ export default function UsersAdminPage() {
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>
-                              {r.replace('_', ' ')}
+                              {r.replace(/_/g, ' ')}
                             </option>
                           ))}
                         </select>

@@ -333,7 +333,7 @@ async def get_one(
         visiting_fee_negotiable=prop.visiting_fee_negotiable,
         amount_paid=float(prop.amount_paid) if prop.amount_paid is not None else None,
         is_negotiable=prop.is_negotiable, details=prop.details,
-        parcel_information=prop.parcel_information, amenities=prop.amenities,
+        parcel_information=prop.parcel_information, amenities=prop.amenities, rental_units=prop.rental_units,
         video_link=prop.video_link, video_360_url=prop.video_360_url,
         vr_tour_url=prop.vr_tour_url, vr_tour_provider=prop.vr_tour_provider,
         panorama_scenes=prop.panorama_scenes, drone_footage_url=prop.drone_footage_url,
@@ -379,7 +379,7 @@ async def _resolve_agent(
     agent = await db.scalar(select(User).where(User.id == agent_id))
     if agent is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "That consultant was not found")
-    if agent.role.rank < UserRole.AGENT.rank:
+    if not agent.role.can_list:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             f"{agent.full_name} is not an agent and cannot be a listing's consultant",
@@ -415,6 +415,9 @@ async def create_property(
         raise HTTPException(status.HTTP_409_CONFLICT, "That UPI is already listed")
 
     data = payload.model_dump(exclude={"media", "boundary_geojson"})
+    # JSONB columns want plain JSON — dates inside the units as strings.
+    if payload.rental_units is not None:
+        data["rental_units"] = payload.model_dump(mode="json")["rental_units"]
     data["agent_id"] = await _resolve_agent(db, actor, data.get("agent_id"))
     prop = Property(
         **data,
@@ -474,6 +477,8 @@ async def update_property(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This listing belongs to another agent")
 
     updates = payload.model_dump(exclude_unset=True, exclude={"boundary_geojson"})
+    if "rental_units" in updates and payload.rental_units is not None:
+        updates["rental_units"] = payload.model_dump(mode="json")["rental_units"]
 
     # Only an admin may change the published status directly.
     if "status" in updates and actor.role.rank < UserRole.ADMIN.rank:
@@ -559,7 +564,7 @@ async def verify_property(
         # consultant on, and a rejected one should not appear in anyone's book.
         if prop.agent_id is None and prop.uploaded_by_id:
             uploader = await db.scalar(select(User).where(User.id == prop.uploaded_by_id))
-            if uploader and uploader.role.rank >= UserRole.AGENT.rank:
+            if uploader and uploader.role.can_list:
                 prop.agent_id = uploader.id
 
         detail = "Listing verified and published"

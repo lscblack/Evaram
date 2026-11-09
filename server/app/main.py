@@ -18,6 +18,7 @@ from sqlalchemy import text
 from app.api.v1 import (
     admin_content,
     admin_crm,
+    construction,
     admin_properties,
     admin_taxonomy,
     auth,
@@ -143,7 +144,8 @@ app.include_router(secure.router, prefix=API)
 # Everything else runs through SecureRoute, which unseals request bodies and
 # seals responses whenever the caller presents a negotiated session.
 for router in (auth.router, public.router, map.router, admin_taxonomy.router,
-               admin_properties.router, admin_content.router, admin_crm.router):
+               admin_properties.router, admin_content.router, admin_crm.router,
+               construction.router, construction.public):
     router.route_class = SecureRoute
     for route in router.routes:
         route.__class__ = SecureRoute
